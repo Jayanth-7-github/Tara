@@ -62,8 +62,8 @@ export default function Scanner({ onScan, onMark }) {
 
     const config = {
       fps: 18,
-      qrbox: { width: 280, height: 180 },
-      aspectRatio: 1.6,
+      qrbox: { width: 260, height: 90 },
+      aspectRatio: 3.0,
       rememberLastUsedCamera: true,
       experimentalFeatures: { useBarCodeDetectorIfSupported: true },
     };
@@ -180,7 +180,7 @@ export default function Scanner({ onScan, onMark }) {
 
       <div
         id={qrRegionId.current}
-        className={`w-[320px] h-[250px] border rounded-md overflow-hidden shadow-md transition-all ${
+        className={`w-[280px] h-[120px] border rounded-md overflow-hidden shadow-md transition-all ${
           regno ? "opacity-30 pointer-events-none" : "opacity-100"
         }`}
       />
