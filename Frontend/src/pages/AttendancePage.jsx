@@ -105,7 +105,8 @@ export default function AttendancePage({ onOpenSummary }) {
         )}
 
         {/* Divider */}
-        <hr className="my-8 border-gray-700" />
+        {/* <hr className="my-8 border-gray-700" /> */}
+        
 
       
       </div>
