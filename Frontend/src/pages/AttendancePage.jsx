@@ -4,7 +4,7 @@ import AttendanceCard from "../components/AttendanceCard";
 import Scanner from "../components/Scanner";
 import { fetchStudent, markAttendance, getSummary } from "../services/api";
 
-export default function AttendancePage() {
+export default function AttendancePage({ onOpenSummary }) {
   const [student, setStudent] = useState(null);
   const [message, setMessage] = useState("");
   const [summary, setSummary] = useState(null);
@@ -82,7 +82,11 @@ export default function AttendancePage() {
         {loading ? (
           <div className="text-gray-500 italic mb-4">Searching student...</div>
         ) : student ? (
-          <AttendanceCard student={student} onMark={handleMark} />
+          <AttendanceCard
+            student={student}
+            onMark={handleMark}
+            onOpenSummary={onOpenSummary}
+          />
         ) : (
           <div className="text-gray-500 mb-4">
             Enter or scan a registration number to view student details.

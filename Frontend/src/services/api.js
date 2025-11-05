@@ -31,3 +31,9 @@ export async function getSummary() {
   if (!resp.ok) throw new Error("Failed to fetch summary");
   return resp.json();
 }
+
+export async function downloadCSV() {
+  const resp = await fetch(`${API_BASE}/attendance/export`);
+  if (!resp.ok) throw new Error("Failed to download CSV");
+  return resp.blob();
+}

@@ -90,3 +90,39 @@ exports.getSummary = async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 };
+
+// Export attendance as CSV (server-side)
+exports.exportCSV = async (req, res) => {
+  try {
+    const attendance = await Attendance.find({}).sort({ createdAt: -1 }).lean();
+
+    const keys = ["regno", "name", "eventName", "timestamp", "isPresent"];
+    const lines = [keys.join(",")];
+
+    for (const row of attendance) {
+      const vals = keys.map((k) => {
+        let v = row[k];
+        if (k === "timestamp") v = row[k] ? new Date(row[k]).toISOString() : "";
+        let s = v == null ? "" : String(v);
+        s = s.replace(/"/g, '""');
+        if (s.search(/,|\n|"/) >= 0) return `"${s}"`;
+        return s;
+      });
+      lines.push(vals.join(","));
+    }
+
+    const csv = lines.join("\n");
+
+    // Add BOM for Excel compatibility
+    const bom = "\uFEFF";
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      'attachment; filename="attendance_export.csv"'
+    );
+    res.send(bom + csv);
+  } catch (err) {
+    console.error("exportCSV error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};

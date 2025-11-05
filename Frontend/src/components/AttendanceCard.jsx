@@ -1,4 +1,4 @@
-export default function AttendanceCard({ student, onMark }) {
+export default function AttendanceCard({ student, onMark, onOpenSummary }) {
   if (!student) return null;
   return (
     <div
@@ -18,12 +18,18 @@ export default function AttendanceCard({ student, onMark }) {
         <strong>Dept:</strong> {student.department} • <strong>Year:</strong>{" "}
         {student.year}
       </p>
-      <div style={{ marginTop: 12 }}>
+      <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
         <button
           onClick={() => onMark(student.regno)}
           style={{ padding: "8px 12px" }}
         >
           Mark Attendance
+        </button>
+        <button
+          onClick={() => onOpenSummary && onOpenSummary()}
+          style={{ padding: "8px 12px", background: "#eee" }}
+        >
+          View Summary
         </button>
       </div>
     </div>

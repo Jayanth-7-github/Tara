@@ -196,7 +196,7 @@ export default function Scanner({ onScan, onMark }) {
           <div className="font-semibold mb-2">
             ✅ Registration Number: {regno}
           </div>
-          <button
+          {/* <button
             onClick={handleMark}
             disabled={loading}
             className={`px-4 py-2 rounded-lg text-white font-medium ${
@@ -206,7 +206,7 @@ export default function Scanner({ onScan, onMark }) {
             }`}
           >
             {loading ? "Marking..." : "Mark Attendance"}
-          </button>
+          </button> */}
         </div>
       )}
 
