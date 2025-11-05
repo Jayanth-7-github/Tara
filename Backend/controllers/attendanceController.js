@@ -1,77 +1,92 @@
 const path = require("path");
-const fs = require("fs");
+const Student = require(path.join(__dirname, "..", "models", "Student"));
+const Attendance = require(path.join(__dirname, "..", "models", "Attendance"));
 
-const ATT_FILE = path.join(__dirname, "..", "data", "attendance.json");
-const STUDENTS_FILE = path.join(__dirname, "..", "data", "students.json");
-
-function readJSON(file) {
-  try {
-    return JSON.parse(fs.readFileSync(file, "utf8")) || [];
-  } catch (err) {
-    return [];
-  }
-}
-
-function writeJSON(file, data) {
-  fs.writeFileSync(file, JSON.stringify(data, null, 2), "utf8");
-}
-
-exports.markAttendance = (req, res) => {
+exports.markAttendance = async (req, res) => {
   const { regno, eventName } = req.body || {};
   if (!regno) return res.status(400).json({ error: "regno is required" });
 
-  const students = readJSON(STUDENTS_FILE);
-  const student = students.find(
-    (s) => String(s.regno).toLowerCase() === String(regno).toLowerCase()
-  );
-  if (!student)
-    return res
-      .status(404)
-      .json({ error: "No student found for this registration number." });
+  try {
+    // find student in DB (case-insensitive regno)
+    const student = await Student.findOne({
+      regno: new RegExp(`^${regno}$`, "i"),
+    }).lean();
+    if (!student)
+      return res
+        .status(404)
+        .json({ error: "No student found for this registration number." });
 
-  const attendance = readJSON(ATT_FILE);
-  const timestamp = Date.now();
+    const event = eventName || "default";
 
-  // Prevent double-marking for same event
-  const event = eventName || "default";
-  const already = attendance.find(
-    (a) => a.regno === student.regno && a.eventName === event
-  );
-  if (already) {
-    return res.json({
-      message: `Attendance already marked for ${student.name}`,
-      attendance: already,
+    // Prevent double-marking for same event
+    const already = await Attendance.findOne({
+      regno: student.regno,
+      eventName: event,
+    }).lean();
+    if (already) {
+      return res.json({
+        message: `Attendance already marked for ${student.name}`,
+        attendance: already,
+      });
+    }
+
+    const record = await Attendance.create({
+      regno: student.regno,
+      name: student.name,
+      eventName: event,
+      timestamp: new Date(),
+      isPresent: true,
+      student: student._id,
     });
+
+    // normalize response shape similar to previous implementation (timestamp as ms)
+    const responseRecord = {
+      regno: record.regno,
+      name: record.name,
+      eventName: record.eventName,
+      timestamp:
+        record.timestamp instanceof Date
+          ? record.timestamp.getTime()
+          : record.timestamp,
+      isPresent: record.isPresent,
+      _id: record._id,
+    };
+
+    res.json({
+      message: `Attendance marked successfully for ${student.name}.`,
+      attendance: responseRecord,
+    });
+  } catch (err) {
+    console.error("markAttendance error:", err);
+    res.status(500).json({ error: "Internal server error" });
   }
-
-  const record = {
-    regno: student.regno,
-    name: student.name,
-    eventName: event,
-    timestamp,
-    isPresent: true,
-  };
-  attendance.push(record);
-  writeJSON(ATT_FILE, attendance);
-
-  res.json({
-    message: `Attendance marked successfully for ${student.name}.`,
-    attendance: record,
-  });
 };
 
-exports.getSummary = (req, res) => {
-  const attendance = readJSON(ATT_FILE);
-  const total = attendance.length;
-  // group by event
-  const byEvent = {};
-  attendance.forEach((a) => {
-    byEvent[a.eventName] = byEvent[a.eventName] || 0;
-    byEvent[a.eventName]++;
-  });
-  res.json({
-    total,
-    byEvent,
-    records: attendance.slice().reverse().slice(0, 50),
-  });
+exports.getSummary = async (req, res) => {
+  try {
+    const attendance = await Attendance.find({}).sort({ createdAt: -1 }).lean();
+    const total = attendance.length;
+    const byEvent = {};
+    attendance.forEach((a) => {
+      const e = a.eventName || "default";
+      byEvent[e] = byEvent[e] || 0;
+      byEvent[e]++;
+    });
+
+    // recent 50 records (reverse of previous implementation)
+    const records = attendance.slice(0, 50).map((r) => ({
+      regno: r.regno,
+      name: r.name,
+      eventName: r.eventName,
+      timestamp:
+        r.timestamp instanceof Date ? r.timestamp.getTime() : r.timestamp,
+      isPresent: r.isPresent,
+      _id: r._id,
+    }));
+
+    res.json({ total, byEvent, records });
+  } catch (err) {
+    console.error("getSummary error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
 };

@@ -36,14 +36,39 @@ app.get("/api/health", (req, res) =>
 // Fallback
 app.use((req, res) => res.status(404).json({ error: "Not found" }));
 
-const server = app.listen(PORT, () => {
-  console.log(`Server listening on http://localhost:${PORT}`);
-});
+// Database connection
+const { connectDB, disconnectDB } = require(path.join(__dirname, "db"));
+
+let server;
+
+const startServer = async () => {
+  try {
+    // connect to MongoDB (reads from process.env.MONGO_URL)
+    await connectDB(process.env.MONGO_URL);
+
+    server = app.listen(PORT, () => {
+      console.log(`Server listening on http://localhost:${PORT}`);
+    });
+  } catch (err) {
+    console.error("Failed to start server:", err);
+    process.exit(1);
+  }
+};
+
+startServer();
 
 // Graceful shutdown
 const shutdown = (signal) => {
   console.log(`Received ${signal} - shutting down`);
-  server.close(() => process.exit(0));
+
+  // stop accepting new connections
+  if (server && server.close)
+    server.close(() => {
+      // close DB connection then exit
+      disconnectDB().finally(() => process.exit(0));
+    });
+
+  // Fallback force exit
   setTimeout(() => process.exit(1), 10000);
 };
 
