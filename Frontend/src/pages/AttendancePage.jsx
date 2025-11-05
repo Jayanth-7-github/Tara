@@ -1,10 +1,13 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import SearchBar from "../components/SearchBar";
 import AttendanceCard from "../components/AttendanceCard";
 import Scanner from "../components/Scanner";
+import Navbar from "../components/Navbar";
 import { fetchStudent, markAttendance, getSummary } from "../services/api";
 
-export default function AttendancePage({ onOpenSummary }) {
+export default function AttendancePage() {
+  const navigate = useNavigate();
   const [student, setStudent] = useState(null);
   const [message, setMessage] = useState("");
   const [summary, setSummary] = useState(null);
@@ -51,9 +54,12 @@ export default function AttendancePage({ onOpenSummary }) {
     <div className="min-h-screen bg-black text-white py-10 px-5 font-sans">
       <div className="max-w-5xl mx-auto bg-gray-800/80 shadow-lg rounded-2xl p-6 border border-gray-700">
         {/* Header */}
-        <h1 className="text-2xl font-bold text-blue-300 mb-6">
-          🎓 Tara Attendance
-        </h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold text-blue-300">
+            🎓 Tara Attendance
+          </h1>
+          <Navbar />
+        </div>
 
         {/* Scanner first, then manual Search */}
         <div className="flex flex-col md:flex-row items-start md:items-center gap-6 mb-6">
@@ -92,7 +98,6 @@ export default function AttendancePage({ onOpenSummary }) {
           <AttendanceCard
             student={student}
             onMark={handleMark}
-            onOpenSummary={onOpenSummary}
             onCancel={() => {
               setStudent(null);
               setMessage("");
@@ -103,11 +108,6 @@ export default function AttendancePage({ onOpenSummary }) {
             Enter or scan a registration number to view student details.
           </div>
         )}
-
-
-        
-
-      
       </div>
     </div>
   );

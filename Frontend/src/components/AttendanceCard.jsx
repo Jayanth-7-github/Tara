@@ -22,12 +22,6 @@ export default function AttendanceCard({
         >
           Mark Attendance
         </button>
-        <button
-          onClick={() => onOpenSummary && onOpenSummary()}
-          className="px-4 py-2 bg-gray-700 text-gray-200 rounded-md hover:bg-gray-600 transition-colors"
-        >
-          View Summary
-        </button>
         {onCancel && (
           <button
             onClick={onCancel}

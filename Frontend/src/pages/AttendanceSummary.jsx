@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { getSummary, downloadCSV } from "../services/api";
 
-function AttendanceSummary({ onOpenAttendance }) {
+function AttendanceSummary() {
+  const navigate = useNavigate();
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -47,7 +49,7 @@ function AttendanceSummary({ onOpenAttendance }) {
           </h1>
           <div className="flex items-center gap-3">
             <button
-              onClick={onOpenAttendance}
+              onClick={() => navigate("/Attendance/12345678987654321")}
               className="px-3 py-1 rounded bg-gray-700 text-sm text-white"
             >
               Back to Attendance
