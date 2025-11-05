@@ -163,12 +163,14 @@ export default function Scanner({ onScan, onMark }) {
 
   return (
     <div className="flex flex-col gap-3 items-center w-full max-w-md mx-auto">
-      <div className="flex justify-between items-center w-full">
+      <div className="flex flex-col sm:flex-row items-center gap-3 w-full">
         {/* Removed manual camera select for mobile-focused behavior.
             A back/rear camera is chosen by default when available. */}
-        <div className="text-sm text-gray-400">Student Verification</div>
+        <div className="w-full sm:flex-1 text-center sm:text-left">
+          <div className="text-sm text-gray-400">Student Verification</div>
+        </div>
 
-        <div className="shrink-0">
+        <div className="flex-shrink-0">
           {!scanning ? (
             <button
               onClick={startScanner}
