@@ -162,62 +162,36 @@ export default function Scanner({ onScan, onMark }) {
   };
 
   return (
-    <div className="flex flex-col gap-3 items-start w-full max-w-md mx-auto">
-      <div className="flex items-center gap-3 w-full">
+    <div className="flex flex-col gap-3 items-center w-full max-w-md mx-auto">
+      <div className="flex flex-col sm:flex-row items-center gap-3 w-full">
         {/* Removed manual camera select for mobile-focused behavior.
             A back/rear camera is chosen by default when available. */}
-        <div className="flex-1">
-          {regno ? (
-            <div className="text-sm text-gray-200">
-              <div className="font-medium">Verified RegNo: {regno}</div>
-              <div className="mt-2 flex items-center gap-2">
-                <button
-                  onClick={handleMark}
-                  disabled={loading}
-                  className={`px-3 py-1 rounded text-white ${
-                    loading
-                      ? "bg-blue-400 cursor-not-allowed"
-                      : "bg-blue-600 hover:bg-blue-700"
-                  }`}
-                >
-                  {loading ? "Marking..." : "Mark Attendance"}
-                </button>
-                <button
-                  onClick={() => {
-                    setRegno("");
-                    setDecodedText("");
-                  }}
-                  className="px-3 py-1 rounded bg-gray-700 text-white hover:bg-gray-600"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="text-sm text-gray-400">Student Verification</div>
-          )}
+        <div className="w-full sm:flex-1 text-center sm:text-left">
+          <div className="text-sm text-gray-400">Student Verification</div>
         </div>
 
-        {!scanning ? (
-          <button
-            onClick={startScanner}
-            disabled={!selectedCameraId}
-            className={`px-4 py-2 rounded-md text-white ${
-              selectedCameraId
-                ? "bg-blue-600 hover:bg-blue-700"
-                : "bg-gray-700 cursor-not-allowed"
-            }`}
-          >
-            Start Scan
-          </button>
-        ) : (
-          <button
-            onClick={stopScanner}
-            className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600"
-          >
-            Stop
-          </button>
-        )}
+        <div className="flex-shrink-0">
+          {!scanning ? (
+            <button
+              onClick={startScanner}
+              disabled={!selectedCameraId}
+              className={`px-4 py-2 rounded-md text-white ${
+                selectedCameraId
+                  ? "bg-blue-600 hover:bg-blue-700"
+                  : "bg-gray-700 cursor-not-allowed"
+              }`}
+            >
+              Start Scan
+            </button>
+          ) : (
+            <button
+              onClick={stopScanner}
+              className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600"
+            >
+              Stop
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="relative">
@@ -225,7 +199,7 @@ export default function Scanner({ onScan, onMark }) {
           id={qrRegionId.current}
           className={`w-[320px] h-[250px] border border-gray-700 rounded-md overflow-hidden shadow-md transition-all bg-gray-900/60 ${
             regno ? "opacity-30 pointer-events-none" : "opacity-100"
-          }`}
+          } mx-auto`}
         />
 
         {/* Decorative surroundings */}

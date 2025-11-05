@@ -52,16 +52,23 @@ export default function AttendancePage({ onOpenSummary }) {
       <div className="max-w-5xl mx-auto bg-gray-800/80 shadow-lg rounded-2xl p-6 border border-gray-700">
         {/* Header */}
         <h1 className="text-2xl font-bold text-blue-300 mb-6">
-          🎓 College Event Attendance
+          🎓 Tara Attendance
         </h1>
 
-        {/* Search + Scanner */}
+        {/* Scanner first, then manual Search */}
         <div className="flex flex-col md:flex-row items-start md:items-center gap-6 mb-6">
-          <div className="w-full md:flex-1">
-            <SearchBar onSearch={handleSearch} />
-          </div>
           <div className="w-full md:w-auto">
             <Scanner onScan={handleSearch} />
+          </div>
+
+          {/* Divider: horizontal on small screens, vertical on md+ screens */}
+          <div className="w-full md:w-auto">
+            <div className="block md:hidden h-px bg-gray-700 w-full my-2" />
+            <div className="hidden md:block w-px bg-gray-700 h-40 mx-3" />
+          </div>
+
+          <div className="w-full md:flex-1">
+            <SearchBar onSearch={handleSearch} />
           </div>
         </div>
 
@@ -100,55 +107,7 @@ export default function AttendancePage({ onOpenSummary }) {
         {/* Divider */}
         <hr className="my-8 border-gray-700" />
 
-        {/* Attendance Summary */}
-        <h3 className="text-lg font-semibold text-gray-200 mb-3">
-          📊 Attendance Summary
-        </h3>
-
-        {summary ? (
-          <div className="bg-gray-800/60 p-4 rounded-lg border border-gray-700 text-gray-200">
-            <p className="text-gray-200 mb-2">
-              <strong>Total Marked:</strong> {summary.total}
-            </p>
-
-            {summary.byEvent && (
-              <div className="text-gray-200 mb-3">
-                <strong>By Event:</strong>
-                <pre className="text-sm bg-gray-900 border border-gray-700 rounded-lg p-2 mt-1 overflow-x-auto text-gray-200">
-                  {JSON.stringify(summary.byEvent, null, 2)}
-                </pre>
-              </div>
-            )}
-
-            {summary.records?.length > 0 ? (
-              <div>
-                <h4 className="text-md font-semibold text-gray-200 mb-2">
-                  Recent Attendance
-                </h4>
-                <ul className="divide-y divide-gray-200 text-sm">
-                  {summary.records.map((r) => (
-                    <li
-                      key={`${r.regno}-${r.timestamp}`}
-                      className="py-2 flex justify-between text-gray-200"
-                    >
-                      <span>
-                        {r.name} ({r.regno})
-                      </span>
-                      <span className="text-gray-400">
-                        {new Date(r.timestamp).toLocaleTimeString()}{" "}
-                        {new Date(r.timestamp).toLocaleDateString()}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : (
-              <div className="text-gray-400 text-sm">No recent records.</div>
-            )}
-          </div>
-        ) : (
-          <div className="text-gray-400 italic">Loading summary...</div>
-        )}
+      
       </div>
     </div>
   );
