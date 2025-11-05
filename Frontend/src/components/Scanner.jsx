@@ -12,24 +12,34 @@ export default function Scanner({ onScan, onMark }) {
   const [regno, setRegno] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // --- Helper: Extract regno or ID-like text ---
+  // --- Extract registration number safely ---
   const extractRegNo = (text) => {
     if (!text) return null;
+    const raw = String(text).trim();
+    console.log("📸 Raw scan:", raw);
 
+    // If URL, check common params
     try {
-      const url = new URL(text);
+      const url = new URL(raw);
       const p =
         url.searchParams.get("regno") ||
         url.searchParams.get("id") ||
         url.searchParams.get("q");
-      if (p) return p;
+      if (p) return p.trim();
     } catch (_) {}
 
-    const m = text.match(/\b[A-Za-z0-9]{5,20}\b/);
-    return m ? m[0] : text.trim();
+    // Look for 10–15 digit student IDs
+    const numMatch = raw.match(/\b\d{8,15}\b/);
+    if (numMatch) return numMatch[0];
+
+    // Look for alphanumeric codes like VV40041378
+    const alphaNum = raw.match(/\b[A-Za-z]{0,3}\d{5,12}\b/);
+    if (alphaNum) return alphaNum[0];
+
+    return null;
   };
 
-  // --- Load available cameras ---
+  // --- Load cameras ---
   useEffect(() => {
     Html5Qrcode.getCameras()
       .then((devices) => {
@@ -42,7 +52,7 @@ export default function Scanner({ onScan, onMark }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // --- Start camera scan ---
+  // --- Start scanner ---
   const startScanner = async () => {
     if (scanning || !selectedCameraId) return;
 
@@ -51,53 +61,61 @@ export default function Scanner({ onScan, onMark }) {
     html5QrcodeRef.current = html5Qrcode;
 
     const config = {
-      fps: 20, // Faster scanning
-      qrbox: { width: 250, height: 180 },
-      aspectRatio: 1.5,
-      disableFlip: false,
+      fps: 18,
+      qrbox: { width: 280, height: 180 },
+      aspectRatio: 1.6,
       rememberLastUsedCamera: true,
-      experimentalFeatures: {
-        useBarCodeDetectorIfSupported: true,
-      },
+      experimentalFeatures: { useBarCodeDetectorIfSupported: true },
     };
 
-    let lastCaptureTime = 0;
+    const candidateMap = new Map();
+    const confirmCount = 2; // need two identical reads
+    const confirmTime = 1000;
 
     try {
       await html5Qrcode.start(
         { deviceId: { exact: selectedCameraId } },
         config,
         async (text) => {
-          const now = Date.now();
-          if (now - lastCaptureTime < 800) return; // 🔥 ignore too-frequent reads
-          lastCaptureTime = now;
-
-          console.log("📸 Raw scanned text:", text);
           const extracted = extractRegNo(text);
-          console.log("🎯 Extracted RegNo:", extracted);
+          if (!extracted) return;
 
-          if (extracted) {
+          // Filter short/incomplete results
+          if (extracted.length < 8) {
+            console.warn("⚠️ Skipped short regno:", extracted);
+            return;
+          }
+
+          const now = Date.now();
+          const prev = candidateMap.get(extracted) || { count: 0, time: now };
+          candidateMap.set(extracted, {
+            count: prev.count + 1,
+            time: now,
+          });
+
+          // Confirmed same RegNo twice quickly
+          if (prev.count + 1 >= confirmCount && now - prev.time < confirmTime) {
+            console.log("✅ Confirmed RegNo:", extracted);
             await stopScanner();
             setDecodedText(text);
             setRegno(extracted);
             onScan?.(extracted);
+            candidateMap.clear();
           }
         },
-        (err) => {
-          // ignore minor decode errors
-        }
+        (err) => {}
       );
 
       setScanning(true);
       setDecodedText("");
       setRegno("");
     } catch (err) {
-      console.error("Scanner failed to start:", err);
+      console.error("❌ Failed to start scanner:", err);
       alert("Unable to access camera. Please allow permissions.");
     }
   };
 
-  // --- Stop camera scan ---
+  // --- Stop scanner ---
   const stopScanner = async () => {
     if (html5QrcodeRef.current) {
       try {
@@ -109,12 +127,18 @@ export default function Scanner({ onScan, onMark }) {
     setScanning(false);
   };
 
+  // --- Handle mark attendance ---
   const handleMark = async () => {
     if (!regno) return;
     setLoading(true);
     try {
-      console.log("📝 Marking attendance for:", regno); // 👈 log regno when marking
       await onMark?.(regno);
+      // restart scanner for next scan
+      setTimeout(() => {
+        setRegno("");
+        setDecodedText("");
+        startScanner();
+      }, 1500);
     } finally {
       setLoading(false);
     }
@@ -189,7 +213,7 @@ export default function Scanner({ onScan, onMark }) {
       {!regno && (
         <small className="text-gray-500">
           Point your camera at an ID or QR code. Scanning stops once a valid
-          RegNo is captured.
+          RegNo (8–15 digits) is confirmed.
         </small>
       )}
     </div>
