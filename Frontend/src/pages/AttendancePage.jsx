@@ -48,10 +48,10 @@ export default function AttendancePage({ onOpenSummary }) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-10 px-5 font-sans">
-      <div className="max-w-5xl mx-auto bg-white shadow-md rounded-2xl p-6">
+    <div className="min-h-screen bg-black text-white py-10 px-5 font-sans">
+      <div className="max-w-5xl mx-auto bg-gray-800/80 shadow-lg rounded-2xl p-6 border border-gray-700">
         {/* Header */}
-        <h1 className="text-2xl font-bold text-blue-700 mb-6">
+        <h1 className="text-2xl font-bold text-blue-300 mb-6">
           🎓 College Event Attendance
         </h1>
 
@@ -70,8 +70,8 @@ export default function AttendancePage({ onOpenSummary }) {
           <div
             className={`mb-4 text-sm font-medium ${
               message.toLowerCase().includes("fail")
-                ? "text-red-600"
-                : "text-green-600"
+                ? "text-red-400"
+                : "text-green-400"
             }`}
           >
             {message}
@@ -80,37 +80,41 @@ export default function AttendancePage({ onOpenSummary }) {
 
         {/* Student Info */}
         {loading ? (
-          <div className="text-gray-500 italic mb-4">Searching student...</div>
+          <div className="text-gray-300 italic mb-4">Searching student...</div>
         ) : student ? (
           <AttendanceCard
             student={student}
             onMark={handleMark}
             onOpenSummary={onOpenSummary}
+            onCancel={() => {
+              setStudent(null);
+              setMessage("");
+            }}
           />
         ) : (
-          <div className="text-gray-500 mb-4">
+          <div className="text-gray-400 mb-4">
             Enter or scan a registration number to view student details.
           </div>
         )}
 
         {/* Divider */}
-        <hr className="my-8 border-gray-300" />
+        <hr className="my-8 border-gray-700" />
 
         {/* Attendance Summary */}
-        <h3 className="text-lg font-semibold text-gray-800 mb-3">
+        <h3 className="text-lg font-semibold text-gray-200 mb-3">
           📊 Attendance Summary
         </h3>
 
         {summary ? (
-          <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-            <p className="text-gray-700 mb-2">
+          <div className="bg-gray-800/60 p-4 rounded-lg border border-gray-700 text-gray-200">
+            <p className="text-gray-200 mb-2">
               <strong>Total Marked:</strong> {summary.total}
             </p>
 
             {summary.byEvent && (
-              <div className="text-gray-700 mb-3">
+              <div className="text-gray-200 mb-3">
                 <strong>By Event:</strong>
-                <pre className="text-sm bg-white border rounded-lg p-2 mt-1 overflow-x-auto">
+                <pre className="text-sm bg-gray-900 border border-gray-700 rounded-lg p-2 mt-1 overflow-x-auto text-gray-200">
                   {JSON.stringify(summary.byEvent, null, 2)}
                 </pre>
               </div>
@@ -118,19 +122,19 @@ export default function AttendancePage({ onOpenSummary }) {
 
             {summary.records?.length > 0 ? (
               <div>
-                <h4 className="text-md font-semibold text-gray-700 mb-2">
+                <h4 className="text-md font-semibold text-gray-200 mb-2">
                   Recent Attendance
                 </h4>
                 <ul className="divide-y divide-gray-200 text-sm">
                   {summary.records.map((r) => (
                     <li
                       key={`${r.regno}-${r.timestamp}`}
-                      className="py-2 flex justify-between"
+                      className="py-2 flex justify-between text-gray-200"
                     >
                       <span>
                         {r.name} ({r.regno})
                       </span>
-                      <span className="text-gray-500">
+                      <span className="text-gray-400">
                         {new Date(r.timestamp).toLocaleTimeString()}{" "}
                         {new Date(r.timestamp).toLocaleDateString()}
                       </span>
@@ -139,7 +143,7 @@ export default function AttendancePage({ onOpenSummary }) {
                 </ul>
               </div>
             ) : (
-              <div className="text-gray-500 text-sm">No recent records.</div>
+              <div className="text-gray-400 text-sm">No recent records.</div>
             )}
           </div>
         ) : (

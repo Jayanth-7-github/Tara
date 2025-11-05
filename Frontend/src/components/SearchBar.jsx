@@ -23,7 +23,7 @@ export default function SearchBar({ onSearch }) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex items-center gap-3 w-full max-w-md mx-auto bg-white shadow-sm rounded-xl border border-gray-200 px-3 py-2"
+      className="flex items-center gap-3 w-full max-w-md mx-auto bg-gray-800/70 shadow-sm rounded-xl border border-gray-700 px-3 py-2 text-white"
     >
       <input
         type="text"
@@ -31,7 +31,7 @@ export default function SearchBar({ onSearch }) {
         placeholder="Enter registration number or scan ID..."
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        className="flex-1 px-3 py-2 border-none focus:ring-0 focus:outline-none text-gray-800 text-base"
+        className="flex-1 px-3 py-2 border-none focus:ring-0 focus:outline-none text-white placeholder-gray-400 text-base"
       />
 
       <button

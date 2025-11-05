@@ -1,36 +1,41 @@
-export default function AttendanceCard({ student, onMark, onOpenSummary }) {
+export default function AttendanceCard({
+  student,
+  onMark,
+  onOpenSummary,
+  onCancel,
+}) {
   if (!student) return null;
   return (
-    <div
-      className="attendance-card"
-      style={{
-        border: "1px solid #ddd",
-        padding: 16,
-        borderRadius: 8,
-        maxWidth: 520,
-      }}
-    >
-      <h3 style={{ margin: 0 }}>{student.name}</h3>
-      <p style={{ margin: "4px 0" }}>
-        <strong>RegNo:</strong> {student.regno}
+    <div className="max-w-[520px] w-full bg-gray-800 rounded-lg border border-gray-700 shadow-sm p-4 text-white">
+      <h3 className="text-lg font-semibold text-white mb-2">{student.name}</h3>
+      <p className="text-gray-300 mb-1">
+        <span className="font-medium">RegNo:</span> {student.regno}
       </p>
-      <p style={{ margin: "4px 0" }}>
-        <strong>Dept:</strong> {student.department} • <strong>Year:</strong>{" "}
-        {student.year}
+      <p className="text-gray-300 mb-4">
+        <span className="font-medium">Dept:</span> {student.department} •
+        <span className="font-medium ml-1">Year:</span> {student.year}
       </p>
-      <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+      <div className="flex flex-wrap gap-3">
         <button
           onClick={() => onMark(student.regno)}
-          style={{ padding: "8px 12px" }}
+          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
         >
           Mark Attendance
         </button>
         <button
           onClick={() => onOpenSummary && onOpenSummary()}
-          style={{ padding: "8px 12px", background: "#eee" }}
+          className="px-4 py-2 bg-gray-700 text-gray-200 rounded-md hover:bg-gray-600 transition-colors"
         >
           View Summary
         </button>
+        {onCancel && (
+          <button
+            onClick={onCancel}
+            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+          >
+            Cancel
+          </button>
+        )}
       </div>
     </div>
   );

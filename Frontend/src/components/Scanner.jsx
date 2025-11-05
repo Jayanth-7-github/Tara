@@ -43,8 +43,25 @@ export default function Scanner({ onScan, onMark }) {
   useEffect(() => {
     Html5Qrcode.getCameras()
       .then((devices) => {
-        setCameras(devices || []);
-        if (devices.length > 0) setSelectedCameraId(devices[0].id);
+        const list = devices || [];
+        setCameras(list);
+        // Prefer a back/rear camera for mobile (labels often include back/rear/environment)
+        // Explicitly avoid front/selfie cameras (labels may include front, user, selfie)
+        const backRegex = /back|rear|environment|facing back/i;
+        const frontRegex = /front|user|selfie|facing front/i;
+
+        const foundBack = list.find((d) => backRegex.test(d.label || ""));
+        if (foundBack) {
+          setSelectedCameraId(foundBack.id);
+        } else {
+          // choose the first device that does NOT look like a front camera
+          const nonFront = list.find((d) => !frontRegex.test(d.label || ""));
+          if (nonFront) setSelectedCameraId(nonFront.id);
+          else {
+            // No back/non-front camera detected — do not auto-select a front camera
+            setSelectedCameraId(null);
+          }
+        }
       })
       .catch(() => setCameras([]));
 
@@ -147,24 +164,49 @@ export default function Scanner({ onScan, onMark }) {
   return (
     <div className="flex flex-col gap-3 items-start w-full max-w-md mx-auto">
       <div className="flex items-center gap-3 w-full">
-        <select
-          value={selectedCameraId || ""}
-          onChange={(e) => setSelectedCameraId(e.target.value)}
-          className="border rounded-md px-2 py-1 flex-grow"
-          disabled={scanning}
-        >
-          {cameras.length === 0 && <option>No cameras found</option>}
-          {cameras.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.label || c.id}
-            </option>
-          ))}
-        </select>
+        {/* Removed manual camera select for mobile-focused behavior.
+            A back/rear camera is chosen by default when available. */}
+        <div className="flex-1">
+          {regno ? (
+            <div className="text-sm text-gray-200">
+              <div className="font-medium">Verified RegNo: {regno}</div>
+              <div className="mt-2 flex items-center gap-2">
+                <button
+                  onClick={handleMark}
+                  disabled={loading}
+                  className={`px-3 py-1 rounded text-white ${
+                    loading
+                      ? "bg-blue-400 cursor-not-allowed"
+                      : "bg-blue-600 hover:bg-blue-700"
+                  }`}
+                >
+                  {loading ? "Marking..." : "Mark Attendance"}
+                </button>
+                <button
+                  onClick={() => {
+                    setRegno("");
+                    setDecodedText("");
+                  }}
+                  className="px-3 py-1 rounded bg-gray-700 text-white hover:bg-gray-600"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="text-sm text-gray-400">Student Verification</div>
+          )}
+        </div>
 
         {!scanning ? (
           <button
             onClick={startScanner}
-            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+            disabled={!selectedCameraId}
+            className={`px-4 py-2 rounded-md text-white ${
+              selectedCameraId
+                ? "bg-blue-600 hover:bg-blue-700"
+                : "bg-gray-700 cursor-not-allowed"
+            }`}
           >
             Start Scan
           </button>
@@ -178,42 +220,56 @@ export default function Scanner({ onScan, onMark }) {
         )}
       </div>
 
-      <div
-        id={qrRegionId.current}
-        className={`w-[320px] h-[250px] border rounded-md overflow-hidden shadow-md transition-all ${
-          regno ? "opacity-30 pointer-events-none" : "opacity-100"
-        }`}
-      />
+      <div className="relative">
+        <div
+          id={qrRegionId.current}
+          className={`w-[320px] h-[250px] border border-gray-700 rounded-md overflow-hidden shadow-md transition-all bg-gray-900/60 ${
+            regno ? "opacity-30 pointer-events-none" : "opacity-100"
+          }`}
+        />
+
+        {/* Decorative surroundings */}
+        <div
+          className={`absolute inset-0 rounded-md pointer-events-none ${
+            regno ? "opacity-30" : "opacity-100"
+          }`}
+        >
+          {/* Soft glowing ring */}
+          <div className="absolute inset-0 rounded-md ring-2 ring-blue-600/20 animate-pulse" />
+
+          {/* Corner brackets */}
+          <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-blue-500/70 rounded-bl-md" />
+          <div className="absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2 border-blue-500/70 rounded-br-md" />
+          <div className="absolute bottom-0 left-0 w-6 h-6 border-b-2 border-l-2 border-blue-500/70 rounded-tl-md" />
+          <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-blue-500/70 rounded-tr-md" />
+
+          {/* Center guide */}
+          <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 text-xs text-gray-300">
+            Align ID here
+          </div>
+
+          {/* Subtle scan line */}
+          <div className="absolute left-0 right-0 top-1/2 h-px bg-linear-to-r from-transparent via-blue-400/40 to-transparent opacity-70 animate-[scan_2s_linear_infinite]" />
+        </div>
+      </div>
 
       {decodedText && (
-        <div className="mt-2 text-gray-700 text-sm bg-gray-50 border px-3 py-2 rounded-md w-full">
+        <div className="mt-2 text-gray-200 text-sm bg-gray-800 border border-gray-700 px-3 py-2 rounded-md w-full">
           <strong>Captured:</strong> {decodedText}
         </div>
       )}
 
       {regno && (
-        <div className="mt-2 w-full bg-green-50 border border-green-300 text-green-800 p-3 rounded-lg shadow-sm">
+        <div className="mt-2 w-full bg-green-900 border border-green-700 text-green-200 p-3 rounded-lg shadow-sm">
           <div className="font-semibold mb-2">
             ✅ Registration Number: {regno}
           </div>
-          {/* <button
-            onClick={handleMark}
-            disabled={loading}
-            className={`px-4 py-2 rounded-lg text-white font-medium ${
-              loading
-                ? "bg-green-400 cursor-not-allowed"
-                : "bg-green-600 hover:bg-green-700"
-            }`}
-          >
-            {loading ? "Marking..." : "Mark Attendance"}
-          </button> */}
         </div>
       )}
 
       {!regno && (
-        <small className="text-gray-500">
-          Point your camera at an ID or QR code. Scanning stops once a valid
-          RegNo (8–15 digits) is confirmed.
+        <small className="text-gray-400">
+          Point your camera at an ID back barcode.
         </small>
       )}
     </div>

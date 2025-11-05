@@ -8,7 +8,7 @@ function App() {
 
   return (
     <div>
-      <header className="p-4 bg-white shadow-sm">
+      <header className="p-4 bg-gray-900 text-white shadow-sm">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <h2 className="text-lg font-semibold">Tara — Attendance</h2>
           <nav className="space-x-3">
@@ -17,7 +17,7 @@ function App() {
               className={`px-3 py-1 rounded ${
                 page === "attendance"
                   ? "bg-blue-600 text-white"
-                  : "text-gray-700"
+                  : "text-gray-300"
               }`}
             >
               Attendance
@@ -25,7 +25,7 @@ function App() {
             <button
               onClick={() => setPage("summary")}
               className={`px-3 py-1 rounded ${
-                page === "summary" ? "bg-blue-600 text-white" : "text-gray-700"
+                page === "summary" ? "bg-blue-600 text-white" : "text-gray-300"
               }`}
             >
               Summary
