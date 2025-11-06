@@ -43,6 +43,19 @@ export default function AdminNavbar() {
       </NavLink>
 
       <NavLink
+        to="/admin/secret/12345678987654321"
+        className={({ isActive }) =>
+          `px-3 py-1 rounded whitespace-nowrap ${
+            isActive
+              ? "bg-blue-600 text-white"
+              : "text-gray-300 hover:text-white"
+          }`
+        }
+      >
+        Admin Secret
+      </NavLink>
+
+      <NavLink
         to="/member/secret/12345678987654321"
         className={({ isActive }) =>
           `ml-4 px-3 py-1 rounded text-sm ${

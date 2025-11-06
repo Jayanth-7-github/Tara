@@ -7,6 +7,7 @@ import PublicHome from "./pages/PublicHome";
 import ManageAttendance from "./pages/ManageAttendance";
 import UpdateAttendance from "./pages/UpdateAttendance";
 import MarkAbsent from "./pages/MarkAbsent";
+import AdminSecret from "./pages/AdminSecret";
 
 function App() {
   return (
@@ -27,7 +28,10 @@ function App() {
         <main>
           <Routes>
             <Route path="/" element={<PublicHome />} />
-            <Route path="/member/secret/12345678987654321" element={<Secret />} />
+            <Route
+              path="/member/secret/12345678987654321"
+              element={<Secret />}
+            />
             <Route
               path="/member/Attendance/12345678987654321"
               element={<AttendancePage />}
@@ -43,6 +47,10 @@ function App() {
             <Route
               path="/admin/update-attendance/12345678987654321"
               element={<UpdateAttendance />}
+            />
+            <Route
+              path="/admin/secret/12345678987654321"
+              element={<AdminSecret />}
             />
             <Route
               path="/admin/mark-absent/12345678987654321"
