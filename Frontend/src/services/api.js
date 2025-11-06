@@ -1,4 +1,5 @@
-const API_BASE = import.meta.env.VITE_API_BASE || "https://tara-kbxn.onrender.com/api";
+const API_BASE =
+  import.meta.env.VITE_API_BASE || "https://tara-kbxn.onrender.com/api";
 
 export async function searchStudents(query) {
   const resp = await fetch(
@@ -62,4 +63,55 @@ export async function downloadCSV(options = false) {
   const resp = await fetch(url.toString());
   if (!resp.ok) throw new Error("Failed to download CSV");
   return resp.blob();
+}
+
+// Create a single student
+export async function createStudent(student) {
+  const resp = await fetch(`${API_BASE}/students`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(student),
+  });
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(body.error || "Failed to create student");
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}
+
+// Create multiple students in bulk (expects an array)
+export async function createStudentsBulk(students) {
+  const resp = await fetch(`${API_BASE}/students/bulk`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(students),
+  });
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(body.error || "Failed to create students bulk");
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}
+
+// Update attendance for a regno. body can contain { eventName?, name?, isPresent?, timestamp?, newEventName? }
+export async function updateAttendance(regno, body) {
+  const resp = await fetch(
+    `${API_BASE}/attendance/${encodeURIComponent(regno)}`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }
+  );
+  const respBody = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(respBody.error || "Failed to update attendance");
+    err.status = resp.status;
+    throw err;
+  }
+  return respBody;
 }
