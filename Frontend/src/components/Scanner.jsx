@@ -174,6 +174,9 @@ export default function Scanner({ onScan, onMark, studentFound = null }) {
     <div className="flex flex-col gap-3 items-center w-full max-w-md mx-auto">
       <div className="flex flex-col sm:flex-row items-center gap-3 w-full">
         <div className="w-full text-center">
+          <div className="text-lg font-semibold text-white mb-1">
+            Student ID Verification
+          </div>
           <div className="text-sm text-gray-400">
             {!scanning ? "Tap to start scanning" : "Tap to stop scanning"}
           </div>
@@ -192,29 +195,55 @@ export default function Scanner({ onScan, onMark, studentFound = null }) {
           } mx-auto`}
         />
 
-        {/* Decorative surroundings */}
+        {/* Professional Scanner Overlay */}
         <div
-          className={`absolute inset-0 rounded-md pointer-events-none ${
+          className={`absolute inset-0 rounded-md pointer-events-none transition-opacity duration-300 ${
             regno ? "opacity-30" : "opacity-100"
           }`}
         >
-          {/* Soft glowing ring - only show when scanning */}
+          {/* Active scanning indicator */}
           {scanning && (
-            <div className="absolute inset-0 rounded-md ring-2 ring-blue-600/20 animate-pulse" />
+            <>
+              <div className="absolute inset-0 rounded-md ring-2 ring-blue-500/30 animate-pulse" />
+              <div className="absolute inset-0 rounded-md bg-linear-to-b from-blue-500/5 to-transparent" />
+            </>
           )}
 
-          {/* Corner brackets */}
-          <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-blue-500/70 rounded-bl-md" />
-          <div className="absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2 border-blue-500/70 rounded-br-md" />
-          <div className="absolute bottom-0 left-0 w-6 h-6 border-b-2 border-l-2 border-blue-500/70 rounded-tl-md" />
-          <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-blue-500/70 rounded-tr-md" />
+          {/* Modern corner markers */}
+          <div className="absolute top-3 left-3 w-8 h-8 border-t-[3px] border-l-[3px] border-blue-500 rounded-tl-lg" />
+          <div className="absolute top-3 right-3 w-8 h-8 border-t-[3px] border-r-[3px] border-blue-500 rounded-tr-lg" />
+          <div className="absolute bottom-3 left-3 w-8 h-8 border-b-[3px] border-l-[3px] border-blue-500 rounded-bl-lg" />
+          <div className="absolute bottom-3 right-3 w-8 h-8 border-b-[3px] border-r-[3px] border-blue-500 rounded-br-lg" />
 
           {/* Center guide - show when not scanning */}
           {!scanning && (
             <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center">
-              <div className="text-4xl mb-2">📷</div>
-              <div className="text-xs text-gray-300">Tap to scan</div>
+              <svg
+                className="w-16 h-16 mx-auto mb-3 text-blue-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"
+                />
+              </svg>
+              <div className="text-sm font-medium text-gray-300">
+                Tap to Start
+              </div>
+              <div className="text-xs text-gray-500 mt-1">
+                Position ID card barcode within frame
+              </div>
             </div>
+          )}
+
+          {/* Scanning animation line */}
+          {scanning && (
+            <div className="absolute left-4 right-4 top-1/2 h-0.5 bg-linear-to-r from-transparent via-blue-400 to-transparent animate-[scan_2s_ease-in-out_infinite]" />
           )}
         </div>
       </div>
