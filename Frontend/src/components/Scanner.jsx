@@ -161,44 +161,34 @@ export default function Scanner({ onScan, onMark, studentFound = null }) {
     }
   };
 
+  const handleScannerClick = () => {
+    if (!selectedCameraId) return;
+    if (scanning) {
+      stopScanner();
+    } else {
+      startScanner();
+    }
+  };
+
   return (
     <div className="flex flex-col gap-3 items-center w-full max-w-md mx-auto">
       <div className="flex flex-col sm:flex-row items-center gap-3 w-full">
-        {/* Removed manual camera select for mobile-focused behavior.
-            A back/rear camera is chosen by default when available. */}
-        <div className="w-full sm:flex-1 text-center sm:text-left">
-          <div className="text-sm text-gray-400">Student Verification</div>
-        </div>
-
-        <div className="shrink-0">
-          {!scanning ? (
-            <button
-              onClick={startScanner}
-              disabled={!selectedCameraId}
-              className={`px-4 py-2 rounded-md text-white ${
-                selectedCameraId
-                  ? "bg-blue-600 hover:bg-blue-700"
-                  : "bg-gray-700 cursor-not-allowed"
-              }`}
-            >
-              Start Scan
-            </button>
-          ) : (
-            <button
-              onClick={stopScanner}
-              className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600"
-            >
-              Stop
-            </button>
-          )}
+        <div className="w-full text-center">
+          <div className="text-sm text-gray-400">
+            {!scanning ? "Tap to start scanning" : "Tap to stop scanning"}
+          </div>
         </div>
       </div>
 
-      <div className="relative">
+      <div className="relative cursor-pointer" onClick={handleScannerClick}>
         <div
           id={qrRegionId.current}
-          className={`w-[320px] h-[250px] border border-gray-700 rounded-md overflow-hidden shadow-md transition-all bg-gray-900/60 ${
-            regno ? "opacity-30 pointer-events-none" : "opacity-100"
+          className={`w-[320px] h-[250px] border border-gray-700 rounded-md overflow-hidden shadow-md transition-all ${
+            regno
+              ? "bg-gray-900/60 opacity-30 pointer-events-none"
+              : scanning
+              ? "bg-gray-900/60"
+              : "bg-gray-800/80"
           } mx-auto`}
         />
 
@@ -208,8 +198,10 @@ export default function Scanner({ onScan, onMark, studentFound = null }) {
             regno ? "opacity-30" : "opacity-100"
           }`}
         >
-          {/* Soft glowing ring */}
-          <div className="absolute inset-0 rounded-md ring-2 ring-blue-600/20 animate-pulse" />
+          {/* Soft glowing ring - only show when scanning */}
+          {scanning && (
+            <div className="absolute inset-0 rounded-md ring-2 ring-blue-600/20 animate-pulse" />
+          )}
 
           {/* Corner brackets */}
           <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-blue-500/70 rounded-bl-md" />
@@ -217,13 +209,13 @@ export default function Scanner({ onScan, onMark, studentFound = null }) {
           <div className="absolute bottom-0 left-0 w-6 h-6 border-b-2 border-l-2 border-blue-500/70 rounded-tl-md" />
           <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-blue-500/70 rounded-tr-md" />
 
-          {/* Center guide */}
-          {/* <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 text-xs text-gray-300">
-            Align ID here
-          </div> */}
-
-          {/* Subtle scan line */}
-          {/* <div className="absolute left-0 right-0 top-1/2 h-px bg-linear-to-r from-transparent via-blue-400/40 to-transparent opacity-70 animate-[scan_2s_linear_infinite]" /> */}
+          {/* Center guide - show when not scanning */}
+          {!scanning && (
+            <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center">
+              <div className="text-4xl mb-2">📷</div>
+              <div className="text-xs text-gray-300">Tap to scan</div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -245,9 +237,7 @@ export default function Scanner({ onScan, onMark, studentFound = null }) {
             {studentFound === false ? "❌" : "✅"} Registration Number: {regno}
           </div>
           {studentFound === false && (
-            <div className="text-sm text-red-300 mt-1">
-              Not Registered
-            </div>
+            <div className="text-sm text-red-300 mt-1">Not Registered</div>
           )}
         </div>
       )}
