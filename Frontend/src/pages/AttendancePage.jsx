@@ -77,7 +77,10 @@ export default function AttendancePage() {
         {/* Main Scanning & Search Section */}
         <div className="flex flex-col md:flex-row items-start md:items-center gap-8 mb-8">
           <div className="w-full md:w-auto">
-            <Scanner onScan={handleSearch} />
+            <Scanner
+              onScan={handleSearch}
+              studentFound={student ? true : message ? false : null}
+            />
           </div>
 
           {/* Divider */}

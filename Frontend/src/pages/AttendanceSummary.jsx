@@ -145,7 +145,52 @@ export default function AttendanceSummary() {
               </button>
             </div>
 
-            <div className="overflow-x-auto rounded-lg border border-gray-800 bg-gray-950/50 shadow-inner">
+            {/* Mobile card list */}
+            <div className="sm:hidden space-y-3">
+              {summary.records
+                .filter((r) => (r.eventName || "default") === selectedEvent)
+                .map((r, i) => (
+                  <div
+                    key={`${r.regno}-${r.timestamp}`}
+                    className="rounded-lg border border-gray-800 bg-gray-900/50 p-4 shadow-sm"
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <div className="text-base font-semibold text-gray-100">
+                        {r.name}
+                      </div>
+                      <span
+                        className={`px-2 py-1 rounded text-xs font-medium ${
+                          r.isPresent
+                            ? "bg-green-600/30 text-green-400 border border-green-500/30"
+                            : "bg-red-600/30 text-red-400 border border-red-500/30"
+                        }`}
+                      >
+                        {r.isPresent ? "Yes" : "No"}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs text-gray-300">
+                      <div>
+                        <div className="text-gray-400">Reg No</div>
+                        <div className="text-gray-200 break-all">{r.regno}</div>
+                      </div>
+                      <div>
+                        <div className="text-gray-400">Event</div>
+                        <div className="text-gray-200">{r.eventName}</div>
+                      </div>
+                      <div className="col-span-2">
+                        <div className="text-gray-400">Timestamp</div>
+                        <div className="text-gray-300">
+                          {r.timestampText ||
+                            new Date(r.timestamp).toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+            </div>
+
+            {/* Desktop table */}
+            <div className="hidden sm:block overflow-x-auto rounded-lg border border-gray-800 bg-gray-950/50 shadow-inner">
               <table className="min-w-full text-sm">
                 <thead className="bg-gray-800/80 text-gray-200 uppercase tracking-wide text-xs">
                   <tr>

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Html5Qrcode } from "html5-qrcode";
 
-export default function Scanner({ onScan, onMark }) {
+export default function Scanner({ onScan, onMark, studentFound = null }) {
   const qrRegionId = useRef(`html5qr-region-${crypto.randomUUID()}`);
   const html5QrcodeRef = useRef(null);
 
@@ -170,7 +170,7 @@ export default function Scanner({ onScan, onMark }) {
           <div className="text-sm text-gray-400">Student Verification</div>
         </div>
 
-        <div className="flex-shrink-0">
+        <div className="shrink-0">
           {!scanning ? (
             <button
               onClick={startScanner}
@@ -234,10 +234,21 @@ export default function Scanner({ onScan, onMark }) {
       )}
 
       {regno && (
-        <div className="mt-2 w-full bg-green-900 border border-green-700 text-green-200 p-3 rounded-lg shadow-sm">
+        <div
+          className={`mt-2 w-full p-3 rounded-lg shadow-sm ${
+            studentFound === false
+              ? "bg-red-900 border border-red-700 text-red-200"
+              : "bg-green-900 border border-green-700 text-green-200"
+          }`}
+        >
           <div className="font-semibold mb-2">
-            ✅ Registration Number: {regno}
+            {studentFound === false ? "❌" : "✅"} Registration Number: {regno}
           </div>
+          {studentFound === false && (
+            <div className="text-sm text-red-300 mt-1">
+              Not found in database
+            </div>
+          )}
         </div>
       )}
 
