@@ -1,5 +1,13 @@
 const API_BASE = import.meta.env.VITE_API_BASE || "https://tara-kbxn.onrender.com/api";
 
+export async function searchStudents(query) {
+  const resp = await fetch(
+    `${API_BASE}/students/search?q=${encodeURIComponent(query)}`
+  );
+  if (!resp.ok) throw new Error("Failed to search students");
+  return resp.json();
+}
+
 export async function fetchStudent(regno) {
   const resp = await fetch(`${API_BASE}/students/${encodeURIComponent(regno)}`);
   if (!resp.ok) {
@@ -24,6 +32,16 @@ export async function markAttendance(regno, eventName) {
     throw err;
   }
   return body;
+}
+
+export async function checkAttendance(regno, eventName = "Vintra") {
+  const resp = await fetch(
+    `${API_BASE}/attendance/check/${encodeURIComponent(
+      regno
+    )}?eventName=${encodeURIComponent(eventName)}`
+  );
+  if (!resp.ok) throw new Error("Failed to check attendance");
+  return resp.json();
 }
 
 export async function getSummary() {

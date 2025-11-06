@@ -218,12 +218,12 @@ export default function Scanner({ onScan, onMark, studentFound = null }) {
           <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-blue-500/70 rounded-tr-md" />
 
           {/* Center guide */}
-          <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 text-xs text-gray-300">
+          {/* <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 text-xs text-gray-300">
             Align ID here
-          </div>
+          </div> */}
 
           {/* Subtle scan line */}
-          <div className="absolute left-0 right-0 top-1/2 h-px bg-linear-to-r from-transparent via-blue-400/40 to-transparent opacity-70 animate-[scan_2s_linear_infinite]" />
+          {/* <div className="absolute left-0 right-0 top-1/2 h-px bg-linear-to-r from-transparent via-blue-400/40 to-transparent opacity-70 animate-[scan_2s_linear_infinite]" /> */}
         </div>
       </div>
 
@@ -246,7 +246,7 @@ export default function Scanner({ onScan, onMark, studentFound = null }) {
           </div>
           {studentFound === false && (
             <div className="text-sm text-red-300 mt-1">
-              Not found in database
+              Not Registered
             </div>
           )}
         </div>

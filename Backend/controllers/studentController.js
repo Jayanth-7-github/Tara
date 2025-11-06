@@ -1,6 +1,29 @@
 const path = require("path");
 const Student = require(path.join(__dirname, "..", "models", "Student"));
 
+// GET /api/students/search?q=99
+// Search students by regno prefix
+exports.searchStudents = async (req, res) => {
+  const query = req.query.q || "";
+  if (!query.trim()) {
+    return res.json([]);
+  }
+
+  try {
+    // Find students whose regno starts with the query (case-insensitive)
+    const students = await Student.find({
+      regno: new RegExp(`^${query}`, "i"),
+    })
+      .select("regno name department year")
+      .limit(20)
+      .lean();
+    res.json(students);
+  } catch (err) {
+    console.error("searchStudents error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
 exports.getStudentByRegNo = async (req, res) => {
   const regno = req.params.regno;
   if (!regno)

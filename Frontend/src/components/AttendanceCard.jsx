@@ -3,6 +3,7 @@ export default function AttendanceCard({
   onMark,
   onOpenSummary,
   onCancel,
+  isMarked = false,
 }) {
   if (!student) return null;
   return (
@@ -17,10 +18,15 @@ export default function AttendanceCard({
       </p>
       <div className="flex flex-wrap gap-3">
         <button
-          onClick={() => onMark(student.regno)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
+          onClick={() => !isMarked && onMark(student.regno)}
+          disabled={isMarked}
+          className={`px-4 py-2 rounded-md text-white font-medium transition-colors ${
+            isMarked
+              ? "bg-gray-600 cursor-default"
+              : "bg-blue-600 hover:bg-blue-700"
+          }`}
         >
-          Mark Attendance
+          {isMarked ? "✓ Attendance Marked" : "Mark Attendance"}
         </button>
         {onCancel && (
           <button

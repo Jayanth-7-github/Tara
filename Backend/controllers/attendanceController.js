@@ -100,6 +100,47 @@ exports.markAttendance = async (req, res) => {
   }
 };
 
+// Check if student has marked attendance for an event
+// GET /api/attendance/check/:regno?eventName=xxx
+exports.checkAttendance = async (req, res) => {
+  try {
+    const regnoParam = req.params.regno;
+    if (!regnoParam)
+      return res.status(400).json({ error: "regno is required" });
+
+    const event = (req.query?.eventName || "default").trim() || "default";
+
+    const attendance = await Attendance.findOne({
+      regno: new RegExp(`^${regnoParam}$`, "i"),
+      eventName: event,
+    }).lean();
+
+    if (!attendance) {
+      return res.json({ isMarked: false, isPresent: false });
+    }
+
+    res.json({
+      isMarked: true,
+      isPresent: attendance.isPresent,
+      attendance: {
+        regno: attendance.regno,
+        name: attendance.name,
+        eventName: attendance.eventName,
+        timestamp:
+          attendance.timestamp instanceof Date
+            ? attendance.timestamp.getTime()
+            : attendance.timestamp,
+        timestampText: formatLocalYMDHM(attendance.timestamp),
+        isPresent: attendance.isPresent,
+        _id: attendance._id,
+      },
+    });
+  } catch (err) {
+    console.error("checkAttendance error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
 exports.getSummary = async (req, res) => {
   try {
     const attendance = await Attendance.find({}).sort({ createdAt: -1 }).lean();
