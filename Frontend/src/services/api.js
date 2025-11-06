@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_BASE || "https://tara-kbxn.onrender.com/api";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:2000/api";
 
 export async function fetchStudent(regno) {
   const resp = await fetch(`${API_BASE}/students/${encodeURIComponent(regno)}`);
@@ -32,8 +32,16 @@ export async function getSummary() {
   return resp.json();
 }
 
-export async function downloadCSV() {
-  const resp = await fetch(`${API_BASE}/attendance/export`);
+// options can be boolean (presentOnly) for backward compatibility,
+// or an object: { presentOnly?: boolean, allStudents?: boolean, eventName?: string }
+export async function downloadCSV(options = false) {
+  const opts =
+    typeof options === "boolean" ? { presentOnly: options } : options || {};
+  const url = new URL(`${API_BASE}/attendance/export`);
+  if (opts.presentOnly) url.searchParams.set("present", "1");
+  if (opts.allStudents) url.searchParams.set("allStudents", "1");
+  if (opts.eventName) url.searchParams.set("eventName", opts.eventName);
+  const resp = await fetch(url.toString());
   if (!resp.ok) throw new Error("Failed to download CSV");
   return resp.blob();
 }

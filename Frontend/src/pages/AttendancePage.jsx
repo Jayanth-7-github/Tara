@@ -43,7 +43,7 @@ export default function AttendancePage() {
 
   const handleMark = async (regno) => {
     try {
-      const res = await markAttendance(regno, "College Event");
+      const res = await markAttendance(regno, "Vintra");
       setMessage(res.message || "Attendance marked successfully!");
       refreshSummary();
     } catch (err) {
@@ -52,7 +52,7 @@ export default function AttendancePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white font-sans py-10 px-5">
+    <div className="min-h-screen bg-linear-to-br from-gray-900 via-black to-gray-900 text-white font-sans py-10 px-5">
       <motion.div
         initial={{ opacity: 0, y: 40 }}
         animate={{ opacity: 1, y: 0 }}
@@ -94,11 +94,14 @@ export default function AttendancePage() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className={`mb-4 px-4 py-2 rounded-lg text-sm font-medium shadow-inner ${
-              message.toLowerCase().includes("fail")
+            className={`mb-4 px-4 py-2 rounded-lg text-sm font-medium shadow-inner ${(() => {
+              const m = message.toLowerCase();
+              const isError = m.includes("fail") || m.includes("error");
+              const isAlready = m.includes("already marked");
+              return isError || isAlready
                 ? "bg-red-500/20 text-red-400 border border-red-500/40"
-                : "bg-green-500/20 text-green-400 border border-green-500/40"
-            }`}
+                : "bg-green-500/20 text-green-400 border border-green-500/40";
+            })()}`}
           >
             {message}
           </motion.div>
@@ -121,7 +124,6 @@ export default function AttendancePage() {
             Enter or scan a registration number to view student details.
           </div>
         )}
-
       </motion.div>
     </div>
   );

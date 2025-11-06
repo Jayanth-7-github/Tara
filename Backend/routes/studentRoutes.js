@@ -5,4 +5,10 @@ const studentController = require("../controllers/studentController");
 // GET /api/students/:regno
 router.get("/:regno", studentController.getStudentByRegNo);
 
+// POST /api/students
+router.post("/", studentController.createStudent);
+
+// POST /api/students/bulk
+router.post("/bulk", studentController.createStudentsBulk);
+
 module.exports = router;
