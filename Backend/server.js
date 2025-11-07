@@ -1,6 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
+const cookieParser = require("cookie-parser");
 const path = require("path");
 
 const app = express();
@@ -8,8 +9,15 @@ const app = express();
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 
 // Middleware
-app.use(cors());
+const corsOptions = {
+  origin: process.env.FRONTEND_ORIGIN
+    ? process.env.FRONTEND_ORIGIN.split(",")
+    : true,
+  credentials: true,
+};
+app.use(cors(corsOptions));
 app.use(express.json());
+app.use(cookieParser());
 
 // Simple logger
 app.use((req, res, next) => {
@@ -24,9 +32,17 @@ const attendanceRoutes = require(path.join(
   "routes",
   "attendanceRoutes"
 ));
+const authRoutes = require(path.join(__dirname, "routes", "authRoutes"));
+const testResultRoutes = require(path.join(
+  __dirname,
+  "routes",
+  "testResultRoutes"
+));
 
 app.use("/api/students", studentRoutes);
 app.use("/api/attendance", attendanceRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/test-results", testResultRoutes);
 
 // Health
 app.get("/api/health", (req, res) =>

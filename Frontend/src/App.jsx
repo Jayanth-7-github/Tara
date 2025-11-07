@@ -4,6 +4,13 @@ import AttendancePage from "./secret/pages/AttendancePage";
 import AttendanceSummary from "./secret/pages/AttendanceSummary";
 import Secret from "./secret/pages/Secret";
 import PublicHome from "./pages/PublicHome";
+import About from "./pages/About";
+import Login from "./pages/Login";
+import Signup from "./pages/Signup";
+import Main from "./pages/Main";
+import Events from "./pages/Events";
+import Assignments from "./pages/Assignments";
+import Test from "./pages/Test";
 import ManageAttendance from "./secret/pages/ManageAttendance";
 import UpdateAttendance from "./secret/pages/UpdateAttendance";
 import MarkAbsent from "./secret/pages/MarkAbsent";
@@ -57,6 +64,13 @@ function App() {
               path={`/admin/mark-absent/${ADMIN_TOKEN}`}
               element={<MarkAbsent />}
             />
+            <Route path="/about" element={<About />} />
+            <Route path="/main" element={<Main />} />
+            <Route path="/events" element={<Events />} />
+            <Route path="/assignments" element={<Assignments />} />
+            <Route path="/test" element={<Test />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
           </Routes>
         </main>
       </div>

@@ -1,5 +1,4 @@
-const API_BASE =
-  import.meta.env.VITE_API_BASE || "https://tara-kbxn.onrender.com/api";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:2000/api";
 
 export async function searchStudents(query) {
   const resp = await fetch(
@@ -114,4 +113,37 @@ export async function updateAttendance(regno, body) {
     throw err;
   }
   return respBody;
+}
+
+// Test Result APIs
+export async function submitTestResult(testData) {
+  const resp = await fetch(`${API_BASE}/test-results/submit`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(testData),
+  });
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(body.error || "Failed to submit test");
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}
+
+export async function getMyTestResults() {
+  const resp = await fetch(`${API_BASE}/test-results/my-results`, {
+    credentials: "include",
+  });
+  if (!resp.ok) throw new Error("Failed to fetch test results");
+  return resp.json();
+}
+
+export async function getMyTestStats() {
+  const resp = await fetch(`${API_BASE}/test-results/my-stats`, {
+    credentials: "include",
+  });
+  if (!resp.ok) throw new Error("Failed to fetch test stats");
+  return resp.json();
 }
