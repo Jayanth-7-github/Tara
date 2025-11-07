@@ -1,7 +1,10 @@
-import React, { useState } from "react";
-import { createStudent } from "../../services/api";
+import React, { useState, useEffect } from "react";
+import { createStudent, fetchEvents } from "../../services/api";
 
-export default function SingleStudentForm({ onCreated }) {
+export default function SingleStudentForm({
+  onCreated,
+  eventName: propEventName,
+}) {
   const [visible, setVisible] = useState(false);
   const [regno, setRegno] = useState("");
   const [name, setName] = useState("");
@@ -11,6 +14,27 @@ export default function SingleStudentForm({ onCreated }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
+  const [eventName, setEventName] = useState(propEventName || "");
+  const [eventId, setEventId] = useState("");
+  const [events, setEvents] = useState([]);
+
+  useEffect(() => {
+    if (propEventName) return;
+    // fetch events and set the first event title as default
+    (async () => {
+      try {
+        const res = await fetchEvents();
+        const items = res?.events || [];
+        setEvents(items);
+        if (items.length > 0) {
+          setEventId(items[0]._id);
+          setEventName(items[0].title || "");
+        }
+      } catch (err) {
+        // ignore silently — event name is optional
+      }
+    })();
+  }, [propEventName]);
 
   async function handleCreate(e) {
     e && e.preventDefault();
@@ -29,6 +53,9 @@ export default function SingleStudentForm({ onCreated }) {
       if (department.trim()) body.department = department.trim();
       if (year.trim()) body.year = year.trim();
       if (phone.trim()) body.phone = phone.trim();
+      // include selected event if available
+      if (eventId) body.eventId = eventId;
+      else if (eventName) body.eventName = eventName;
 
       const res = await createStudent(body);
       setMessage("Student created");
@@ -51,6 +78,11 @@ export default function SingleStudentForm({ onCreated }) {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 w-full bg-gray-900/30 border border-gray-700 rounded-md p-3">
           <div className="text-sm text-gray-200">
             Create single student quickly
+            {eventName && (
+              <div className="text-xs text-gray-400 mt-1">
+                Event: {eventName}
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -67,6 +99,12 @@ export default function SingleStudentForm({ onCreated }) {
             <h3 className="text-base font-semibold text-blue-300">
               Create Single Student
             </h3>
+            {eventName && (
+              <div className="text-sm text-gray-300">
+                Event:{" "}
+                <span className="font-medium text-white">{eventName}</span>
+              </div>
+            )}
             <div className="flex gap-2">
               <button
                 onClick={() => setVisible(false)}
@@ -89,6 +127,27 @@ export default function SingleStudentForm({ onCreated }) {
             className="bg-gray-900/40 border border-gray-700 rounded-lg p-4 space-y-3"
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {/** Event selector (optional) */}
+              <label className="flex flex-col gap-1">
+                <span className="text-xs text-gray-400">Event (optional)</span>
+                <select
+                  value={eventId || ""}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    setEventId(id);
+                    const ev = id ? events.find((it) => it._id === id) : null;
+                    setEventName(ev ? ev.title : propEventName || "");
+                  }}
+                  className="p-2 rounded bg-gray-800 border border-gray-700 text-white text-sm"
+                >
+                  <option value="">(none)</option>
+                  {events.map((ev) => (
+                    <option key={ev._id} value={ev._id}>
+                      {ev.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <label className="flex flex-col gap-1">
                 <span className="text-xs text-gray-400">RegNo</span>
                 <input

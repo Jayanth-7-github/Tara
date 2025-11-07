@@ -1236,7 +1236,7 @@ export default function Test() {
             <div className="flex items-center justify-between px-8 py-5 border-b border-gray-200 sticky top-0 bg-white/95 backdrop-blur-sm z-10 shadow-sm">
               <div className="flex items-center gap-4">
                 <h1 className="text-base font-bold text-gray-800">
-                  Module Practice Assessment | Polymorphism
+                  Event Assessment 
                 </h1>
                 <div className="text-xs px-3 py-1.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 font-medium">
                   Question {currentIndex + 1} / {questions.length}

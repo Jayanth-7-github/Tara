@@ -55,7 +55,7 @@ exports.submitTest = async (req, res) => {
 
     const testResult = await TestResult.create({
       userId,
-      testTitle: testTitle || "Polymorphism Assessment",
+      testTitle: testTitle || "Event Assessment",
       answers: answersMap,
       markedForReview: markedMap,
       score: calculatedScore,

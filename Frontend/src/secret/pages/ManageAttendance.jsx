@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import AdminNavbar from "../components/AdminNavbar";
 import SingleStudentForm from "../components/SingleStudentForm";
-import { createStudentsBulk } from "../../services/api";
+import { createStudentsBulk, fetchEvents } from "../../services/api";
 
 // Secret page: paste JSON (single object or array) matching Student model:
 // { regno: string, name: string, department?: string, year?: string, phone?: string }
@@ -13,6 +13,21 @@ export default function ManageAttendance() {
   const [errors, setErrors] = useState([]);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
+  const [events, setEvents] = useState([]);
+  const [selectedEventId, setSelectedEventId] = useState("");
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetchEvents();
+        const items = res?.events || [];
+        setEvents(items);
+        if (items.length > 0) setSelectedEventId(items[0]._id);
+      } catch (err) {
+        console.error("Failed to load events for manage attendance:", err);
+      }
+    })();
+  }, []);
 
   function handleLoadFile(e) {
     const file = e.target.files && e.target.files[0];
@@ -125,7 +140,26 @@ export default function ManageAttendance() {
 
         <div className="space-y-4">
           {/* Single-student creation form */}
+          <div className="flex items-center gap-3">
+            <div>
+              <label className="text-xs text-gray-400 block mb-1">Event</label>
+              <select
+                value={selectedEventId}
+                onChange={(e) => setSelectedEventId(e.target.value)}
+                className="bg-gray-800 border border-gray-700 text-white text-sm px-3 py-2 rounded"
+              >
+                {events.length === 0 && <option value="">No events</option>}
+                {events.map((ev) => (
+                  <option key={ev._id} value={ev._id}>
+                    {ev.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
           <SingleStudentForm
+            eventName={events.find((it) => it._id === selectedEventId)?.title}
             onCreated={(res) =>
               setResult({ message: "Student created", body: res })
             }

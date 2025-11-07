@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { checkLogin, logout } from "../services/auth";
-import { getMyTestResults } from "../services/api";
+import { getMyTestResults, fetchEvents } from "../services/api";
+import EventsList from "../components/EventsList";
 
 export default function Main() {
   const navigate = useNavigate();
@@ -9,6 +10,8 @@ export default function Main() {
   const [user, setUser] = useState(null);
   const [hasTestResults, setHasTestResults] = useState(false);
   const [testLoading, setTestLoading] = useState(true);
+  const [events, setEvents] = useState([]);
+  const [eventsLoading, setEventsLoading] = useState(true);
 
   const handleLogout = async () => {
     try {
@@ -56,9 +59,25 @@ export default function Main() {
       }
     };
 
+    const loadEvents = async () => {
+      try {
+        setEventsLoading(true);
+        const data = await fetchEvents();
+        setEvents(data.events || []);
+      } catch (err) {
+        console.error("Failed to load events:", err);
+        setEvents([]);
+      } finally {
+        setEventsLoading(false);
+      }
+    };
+
     if (user) {
       fetchTestResults();
     }
+
+    // load events regardless of user (so dashboard shows upcoming events)
+    loadEvents();
   }, [user]);
 
   if (loading) {
@@ -115,60 +134,35 @@ export default function Main() {
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Events preview */}
-          <section className="bg-gray-900/70 border border-gray-800 rounded-2xl p-5">
+          {/* Upcoming Events — individual cards (no outer container) */}
+          <div className="col-span-full">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold">Upcoming Events</h2>
-              <Link
-                to="/events"
-                className="text-sm text-blue-400 hover:text-cyan-300"
-              >
-                View all →
-              </Link>
             </div>
-            <ul className="space-y-3">
-              {[
-                { id: 1, title: "Orientation Meet", date: "Nov 20, 2025" },
-                { id: 2, title: "Tech Talk: AI in Ed", date: "Nov 28, 2025" },
-                { id: 3, title: "Sports Day", date: "Dec 05, 2025" },
-              ].map((e) => (
-                <li
-                  key={e.id}
-                  className="flex items-center justify-between bg-gray-800/60 border border-gray-800 rounded-lg px-4 py-3"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-600/20 text-blue-300">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.8"
-                        className="w-4 h-4"
-                      >
-                        <rect x="3" y="4" width="18" height="18" rx="2" />
-                        <line x1="16" y1="2" x2="16" y2="6" />
-                        <line x1="8" y1="2" x2="8" y2="6" />
-                        <line x1="3" y1="10" x2="21" y2="10" />
-                      </svg>
-                    </span>
-                    <div>
-                      <p className="font-medium text-gray-100">{e.title}</p>
-                      <p className="text-xs text-gray-400">{e.date}</p>
-                    </div>
-                  </div>
-                  <Link
-                    to="/events"
-                    className="text-sm text-gray-300 hover:text-white"
-                  >
-                    Details
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </section>
 
-          {/* Assignments preview */}
+            {eventsLoading ? (
+              <div className="py-6">
+                <button
+                  disabled
+                  className="px-4 py-2 text-sm rounded-lg bg-gray-700 text-gray-400 cursor-not-allowed transition shadow"
+                >
+                  Loading events...
+                </button>
+              </div>
+            ) : !events || events.length === 0 ? (
+              <div className="py-12 text-center">
+                <p className="text-gray-400">
+                  Events coming soon — check back later.
+                </p>
+              </div>
+            ) : (
+              <div>
+                <EventsList events={events} loading={eventsLoading} />
+              </div>
+            )}
+          </div>
+
+          {/* Assignments preview (commented out)
           <section className="bg-gray-900/70 border border-gray-800 rounded-2xl p-5">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold">Assignments</h2>
@@ -199,7 +193,7 @@ export default function Main() {
                         strokeWidth="1.8"
                         className="w-4 h-4"
                       >
-                        <path d="M6 2h9l5 5v15a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2z" />
+                        <path d="M6 2h9l5 5v15a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2" />
                         <path d="M14 2v6h6" />
                       </svg>
                     </span>
@@ -218,6 +212,7 @@ export default function Main() {
               ))}
             </ul>
           </section>
+            */}
           <button
             onClick={handleLogout}
             aria-label="Logout"

@@ -9,6 +9,7 @@ import {
   markAttendance,
   getSummary,
   checkAttendance,
+  fetchEvents,
 } from "../../services/api";
 import { motion } from "framer-motion";
 
@@ -17,13 +18,27 @@ export default function AttendancePage() {
   const [student, setStudent] = useState(null);
   const [message, setMessage] = useState("");
   const [summary, setSummary] = useState(null);
+  const [events, setEvents] = useState([]);
+  const [selectedEvent, setSelectedEvent] = useState(null);
   const [loading, setLoading] = useState(false);
   const [showManualSearch, setShowManualSearch] = useState(false);
   const [isMarked, setIsMarked] = useState(false);
 
   useEffect(() => {
     refreshSummary();
+    loadEvents();
   }, []);
+
+  const loadEvents = async () => {
+    try {
+      const res = await fetchEvents();
+      const items = res?.events || [];
+      setEvents(items);
+      if (items.length > 0) setSelectedEvent(items[0]);
+    } catch (err) {
+      console.error("Failed to load events:", err);
+    }
+  };
 
   const refreshSummary = async () => {
     try {
@@ -46,7 +61,8 @@ export default function AttendancePage() {
 
       // Check if attendance is already marked for this student
       try {
-        const attendanceStatus = await checkAttendance(regno, "Vintra");
+        const eventName = selectedEvent?.title || "Vintra";
+        const attendanceStatus = await checkAttendance(regno, eventName);
         if (attendanceStatus.isMarked && attendanceStatus.isPresent) {
           setIsMarked(true);
           setMessage(`${s.name} has already marked attendance.`);
@@ -63,7 +79,8 @@ export default function AttendancePage() {
 
   const handleMark = async (regno) => {
     try {
-      const res = await markAttendance(regno, "Vintra");
+      const eventName = selectedEvent?.title || "Vintra";
+      const res = await markAttendance(regno, eventName);
       setMessage(res.message || "Attendance marked successfully!");
       setIsMarked(true); // Mark as attended
       refreshSummary();
@@ -90,10 +107,37 @@ export default function AttendancePage() {
               Scan or search to mark attendance instantly
             </p>
           </div>
-          <div className="mt-4 md:mt-0">
+          <div className="mt-4 md:mt-0 flex items-center gap-3">
+            <div>
+              <select
+                value={selectedEvent?._id || ""}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  const ev = events.find((it) => it._id === id);
+                  setSelectedEvent(ev || null);
+                }}
+                className="bg-gray-800 border border-gray-700 text-white text-sm px-3 py-2 rounded"
+              >
+                <option value="">Select event</option>
+                {events.map((ev) => (
+                  <option key={ev._id} value={ev._id}>
+                    {ev.title}
+                  </option>
+                ))}
+              </select>
+            </div>
             <Navbar />
           </div>
         </div>
+
+        {selectedEvent && (
+          <div className="text-sm text-gray-300 mb-4">
+            Current event:{" "}
+            <span className="font-medium text-white">
+              {selectedEvent.title}
+            </span>
+          </div>
+        )}
 
         {/* Main Scanning Section */}
         <div className="flex flex-col items-center gap-8 mb-8">

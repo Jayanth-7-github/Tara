@@ -38,11 +38,13 @@ const testResultRoutes = require(path.join(
   "routes",
   "testResultRoutes"
 ));
+const eventRoutes = require(path.join(__dirname, "routes", "eventRoutes"));
 
 app.use("/api/students", studentRoutes);
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/test-results", testResultRoutes);
+app.use("/api/events", eventRoutes);
 
 // Health
 app.get("/api/health", (req, res) =>

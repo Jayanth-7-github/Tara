@@ -8,7 +8,7 @@ import About from "./pages/About";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Main from "./pages/Main";
-import Events from "./pages/Events";
+import CreateEvent from "./pages/CreateEvent";
 import Assignments from "./pages/Assignments";
 import Test from "./pages/Test";
 import ManageAttendance from "./secret/pages/ManageAttendance";
@@ -66,7 +66,9 @@ function App() {
             />
             <Route path="/about" element={<About />} />
             <Route path="/main" element={<Main />} />
-            <Route path="/events" element={<Events />} />
+            {/* keep /events for backward compatibility and show dashboard which contains events */}
+            <Route path="/events" element={<Main />} />
+            <Route path="/events/create" element={<CreateEvent />} />
             <Route path="/assignments" element={<Assignments />} />
             <Route path="/test" element={<Test />} />
             <Route path="/login" element={<Login />} />
