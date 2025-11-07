@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import AdminNavbar from "../components/AdminNavbar";
-import { createStudent, createStudentsBulk } from "../services/api";
+import SingleStudentForm from "../components/SingleStudentForm";
+import { createStudentsBulk } from "../../services/api";
 
 // Secret page: paste JSON (single object or array) matching Student model:
 // { regno: string, name: string, department?: string, year?: string, phone?: string }
@@ -123,6 +124,13 @@ export default function ManageAttendance() {
         </div>
 
         <div className="space-y-4">
+          {/* Single-student creation form */}
+          <SingleStudentForm
+            onCreated={(res) =>
+              setResult({ message: "Student created", body: res })
+            }
+          />
+
           <div>
             <input
               type="file"

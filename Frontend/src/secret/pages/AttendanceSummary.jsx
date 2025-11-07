@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getSummary, downloadCSV } from "../services/api";
+import { getSummary, downloadCSV } from "../../services/api";
+import { ADMIN_TOKEN } from "../../services/constants";
 
 export default function AttendanceSummary() {
   const navigate = useNavigate();
@@ -97,7 +98,7 @@ export default function AttendanceSummary() {
               </select>
             </div>
             <button
-              onClick={() => navigate("/member/Attendance/12345678987654321")}
+              onClick={() => navigate(`/member/Attendance/${ADMIN_TOKEN}`)}
               className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm text-gray-200 border border-gray-700 transition-all duration-200"
             >
               ← Back to Attendance

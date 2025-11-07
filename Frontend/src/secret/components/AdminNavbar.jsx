@@ -1,10 +1,11 @@
 import { NavLink } from "react-router-dom";
+import { ADMIN_TOKEN } from "../../services/constants";
 
 export default function AdminNavbar() {
   return (
     <nav className="flex flex-wrap items-center gap-3 overflow-x-auto">
       <NavLink
-        to="/admin/update-attendance/12345678987654321"
+        to={`/admin/update-attendance/${ADMIN_TOKEN}`}
         className={({ isActive }) =>
           `px-3 py-1 rounded ${
             isActive
@@ -17,7 +18,7 @@ export default function AdminNavbar() {
       </NavLink>
 
       <NavLink
-        to="/admin/mark-absent/12345678987654321"
+        to={`/admin/mark-absent/${ADMIN_TOKEN}`}
         className={({ isActive }) =>
           `px-3 py-1 rounded ${
             isActive
@@ -30,7 +31,7 @@ export default function AdminNavbar() {
       </NavLink>
 
       <NavLink
-        to="/admin/manage-attendance/12345678987654321"
+        to={`/admin/manage-attendance/${ADMIN_TOKEN}`}
         className={({ isActive }) =>
           `px-3 py-1 rounded whitespace-nowrap ${
             isActive
@@ -39,11 +40,11 @@ export default function AdminNavbar() {
           }`
         }
       >
-        Manage Attendance
+        Student data
       </NavLink>
 
       <NavLink
-        to="/admin/secret/12345678987654321"
+        to={`/admin/secret/${ADMIN_TOKEN}`}
         className={({ isActive }) =>
           `px-3 py-1 rounded whitespace-nowrap ${
             isActive
@@ -56,7 +57,7 @@ export default function AdminNavbar() {
       </NavLink>
 
       <NavLink
-        to="/member/secret/12345678987654321"
+        to={`/member/secret/${ADMIN_TOKEN}`}
         className={({ isActive }) =>
           `ml-4 px-3 py-1 rounded text-sm ${
             isActive

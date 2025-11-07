@@ -9,7 +9,7 @@ import {
   markAttendance,
   getSummary,
   checkAttendance,
-} from "../services/api";
+} from "../../services/api";
 import { motion } from "framer-motion";
 
 export default function AttendancePage() {

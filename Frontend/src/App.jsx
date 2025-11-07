@@ -1,22 +1,23 @@
 import "./App.css";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import AttendancePage from "./pages/AttendancePage";
-import AttendanceSummary from "./pages/AttendanceSummary";
-import Secret from "./pages/Secret";
+import AttendancePage from "./secret/pages/AttendancePage";
+import AttendanceSummary from "./secret/pages/AttendanceSummary";
+import Secret from "./secret/pages/Secret";
 import PublicHome from "./pages/PublicHome";
-import ManageAttendance from "./pages/ManageAttendance";
-import UpdateAttendance from "./pages/UpdateAttendance";
-import MarkAbsent from "./pages/MarkAbsent";
-import AdminSecret from "./pages/AdminSecret";
+import ManageAttendance from "./secret/pages/ManageAttendance";
+import UpdateAttendance from "./secret/pages/UpdateAttendance";
+import MarkAbsent from "./secret/pages/MarkAbsent";
+import AdminSecret from "./secret/pages/AdminSecret";
+import { ADMIN_TOKEN } from "./services/constants";
 
 function App() {
   return (
     <BrowserRouter>
       <div>
-        <header className="bg-gradient-to-r from-gray-950 via-gray-900 to-gray-950 text-white shadow-lg border-b border-gray-800">
+        <header className="bg-linear-to-r from-gray-950 via-gray-900 to-gray-950 text-white shadow-lg border-b border-gray-800">
           <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
             {/* Logo / Title */}
-            <h2 className="text-xl sm:text-2xl font-bold tracking-wide bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">
+            <h2 className="text-xl sm:text-2xl font-bold tracking-wide bg-linear-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">
               Tara
             </h2>
 
@@ -29,31 +30,31 @@ function App() {
           <Routes>
             <Route path="/" element={<PublicHome />} />
             <Route
-              path="/member/secret/12345678987654321"
+              path={`/member/secret/${ADMIN_TOKEN}`}
               element={<Secret />}
             />
             <Route
-              path="/member/Attendance/12345678987654321"
+              path={`/member/Attendance/${ADMIN_TOKEN}`}
               element={<AttendancePage />}
             />
             <Route
-              path="/member/summary/12345678987654321"
+              path={`/member/summary/${ADMIN_TOKEN}`}
               element={<AttendanceSummary />}
             />
             <Route
-              path="/admin/manage-attendance/12345678987654321"
+              path={`/admin/manage-attendance/${ADMIN_TOKEN}`}
               element={<ManageAttendance />}
             />
             <Route
-              path="/admin/update-attendance/12345678987654321"
+              path={`/admin/update-attendance/${ADMIN_TOKEN}`}
               element={<UpdateAttendance />}
             />
             <Route
-              path="/admin/secret/12345678987654321"
+              path={`/admin/secret/${ADMIN_TOKEN}`}
               element={<AdminSecret />}
             />
             <Route
-              path="/admin/mark-absent/12345678987654321"
+              path={`/admin/mark-absent/${ADMIN_TOKEN}`}
               element={<MarkAbsent />}
             />
           </Routes>

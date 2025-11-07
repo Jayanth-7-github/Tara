@@ -1,10 +1,11 @@
 import { NavLink } from "react-router-dom";
+import { ADMIN_TOKEN } from "../../services/constants";
 
 export default function Navbar() {
   return (
     <nav className="flex items-center gap-3">
       <NavLink
-        to="/member/secret/12345678987654321"
+        to={`/member/secret/${ADMIN_TOKEN}`}
         className={({ isActive }) =>
           `px-3 py-1 rounded ${
             isActive
@@ -16,7 +17,7 @@ export default function Navbar() {
         Secret
       </NavLink>
       <NavLink
-        to="/member/Attendance/12345678987654321"
+        to={`/member/Attendance/${ADMIN_TOKEN}`}
         className={({ isActive }) =>
           `px-3 py-1 rounded ${
             isActive
@@ -29,7 +30,7 @@ export default function Navbar() {
       </NavLink>
 
       <NavLink
-        to="/member/summary/12345678987654321"
+        to={`/member/summary/${ADMIN_TOKEN}`}
         className={({ isActive }) =>
           `px-3 py-1 rounded ${
             isActive

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { searchStudents } from "../services/api";
+import { searchStudents } from "../../services/api";
 
 export default function SearchBar({ onSearch }) {
   const [value, setValue] = useState("");

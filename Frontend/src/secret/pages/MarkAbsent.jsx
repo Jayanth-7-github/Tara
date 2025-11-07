@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import AdminNavbar from "../components/AdminNavbar";
-import { updateAttendance } from "../services/api";
+import { updateAttendance } from "../../services/api";
 
 export default function MarkAbsent() {
   const [regno, setRegno] = useState("");

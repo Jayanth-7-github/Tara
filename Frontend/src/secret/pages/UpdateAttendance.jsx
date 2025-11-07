@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import AdminNavbar from "../components/AdminNavbar";
-import { updateAttendance, checkAttendance } from "../services/api";
+import { updateAttendance, checkAttendance } from "../../services/api";
 
 export default function UpdateAttendance() {
   const [regno, setRegno] = useState("");
