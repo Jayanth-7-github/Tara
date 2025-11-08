@@ -23,3 +23,23 @@ exports.protect = (req, res, next) => {
     return res.status(401).json({ error: "Unauthorized" });
   }
 };
+
+// Require admin: must be used after `protect` so `req.user.id` is available.
+exports.requireAdmin = async (req, res, next) => {
+  try {
+    if (!req.user || !req.user.id)
+      return res.status(401).json({ error: "Unauthorized" });
+    // lazy-load User model to avoid circular requires
+    const User = require("../models/User");
+    const user = await User.findById(req.user.id).lean();
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    if (user.role !== "admin")
+      return res.status(403).json({ error: "Forbidden" });
+    // attach role for downstream handlers
+    req.user.role = user.role;
+    return next();
+  } catch (err) {
+    console.error("requireAdmin error", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};

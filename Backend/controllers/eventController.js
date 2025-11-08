@@ -190,6 +190,18 @@ async function registerEvent(req, res) {
     });
     await student.save();
 
+    // Atomically increment registeredCount on the Event for accurate counting (avoid race conditions)
+    try {
+      await Event.findByIdAndUpdate(ev._id, { $inc: { registeredCount: 1 } });
+    } catch (incErr) {
+      // log but don't fail the registration if counter update fails
+      console.error(
+        "Failed to increment registeredCount for event",
+        ev._id,
+        incErr
+      );
+    }
+
     return res.json({ success: true, student });
   } catch (err) {
     console.error("registerEvent error", err);

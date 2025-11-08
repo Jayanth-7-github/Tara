@@ -4,21 +4,23 @@ const UserSchema = new mongoose.Schema(
   {
     email: {
       type: String,
-      required: true,
+      required: false,
       unique: true,
+      sparse: true,
       trim: true,
       lowercase: true,
     },
     password: { type: String, required: true },
     regno: {
       type: String,
-      required: true,
+      required: false,
       unique: true,
+      sparse: true,
       trim: true,
       uppercase: true,
     },
     name: { type: String },
-    role: { type: String, enum: ["admin", "member"], default: "member" },
+    role: { type: String, enum: ["admin", "student", "user"], default: "user" },
   },
   { timestamps: true }
 );

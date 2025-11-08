@@ -107,8 +107,8 @@ export default function AttendancePage() {
               Scan or search to mark attendance instantly
             </p>
           </div>
-          <div className="mt-4 md:mt-0 flex items-center gap-3">
-            <div>
+          <div className="mt-4 md:mt-0 flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+            <div className="w-full sm:w-auto">
               <select
                 value={selectedEvent?._id || ""}
                 onChange={(e) => {
@@ -116,7 +116,7 @@ export default function AttendancePage() {
                   const ev = events.find((it) => it._id === id);
                   setSelectedEvent(ev || null);
                 }}
-                className="bg-gray-800 border border-gray-700 text-white text-sm px-3 py-2 rounded"
+                className="bg-gray-800 border border-gray-700 text-white text-sm px-3 py-2 rounded w-full sm:w-64"
               >
                 <option value="">Select event</option>
                 {events.map((ev) => (
@@ -126,14 +126,16 @@ export default function AttendancePage() {
                 ))}
               </select>
             </div>
-            <Navbar />
+            <div className="w-full sm:w-auto">
+              <Navbar />
+            </div>
           </div>
         </div>
 
         {selectedEvent && (
-          <div className="text-sm text-gray-300 mb-4">
+          <div className="text-sm text-gray-300 mb-4 w-full">
             Current event:{" "}
-            <span className="font-medium text-white">
+            <span className="font-medium text-white inline-block max-w-full sm:max-w-lg wrap-break-word">
               {selectedEvent.title}
             </span>
           </div>
@@ -190,7 +192,7 @@ export default function AttendancePage() {
               return isError || isAlready
                 ? "bg-gray-500/20 text-gray-400 border border-gray-500/40"
                 : "bg-green-500/20 text-green-400 border border-green-500/40";
-            })()}`}
+            })()} max-w-full wrap-break-word whitespace-pre-wrap`}
           >
             {message}
           </motion.div>

@@ -1,6 +1,53 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const path = require("path");
+const RoleConfig = require("../models/RoleConfig");
+// roles file: list of admin and student identifiers (emails or regnos)
+let rolesConfig = { admins: [], students: [] };
+try {
+  rolesConfig = require(path.join(__dirname, "..", "data", "roles.json"));
+} catch (e) {
+  // file may not exist or be malformed; we'll fall back to empty lists
+  console.warn(
+    "roles.json not found or invalid — continuing with empty role lists"
+  );
+}
+
+// Helper: load roles from DB if present, otherwise fallback to `rolesConfig` from file
+async function loadRoles() {
+  try {
+    const doc = await RoleConfig.findOne().lean();
+    if (doc) return { admins: doc.admins || [], students: doc.students || [] };
+  } catch (err) {
+    console.warn(
+      "Failed to read roles from DB, using file fallback:",
+      err?.message
+    );
+  }
+  return {
+    admins: rolesConfig.admins || [],
+    students: rolesConfig.students || [],
+  };
+}
+
+async function determineRole({ email, regno }) {
+  // normalize
+  const e = (email || "").toString().trim().toLowerCase();
+  const r = (regno || "").toString().trim().toUpperCase();
+
+  const roles = await loadRoles();
+  const admins = Array.isArray(roles?.admins) ? roles.admins : [];
+  const students = Array.isArray(roles?.students) ? roles.students : [];
+
+  if (e && admins.includes(e)) return "admin";
+  if (r && admins.includes(r)) return "admin";
+
+  if (e && students.includes(e)) return "student";
+  if (r && students.includes(r)) return "student";
+
+  return "user";
+}
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -22,34 +69,43 @@ function cookieOptions() {
 
 exports.signup = async (req, res) => {
   try {
-    const { email, password, regno, name, role } = req.body || {};
-    if (!email || !password || !regno)
-      return res
-        .status(400)
-        .json({ error: "email, password, and regno are required" });
+    const { email, password, regno, name } = req.body || {};
+    // Require password and at least one identifier (email or regno)
+    if (!password || (!email && !regno))
+      return res.status(400).json({
+        error: "password and at least one of email or regno are required",
+      });
 
-    const existingEmail = await User.findOne({
-      email: String(email).toLowerCase(),
-    });
-    if (existingEmail)
-      return res.status(409).json({ error: "Email already in use" });
+    // Check uniqueness only for provided fields
+    if (email) {
+      const existingEmail = await User.findOne({
+        email: String(email).toLowerCase(),
+      });
+      if (existingEmail)
+        return res.status(409).json({ error: "Email already in use" });
+    }
 
-    const existingRegno = await User.findOne({
-      regno: String(regno).toUpperCase(),
-    });
-    if (existingRegno)
-      return res
-        .status(409)
-        .json({ error: "Registration number already in use" });
+    if (regno) {
+      const existingRegno = await User.findOne({
+        regno: String(regno).toUpperCase(),
+      });
+      if (existingRegno)
+        return res
+          .status(409)
+          .json({ error: "Registration number already in use" });
+    }
 
     const hash = await bcrypt.hash(String(password), 10);
-    const user = await User.create({
-      email: String(email).toLowerCase(),
+    const computedRole = await determineRole({ email, regno });
+    const toCreate = {
       password: hash,
-      regno: String(regno).toUpperCase(),
       name: name || undefined,
-      role: role || undefined,
-    });
+      role: computedRole,
+    };
+    if (email) toCreate.email = String(email).toLowerCase();
+    if (regno) toCreate.regno = String(regno).toUpperCase();
+
+    const user = await User.create(toCreate);
 
     const token = signToken(user._id);
     res.cookie("token", token, cookieOptions());
@@ -87,6 +143,19 @@ exports.login = async (req, res) => {
 
     const token = signToken(user._id);
     res.cookie("token", token, cookieOptions());
+    // Ensure stored role matches roles mapping (DB or file) if present
+    try {
+      const desired = await determineRole({
+        email: user.email,
+        regno: user.regno,
+      });
+      if (user.role !== desired) {
+        user.role = desired;
+        await user.save();
+      }
+    } catch (err) {
+      console.warn("Failed to reconcile user role from roles config:", err);
+    }
     return res.json({ user: user.toSafeJSON() });
   } catch (err) {
     console.error("login error", err);
@@ -116,6 +185,20 @@ exports.checkLogin = async (req, res) => {
     if (!req.user) return res.status(401).json({ authenticated: false });
     const user = await User.findById(req.user.id);
     if (!user) return res.status(401).json({ authenticated: false });
+    // Reconcile role from roles.json in case the config changed
+    try {
+      const desired = await determineRole({
+        email: user.email,
+        regno: user.regno,
+      });
+      if (user.role !== desired) {
+        user.role = desired;
+        await user.save();
+      }
+    } catch (err) {
+      console.warn("Failed to reconcile user role in checkLogin:", err);
+    }
+
     return res.json({ authenticated: true, user: user.toSafeJSON() });
   } catch (err) {
     console.error("checkLogin error", err);

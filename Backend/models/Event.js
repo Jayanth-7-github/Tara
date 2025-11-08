@@ -12,14 +12,9 @@ const EventSchema = new Schema(
       data: Buffer,
       contentType: String,
     },
-    attendees: [
-      {
-        name: { type: String, trim: true },
-        email: { type: String, trim: true },
-        regno: { type: String, trim: true },
-        registeredAt: { type: Date, default: Date.now },
-      },
-    ],
+    // Counters (normalized registration stored on Student.registrations)
+    registeredCount: { type: Number, default: 0 },
+    attendedCount: { type: Number, default: 0 },
   },
   { timestamps: true }
 );

@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { API_BASE } from "../services/api";
+import { API_BASE, fetchStudent } from "../services/api";
+import { getMe } from "../services/auth";
 import RegisterForm from "./RegisterForm";
 
 export default function EventsList({
@@ -11,6 +12,31 @@ export default function EventsList({
   const apiBase = API_BASE.replace(/\/$/, "");
   const [showFormFor, setShowFormFor] = useState(null);
   const [registered, setRegistered] = useState({});
+
+  // Load current user's registration state (if logged in) so registration persists across reload/login
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const me = await getMe();
+        // auth.getMe returns { user: { ... } } — accept both shapes for robustness
+        const regno = me?.user?.regno || me?.regno;
+        if (!regno) return;
+        const student = await fetchStudent(regno);
+        const regs = student.registrations || [];
+        const regMap = {};
+        regs.forEach((r) => {
+          if (!r || !r.event) return;
+          const id = typeof r.event === "string" ? r.event : String(r.event);
+          regMap[id] = true;
+        });
+        if (mounted) setRegistered(regMap);
+      } catch (err) {
+        // ignore - user not logged in or no student record
+      }
+    })();
+    return () => (mounted = false);
+  }, []);
 
   if (loading) {
     return (

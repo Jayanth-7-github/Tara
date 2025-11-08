@@ -15,11 +15,9 @@ exports.submitTest = async (req, res) => {
     } = req.body;
 
     if (!answers || !totalQuestions || !correctAnswers) {
-      return res
-        .status(400)
-        .json({
-          error: "Answers, correctAnswers, and totalQuestions are required",
-        });
+      return res.status(400).json({
+        error: "Answers, correctAnswers, and totalQuestions are required",
+      });
     }
 
     // Convert answers object to Map
@@ -82,8 +80,9 @@ exports.submitTest = async (req, res) => {
 // Get all test results for the logged-in user
 exports.getMyResults = async (req, res) => {
   try {
-    const userId = req.user.id;
-    const results = await TestResult.find({ userId })
+    // Admin-only route: admin may pass ?userId=<id> to fetch results for a specific user.
+    const targetUserId = req.query.userId || req.user.id;
+    const results = await TestResult.find({ userId: targetUserId })
       .sort({ createdAt: -1 })
       .select("-answers -markedForReview"); // Don't send answers back
 
@@ -97,10 +96,10 @@ exports.getMyResults = async (req, res) => {
 // Get a specific test result by ID
 exports.getResultById = async (req, res) => {
   try {
-    const userId = req.user.id;
+    // Admin-only: fetch any result by ID. If not found, return 404.
     const { id } = req.params;
 
-    const result = await TestResult.findOne({ _id: id, userId });
+    const result = await TestResult.findById(id);
     if (!result) {
       return res.status(404).json({ error: "Test result not found" });
     }
@@ -120,10 +119,13 @@ exports.getResultById = async (req, res) => {
 // Get test statistics for the logged-in user
 exports.getMyStats = async (req, res) => {
   try {
-    const userId = req.user.id;
+    // Admin-only: allow ?userId=<id> to get stats for a specific user
+    const targetUserId = req.query.userId || req.user.id;
 
-    const totalTests = await TestResult.countDocuments({ userId });
-    const results = await TestResult.find({ userId }).select(
+    const totalTests = await TestResult.countDocuments({
+      userId: targetUserId,
+    });
+    const results = await TestResult.find({ userId: targetUserId }).select(
       "score totalQuestions"
     );
 

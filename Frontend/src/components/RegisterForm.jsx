@@ -153,7 +153,7 @@ export default function RegisterForm({ eventId, onRegistered }) {
           <label className="text-xs text-gray-400 block mb-1">Branch</label>
           <input
             type="text"
-            placeholder="Computer Science"
+            placeholder="eg .Computer Science"
             value={branch}
             onChange={(e) => setBranch(e.target.value)}
             className="w-full px-3 py-2 rounded bg-gray-800 text-sm text-white border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"

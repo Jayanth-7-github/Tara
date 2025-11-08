@@ -1,7 +1,7 @@
 // Keep API base configurable via VITE_API_BASE; default to a relative '/api'
 // so the dev server or production server can route requests consistently.
 export const API_BASE =
-  import.meta.env.VITE_API_BASE || "https://tara-kbxn.onrender.com/api" || "https://tara-kbxn.onrender.com/api";
+  import.meta.env.VITE_API_BASE || "http://localhost:2000/api";
 
 export async function searchStudents(query) {
   const resp = await fetch(
@@ -162,11 +162,48 @@ export async function createEvent(eventPayload) {
   const resp = await fetch(`${API_BASE}/events`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify(eventPayload),
   });
   const body = await resp.json().catch(() => ({}));
   if (!resp.ok) {
     const err = new Error(body.error || "Failed to create event");
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}
+
+export async function updateEvent(eventId, eventPayload) {
+  const resp = await fetch(
+    `${API_BASE.replace(/\/$/, "")}/events/${encodeURIComponent(eventId)}`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(eventPayload),
+    }
+  );
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(body.error || "Failed to update event");
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}
+
+export async function deleteEvent(eventId) {
+  const resp = await fetch(
+    `${API_BASE.replace(/\/$/, "")}/events/${encodeURIComponent(eventId)}`,
+    {
+      method: "DELETE",
+      credentials: "include",
+    }
+  );
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(body.error || "Failed to delete event");
     err.status = resp.status;
     throw err;
   }

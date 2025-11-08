@@ -76,7 +76,7 @@ export default function Main() {
       fetchTestResults();
     }
 
-    // load events regardless of user (so dashboard shows upcoming events)
+    // load events regardless of user (we may hide them from non-students/admins in the UI)
     loadEvents();
   }, [user]);
 
@@ -108,28 +108,51 @@ export default function Main() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            {testLoading ? (
-              <button
-                disabled
-                className="px-4 py-2 text-sm rounded-lg bg-gray-700 text-gray-400 cursor-not-allowed transition shadow"
-              >
-                Loading...
-              </button>
-            ) : hasTestResults ? (
-              <button
-                disabled
-                className="px-4 py-2 text-sm rounded-lg bg-green-600/50 border border-green-500 text-green-200 cursor-not-allowed transition shadow"
-              >
-                ✓ Test Taken
-              </button>
-            ) : (
-              <Link
-                to="/test"
-                className="px-4 py-2 text-sm rounded-lg bg-blue-600 hover:bg-blue-700 transition shadow"
-              >
-                Take a Test
-              </Link>
-            )}
+            {(() => {
+              const canAccess =
+                user && (user.role === "student" || user.role === "admin");
+              if (!canAccess) {
+                return (
+                  <button
+                    disabled
+                    className="px-4 py-2 text-sm rounded-lg bg-gray-700 text-gray-400 cursor-not-allowed transition shadow"
+                  >
+                    Events coming soon
+                  </button>
+                );
+              }
+
+              if (testLoading) {
+                return (
+                  <button
+                    disabled
+                    className="px-4 py-2 text-sm rounded-lg bg-gray-700 text-gray-400 cursor-not-allowed transition shadow"
+                  >
+                    Loading...
+                  </button>
+                );
+              }
+
+              if (hasTestResults) {
+                return (
+                  <button
+                    disabled
+                    className="px-4 py-2 text-sm rounded-lg bg-green-600/50 border border-green-500 text-green-200 cursor-not-allowed transition shadow"
+                  >
+                    ✓ Test Taken
+                  </button>
+                );
+              }
+
+              return (
+                <Link
+                  to="/test"
+                  className="px-4 py-2 text-sm rounded-lg bg-blue-600 hover:bg-blue-700 transition shadow"
+                >
+                  Take a Test
+                </Link>
+              );
+            })()}
           </div>
         </header>
 
@@ -140,26 +163,49 @@ export default function Main() {
               <h2 className="text-xl font-semibold">Upcoming Events</h2>
             </div>
 
-            {eventsLoading ? (
-              <div className="py-6">
-                <button
-                  disabled
-                  className="px-4 py-2 text-sm rounded-lg bg-gray-700 text-gray-400 cursor-not-allowed transition shadow"
-                >
-                  Loading events...
-                </button>
-              </div>
-            ) : !events || events.length === 0 ? (
-              <div className="py-12 text-center">
-                <p className="text-gray-400">
-                  Events coming soon — check back later.
-                </p>
-              </div>
-            ) : (
-              <div>
-                <EventsList events={events} loading={eventsLoading} />
-              </div>
-            )}
+            {(() => {
+              const canAccess =
+                user && (user.role === "student" || user.role === "admin");
+
+              if (!canAccess) {
+                return (
+                  <div className="py-12 text-center">
+                    <p className="text-gray-400">
+                      Events coming soon — check back later.
+                    </p>
+                  </div>
+                );
+              }
+
+              if (eventsLoading) {
+                return (
+                  <div className="py-6">
+                    <button
+                      disabled
+                      className="px-4 py-2 text-sm rounded-lg bg-gray-700 text-gray-400 cursor-not-allowed transition shadow"
+                    >
+                      Loading events...
+                    </button>
+                  </div>
+                );
+              }
+
+              if (!events || events.length === 0) {
+                return (
+                  <div className="py-12 text-center">
+                    <p className="text-gray-400">
+                      Events coming soon — check back later.
+                    </p>
+                  </div>
+                );
+              }
+
+              return (
+                <div>
+                  <EventsList events={events} loading={eventsLoading} />
+                </div>
+              );
+            })()}
           </div>
 
           {/* Assignments preview (commented out)
