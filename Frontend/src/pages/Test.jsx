@@ -1236,7 +1236,7 @@ export default function Test() {
             <div className="flex items-center justify-between px-8 py-5 border-b border-gray-200 sticky top-0 bg-white/95 backdrop-blur-sm z-10 shadow-sm">
               <div className="flex items-center gap-4">
                 <h1 className="text-base font-bold text-gray-800">
-                  Event Assessment 
+                  Event Assessment
                 </h1>
                 <div className="text-xs px-3 py-1.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 font-medium">
                   Question {currentIndex + 1} / {questions.length}
@@ -1398,40 +1398,36 @@ export default function Test() {
                   <span className="font-medium">Clear Response</span>
                 </div>
               </div>
-              <div className="flex items-center gap-4 pt-6">
-                <button
-                  disabled={currentIndex === 0}
-                  onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
-                  className={`px-6 py-3 rounded-lg text-sm font-medium border-2 transition-all ${
-                    currentIndex === 0
-                      ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                      : "bg-white hover:bg-gray-50 text-gray-700 border-gray-300 hover:border-gray-400 shadow-sm hover:shadow-md"
-                  }`}
-                >
-                  ← Previous
-                </button>
-                <button
-                  disabled={currentIndex === questions.length - 1}
-                  onClick={() =>
-                    setCurrentIndex((i) =>
-                      Math.min(questions.length - 1, i + 1)
-                    )
-                  }
-                  className={`px-6 py-3 rounded-lg text-sm font-medium border-2 transition-all ${
-                    currentIndex === questions.length - 1
-                      ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                      : "bg-white hover:bg-gray-50 text-gray-700 border-gray-300 hover:border-gray-400 shadow-sm hover:shadow-md"
-                  }`}
-                >
-                  Next →
-                </button>
-                <div className="ml-auto flex gap-3">
+              <div className="flex items-center justify-between pt-6">
+                <div>
                   <button
-                    className="px-8 py-3 rounded-lg text-sm font-bold bg-linear-to-r from-green-600 to-green-500 text-white hover:from-green-700 hover:to-green-600 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-                    onClick={handleSubmitTest}
-                    disabled={submitting}
+                    disabled={currentIndex === 0}
+                    onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
+                    className={`px-6 py-3 rounded-lg text-sm font-medium border-2 transition-all ${
+                      currentIndex === 0
+                        ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                        : "bg-white hover:bg-gray-50 text-gray-700 border-gray-300 hover:border-gray-400 shadow-sm hover:shadow-md"
+                    }`}
                   >
-                    {submitting ? "Submitting..." : "Submit Test"}
+                    ← Previous
+                  </button>
+                </div>
+
+                <div>
+                  <button
+                    disabled={currentIndex === questions.length - 1}
+                    onClick={() =>
+                      setCurrentIndex((i) =>
+                        Math.min(questions.length - 1, i + 1)
+                      )
+                    }
+                    className={`px-6 py-3 rounded-lg text-sm font-medium border-2 transition-all ${
+                      currentIndex === questions.length - 1
+                        ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                        : "bg-white hover:bg-gray-50 text-gray-700 border-gray-300 hover:border-gray-400 shadow-sm hover:shadow-md"
+                    }`}
+                  >
+                    Next →
                   </button>
                 </div>
               </div>

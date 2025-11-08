@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { checkLogin, logout } from "../services/auth";
-import { getMyTestResults, fetchEvents } from "../services/api";
+import { checkTestTaken, fetchEvents } from "../services/api";
 import EventsList from "../components/EventsList";
 
 export default function Main() {
@@ -49,10 +49,11 @@ export default function Main() {
   useEffect(() => {
     const fetchTestResults = async () => {
       try {
-        const response = await getMyTestResults();
-        setHasTestResults(response.results && response.results.length > 0);
+        // call the lightweight check endpoint which returns { taken: boolean }
+        const response = await checkTestTaken();
+        setHasTestResults(Boolean(response && response.taken));
       } catch (error) {
-        console.error("Error fetching test results:", error);
+        console.error("Error checking test taken:", error);
         setHasTestResults(false);
       } finally {
         setTestLoading(false);
@@ -133,6 +134,8 @@ export default function Main() {
                 );
               }
 
+              // Remove the global "Take a Test" action from the header —
+              // users should use the per-event buttons in the Events list.
               if (hasTestResults) {
                 return (
                   <button
@@ -144,14 +147,8 @@ export default function Main() {
                 );
               }
 
-              return (
-                <Link
-                  to="/test"
-                  className="px-4 py-2 text-sm rounded-lg bg-blue-600 hover:bg-blue-700 transition shadow"
-                >
-                  Take a Test
-                </Link>
-              );
+              // Otherwise render nothing in the header area (no Take Test link)
+              return null;
             })()}
           </div>
         </header>
@@ -202,7 +199,11 @@ export default function Main() {
 
               return (
                 <div>
-                  <EventsList events={events} loading={eventsLoading} />
+                  <EventsList
+                    events={events}
+                    loading={eventsLoading}
+                    hasTestResults={hasTestResults}
+                  />
                 </div>
               );
             })()}

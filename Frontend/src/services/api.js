@@ -143,6 +143,19 @@ export async function getMyTestResults() {
   return resp.json();
 }
 
+export async function checkTestTaken(testTitle) {
+  const url = new URL(`${API_BASE.replace(/\/$/, "")}/test-results/check`);
+  if (testTitle) url.searchParams.set("testTitle", testTitle);
+  const resp = await fetch(url.toString(), { credentials: "include" });
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(body.error || "Failed to check test taken");
+    err.status = resp.status;
+    throw err;
+  }
+  return body; // { taken: boolean }
+}
+
 export async function getMyTestStats() {
   const resp = await fetch(`${API_BASE}/test-results/my-stats`, {
     credentials: "include",

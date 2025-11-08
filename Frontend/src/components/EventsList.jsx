@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { API_BASE, fetchStudent } from "../services/api";
+import { Link, useNavigate } from "react-router-dom";
+import { API_BASE, fetchStudent, checkTestTaken } from "../services/api";
 import { getMe } from "../services/auth";
 import RegisterForm from "./RegisterForm";
 
@@ -8,10 +8,13 @@ export default function EventsList({
   events = [],
   loading = false,
   error = null,
+  hasTestResults = false,
 }) {
   const apiBase = API_BASE.replace(/\/$/, "");
   const [showFormFor, setShowFormFor] = useState(null);
   const [registered, setRegistered] = useState({});
+  const [testTaken, setTestTaken] = useState({});
+  const navigate = useNavigate();
 
   // Load current user's registration state (if logged in) so registration persists across reload/login
   useEffect(() => {
@@ -37,6 +40,37 @@ export default function EventsList({
     })();
     return () => (mounted = false);
   }, []);
+
+  // When registrations change (or events load), check whether the logged-in user
+  // has already taken the test for each registered event. We only query for
+  // events the user is registered for to reduce API calls.
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        // For each event that the user is registered for, call checkTestTaken
+        const entries = Object.keys(registered).filter((id) => registered[id]);
+        if (!entries.length) return;
+        for (const id of entries) {
+          // find event by id to get a title (backend expects testTitle)
+          const ev = events.find((e) => (e._id || e.id) === id);
+          if (!ev) continue;
+          try {
+            const resp = await checkTestTaken(ev.title);
+            if (!mounted) return;
+            setTestTaken((t) => ({ ...t, [id]: Boolean(resp && resp.taken) }));
+          } catch (err) {
+            // ignore per-event check errors
+            if (!mounted) return;
+            setTestTaken((t) => ({ ...t, [id]: false }));
+          }
+        }
+      } catch (err) {
+        // no-op
+      }
+    })();
+    return () => (mounted = false);
+  }, [registered, events]);
 
   if (loading) {
     return (
@@ -98,17 +132,43 @@ export default function EventsList({
 
               <div className="mt-4 flex items-center gap-3">
                 {registered[id] ? (
-                  <div className="text-sm text-green-300">Registered ✓</div>
+                  <>
+                    <div className="text-sm text-green-300">Registered ✓</div>
+                    {testTaken[id] || hasTestResults ? (
+                      <button
+                        disabled
+                        className="px-4 py-2 text-sm  text-green-300 cursor-not-allowed transition shadow"
+                      >
+                         Test Taken ✓
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => navigate(`/test?eventId=${id}`)}
+                        className="px-3 py-1 text-xs rounded bg-green-600 hover:bg-green-700 transition text-white"
+                      >
+                        Take Test
+                      </button>
+                    )}
+                  </>
                 ) : showFormFor === id ? (
-                  <div className="w-full">
-                    <RegisterForm
-                      eventId={id}
-                      onRegistered={() => {
-                        setRegistered((s) => ({ ...s, [id]: true }));
-                        setShowFormFor(null);
-                      }}
-                    />
-                  </div>
+                  <>
+                    <div className="w-full">
+                      <RegisterForm
+                        eventId={id}
+                        onRegistered={() => {
+                          setRegistered((s) => ({ ...s, [id]: true }));
+                          setShowFormFor(null);
+                        }}
+                      />
+                    </div>
+                    <button
+                      disabled
+                      title="Register to enable taking the test"
+                      className="px-3 py-1 text-xs rounded bg-gray-400 text-white opacity-60 cursor-not-allowed"
+                    >
+                      Take Test
+                    </button>
+                  </>
                 ) : (
                   <>
                     <button
@@ -117,12 +177,13 @@ export default function EventsList({
                     >
                       Register
                     </button>
-                    {/* <Link
-                      to={`/events/${id}`}
-                      className="text-xs text-gray-300 hover:text-white"
+                    <button
+                      disabled
+                      title="Register to enable taking the test"
+                      className="px-3 py-1 text-xs rounded bg-gray-400 text-white opacity-60 cursor-not-allowed"
                     >
-                      Details
-                    </Link> */}
+                      Take Test
+                    </button>
                   </>
                 )}
               </div>

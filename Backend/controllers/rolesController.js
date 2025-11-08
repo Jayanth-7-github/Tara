@@ -35,16 +35,46 @@ exports.upsertRoles = async (req, res) => {
       return [String(v).trim()];
     };
 
-    const update = {
-      admins: toArray(adminsRaw),
-      students: toArray(studentsRaw),
-    };
+    // Only overwrite fields that were provided in the request. If a key is omitted,
+    // preserve the existing array in the DB.
+    const updateFields = {};
+    const hasAdminsKey =
+      Object.prototype.hasOwnProperty.call(body, "admins") ||
+      Object.prototype.hasOwnProperty.call(body, "admin");
+    const hasStudentsKey =
+      Object.prototype.hasOwnProperty.call(body, "students") ||
+      Object.prototype.hasOwnProperty.call(body, "student");
 
-    const doc = await RoleConfig.findOneAndUpdate({}, update, {
-      upsert: true,
-      new: true,
-      setDefaultsOnInsert: true,
-    });
+    if (hasAdminsKey) updateFields.admins = toArray(adminsRaw);
+    if (hasStudentsKey) updateFields.students = toArray(studentsRaw);
+
+    // If no fields provided, return current roles without modifying.
+    if (Object.keys(updateFields).length === 0) {
+      const existing = await RoleConfig.findOne().lean();
+      return res.json({
+        roles: {
+          admins: (existing && existing.admins) || [],
+          students: (existing && existing.students) || [],
+        },
+      });
+    }
+
+    // Upsert using only provided fields. If the document doesn't exist, create it
+    // with provided arrays and default empty arrays for missing fields.
+    let doc = await RoleConfig.findOne();
+    if (!doc) {
+      const toCreate = {
+        admins: updateFields.admins || [],
+        students: updateFields.students || [],
+      };
+      doc = await RoleConfig.create(toCreate);
+    } else {
+      doc = await RoleConfig.findOneAndUpdate(
+        {},
+        { $set: updateFields },
+        { new: true }
+      );
+    }
 
     return res.json({
       roles: { admins: doc.admins || [], students: doc.students || [] },

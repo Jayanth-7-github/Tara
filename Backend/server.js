@@ -6,6 +6,17 @@ const path = require("path");
 
 const app = express();
 
+// If QUIET=1 is set, suppress non-error console output so the terminal stays empty.
+// This silences console.log/info/debug/warn across the app. Errors (console.error)
+// will still be emitted so critical failures are visible unless you also
+// redirect stderr when launching the process.
+if (process.env.QUIET === "1") {
+  console.log = () => {};
+  console.info = () => {};
+  console.debug = () => {};
+  console.warn = () => {};
+}
+
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 
 // Middleware
@@ -19,9 +30,12 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use(cookieParser());
 
-// Simple logger
+// Simple logger: disabled by default to keep the backend terminal quiet.
+// To enable request logging set the environment variable SHOW_REQUEST_LOGS=1
 app.use((req, res, next) => {
-  console.log(new Date().toISOString(), req.method, req.url);
+  if (process.env.SHOW_REQUEST_LOGS === "1") {
+    console.log(new Date().toISOString(), req.method, req.url);
+  }
   next();
 });
 
@@ -51,7 +65,7 @@ app.use("/api/events", eventRoutes);
 app.use("/api/roles/secret8181", rolesRoutes);
 
 // Health
-app.get("/api/health", (req, res) =>
+app.get("/api/tara", (req, res) =>
   res.json({ status: "ok", timestamp: Date.now() })
 );
 
@@ -69,7 +83,9 @@ const startServer = async () => {
     await connectDB(process.env.MONGO_URL);
 
     server = app.listen(PORT, () => {
-      console.log(`Server listening on http://localhost:${PORT}`);
+      
+        console.log(`Server listening on http://localhost:${PORT}`);
+      
     });
   } catch (err) {
     console.error("Failed to start server:", err);

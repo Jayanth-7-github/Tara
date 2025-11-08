@@ -153,3 +153,26 @@ exports.getMyStats = async (req, res) => {
     return res.status(500).json({ error: "Internal server error" });
   }
 };
+
+// Check whether a user (current or specified) has taken a specific test.
+// If query.testTitle is provided, checks for that test; otherwise checks if any test exists.
+exports.checkTaken = async (req, res) => {
+  try {
+    // allow non-admin users to check their own status; admins may pass ?userId= to check others
+    const requesterId = req.user.id;
+    const targetUserId =
+      req.query.userId && req.user.role === "admin"
+        ? req.query.userId
+        : requesterId;
+    const testTitle = req.query.testTitle;
+
+    const filter = { userId: targetUserId };
+    if (testTitle) filter.testTitle = testTitle;
+
+    const exists = await TestResult.exists(filter);
+    return res.json({ taken: Boolean(exists) });
+  } catch (err) {
+    console.error("checkTaken error", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
