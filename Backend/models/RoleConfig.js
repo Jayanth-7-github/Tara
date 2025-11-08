@@ -2,11 +2,10 @@ const mongoose = require("mongoose");
 
 const RoleConfigSchema = new mongoose.Schema(
   {
-    admins: [{ type: String }],
-    students: [{ type: String }],
+    admins: { type: [String], default: [] },
+    students: { type: [String], default: [] },
   },
   { timestamps: true }
 );
 
-// Keep the collection name fixed
 module.exports = mongoose.model("RoleConfig", RoleConfigSchema);

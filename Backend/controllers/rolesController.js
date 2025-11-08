@@ -1,7 +1,7 @@
 const RoleConfig = require("../models/RoleConfig");
 
-// GET /api/roles  - public read
-exports.getRoles = async (req, res) => {
+// Return current roles mapping (admins/students)
+exports.getRoles = async (_req, res) => {
   try {
     const doc = await RoleConfig.findOne().lean();
     if (!doc) return res.json({ admins: [], students: [] });
@@ -12,73 +12,54 @@ exports.getRoles = async (req, res) => {
   }
 };
 
-// POST /api/roles - upsert roles (admin-only)
+// Upsert roles mapping. Expect body: { admins: [..], students: [..] }
+// This endpoint should be protected by admin middleware (done in routes).
 exports.upsertRoles = async (req, res) => {
   try {
-    // Simple password check: the password is hardcoded here per request.
-    // The body must include { password: "99240041378" } to authorize.
-    const provided = (req.body && req.body.password) || "";
-    const secret = "99240041378";
-    if (!provided || provided !== secret) {
-      return res.status(401).json({ error: "Unauthorized: invalid password" });
-    }
+    const { admins, students } = req.body || {};
 
-    // Accept either plural arrays or singular keys. Coerce strings to arrays for convenience.
-    const body = req.body || {};
-    const adminsRaw = body.admins ?? body.admin ?? [];
-    const studentsRaw = body.students ?? body.student ?? [];
-
-    const toArray = (v) => {
-      if (!v) return [];
-      if (Array.isArray(v))
-        return v.map((s) => String(s).trim()).filter(Boolean);
-      return [String(v).trim()];
+    // Helper to normalize an input that may be an array, a single string,
+    // or a comma/space separated list. We treat all identifiers as regnos
+    // (uppercase) because "only regno is enough" per user request.
+    const normalizeToRegnos = (input) => {
+      if (!input && input !== 0) return [];
+      // If array, flatten and convert
+      if (Array.isArray(input)) {
+        return input.map((s) => String(s).trim().toUpperCase()).filter(Boolean);
+      }
+      // If a single string, split on commas or whitespace
+      const str = String(input);
+      // allow comma-separated or space-separated values
+      const parts = str.includes(",") ? str.split(",") : str.split(/\s+/);
+      return parts.map((p) => String(p).trim().toUpperCase()).filter(Boolean);
     };
 
-    // Only overwrite fields that were provided in the request. If a key is omitted,
-    // preserve the existing array in the DB.
-    const updateFields = {};
-    const hasAdminsKey =
-      Object.prototype.hasOwnProperty.call(body, "admins") ||
-      Object.prototype.hasOwnProperty.call(body, "admin");
-    const hasStudentsKey =
-      Object.prototype.hasOwnProperty.call(body, "students") ||
-      Object.prototype.hasOwnProperty.call(body, "student");
+    const adminsArr = normalizeToRegnos(admins);
+    const studentsArr = normalizeToRegnos(students);
 
-    if (hasAdminsKey) updateFields.admins = toArray(adminsRaw);
-    if (hasStudentsKey) updateFields.students = toArray(studentsRaw);
-
-    // If no fields provided, return current roles without modifying.
-    if (Object.keys(updateFields).length === 0) {
-      const existing = await RoleConfig.findOne().lean();
-      return res.json({
-        roles: {
-          admins: (existing && existing.admins) || [],
-          students: (existing && existing.students) || [],
-        },
-      });
-    }
-
-    // Upsert using only provided fields. If the document doesn't exist, create it
-    // with provided arrays and default empty arrays for missing fields.
     let doc = await RoleConfig.findOne();
     if (!doc) {
-      const toCreate = {
-        admins: updateFields.admins || [],
-        students: updateFields.students || [],
-      };
-      doc = await RoleConfig.create(toCreate);
+      // If no document exists, create one with the provided arrays (may be empty)
+      doc = await RoleConfig.create({
+        admins: adminsArr,
+        students: studentsArr,
+      });
     } else {
-      doc = await RoleConfig.findOneAndUpdate(
-        {},
-        { $set: updateFields },
-        { new: true }
-      );
+      // Merge behavior: only add new entries if provided; do not replace with empty arrays
+      if (adminsArr && adminsArr.length > 0) {
+        const existing = Array.isArray(doc.admins) ? doc.admins : [];
+        const merged = Array.from(new Set(existing.concat(adminsArr)));
+        doc.admins = merged;
+      }
+      if (studentsArr && studentsArr.length > 0) {
+        const existing = Array.isArray(doc.students) ? doc.students : [];
+        const merged = Array.from(new Set(existing.concat(studentsArr)));
+        doc.students = merged;
+      }
+      await doc.save();
     }
 
-    return res.json({
-      roles: { admins: doc.admins || [], students: doc.students || [] },
-    });
+    return res.json({ admins: doc.admins, students: doc.students });
   } catch (err) {
     console.error("upsertRoles error", err);
     return res.status(500).json({ error: "Internal server error" });

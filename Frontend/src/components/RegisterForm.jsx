@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { registerForEvent } from "../services/api";
+import { getMe } from "../services/auth";
 
 export default function RegisterForm({ eventId, onRegistered }) {
   const [name, setName] = useState("");
@@ -13,6 +14,24 @@ export default function RegisterForm({ eventId, onRegistered }) {
   const [error, setError] = useState(null);
   const [fieldErrors, setFieldErrors] = useState({});
   const [success, setSuccess] = useState(false);
+  const [myRegno, setMyRegno] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const me = await getMe();
+        const r = me?.user?.regno || me?.regno || "";
+        if (mounted && r) {
+          setMyRegno(r);
+          setRegno(r);
+        }
+      } catch (e) {
+        // not logged in or failed to fetch — leave regno empty
+      }
+    })();
+    return () => (mounted = false);
+  }, []);
 
   const validate = () => {
     const errs = {};
@@ -20,6 +39,12 @@ export default function RegisterForm({ eventId, onRegistered }) {
       errs.name = "Please enter your full name.";
     if (!regno || regno.trim().length < 3)
       errs.regno = "Please enter a valid registration number.";
+    // If user is logged in, require the regno to match the logged-in regno
+    if (myRegno && regno && regno.trim().length > 0) {
+      const a = regno.trim().toUpperCase();
+      const b = String(myRegno).trim().toUpperCase();
+      if (a !== b) errs.regno = "wrong regno";
+    }
     if (!email) errs.email = "Please enter an email address.";
     // year may be 'Other' so check accordingly
     if (!year) errs.year = "Please select your year.";

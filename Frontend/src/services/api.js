@@ -1,7 +1,7 @@
 // Keep API base configurable via VITE_API_BASE; default to a relative '/api'
 // so the dev server or production server can route requests consistently.
 export const API_BASE =
-  import.meta.env.VITE_API_BASE || "https://tara-kbxn.onrender.com/api";
+  import.meta.env.VITE_API_BASE || "http://localhost:2000/api";
 
 export async function searchStudents(query) {
   const resp = await fetch(
