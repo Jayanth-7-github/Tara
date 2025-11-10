@@ -2,6 +2,28 @@ const path = require("path");
 const nodemailer = require("nodemailer");
 const Event = require(path.join(__dirname, "..", "models", "Event"));
 
+let sgMail = null;
+// Support either SENDGRID_API_KEY (common) or SENDGRID_SECRET (your secret that may contain the API key).
+// Some dashboards provide a SID + SECRET pair; the SECRET typically contains the actual API key.
+const sendgridKey =
+  process.env.SENDGRID_API_KEY || process.env.SENDGRID_SECRET || null;
+if (sendgridKey) {
+  try {
+    sgMail = require("@sendgrid/mail");
+    sgMail.setApiKey(sendgridKey);
+    if (process.env.SENDGRID_SID) {
+      // SID is informational only for our usage; the SDK requires the API key.
+      console.info(
+        "SendGrid SID provided (not used as API key)",
+        process.env.SENDGRID_SID
+      );
+    }
+  } catch (e) {
+    console.warn("@sendgrid/mail not available", e && e.message);
+    sgMail = null;
+  }
+}
+
 function escapeHtml(str) {
   if (!str && str !== 0) return "";
   return String(str)
@@ -79,39 +101,6 @@ async function sendContactEmail(req, res) {
 
     if (!recipient)
       return res.status(500).json({ error: "No recipient configured" });
-
-    // prepare transport
-    const transport = createTransport();
-    if (!transport) {
-      // SMTP not configured - fallback for development: save message to a local log file
-      try {
-        const fs = require("fs");
-        const logDir = path.join(__dirname, "..", "logs");
-        await fs.promises.mkdir(logDir, { recursive: true });
-        const logFile = path.join(logDir, "contact-messages.jsonl");
-        const fallbackEntry = {
-          timestamp: new Date().toISOString(),
-          eventId: eventId || null,
-          eventTitle,
-          recipient,
-          actorName,
-          actorEmail,
-          regno: regno || null,
-          branch: branch || null,
-          college: college || null,
-          message: message || null,
-        };
-        await fs.promises.appendFile(
-          logFile,
-          JSON.stringify(fallbackEntry) + "\n"
-        );
-        console.warn("SMTP not configured - saved contact message to", logFile);
-        return res.json({ success: true, fallback: true, savedTo: logFile });
-      } catch (e) {
-        console.error("Failed to write fallback contact log", e);
-        return res.status(500).json({ error: "SMTP not configured on server" });
-      }
-    }
 
     // Compose message
     const fromAddress =
@@ -207,6 +196,58 @@ async function sendContactEmail(req, res) {
       </html>
     `;
 
+    // If SendGrid API key present, use HTTP API to send mail (avoids SMTP/timeouts)
+    if (sgMail) {
+      try {
+        const msg = {
+          to: recipient,
+          from: fromAddress,
+          subject,
+          text,
+          html,
+          replyTo: actorEmail,
+        };
+        await sgMail.send(msg);
+        return res.json({ success: true, provider: "sendgrid" });
+      } catch (sgErr) {
+        console.error("sendContactEmail sendgrid error", sgErr);
+        // continue to try SMTP fallback below
+      }
+    }
+
+    // prepare transport for SMTP
+    const transport = createTransport();
+    if (!transport) {
+      // SMTP not configured - fallback for development: save message to a local log file
+      try {
+        const fs = require("fs");
+        const logDir = path.join(__dirname, "..", "logs");
+        await fs.promises.mkdir(logDir, { recursive: true });
+        const logFile = path.join(logDir, "contact-messages.jsonl");
+        const fallbackEntry = {
+          timestamp: new Date().toISOString(),
+          eventId: eventId || null,
+          eventTitle,
+          recipient,
+          actorName,
+          actorEmail,
+          regno: regno || null,
+          branch: branch || null,
+          college: college || null,
+          message: message || null,
+        };
+        await fs.promises.appendFile(
+          logFile,
+          JSON.stringify(fallbackEntry) + "\n"
+        );
+        console.warn("SMTP not configured - saved contact message to", logFile);
+        return res.json({ success: true, fallback: true, savedTo: logFile });
+      } catch (e) {
+        console.error("Failed to write fallback contact log", e);
+        return res.status(500).json({ error: "SMTP not configured on server" });
+      }
+    }
+
     const mailOptions = {
       from: `${actorName} <${fromAddress}>`, // sent by server address
       to: recipient,
@@ -217,7 +258,7 @@ async function sendContactEmail(req, res) {
     };
 
     await transport.sendMail(mailOptions);
-    return res.json({ success: true });
+    return res.json({ success: true, provider: "smtp" });
   } catch (err) {
     console.error("sendContactEmail error", err);
     return res.status(500).json({ error: "Failed to send email" });
