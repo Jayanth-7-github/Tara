@@ -2,9 +2,6 @@ const path = require("path");
 const nodemailer = require("nodemailer");
 const Event = require(path.join(__dirname, "..", "models", "Event"));
 
-// Using nodemailer (SMTP) for sending emails. If SMTP is not configured the
-// controller will fallback to logging messages to Backend/logs/contact-messages.jsonl.
-
 function escapeHtml(str) {
   if (!str && str !== 0) return "";
   return String(str)
@@ -82,6 +79,39 @@ async function sendContactEmail(req, res) {
 
     if (!recipient)
       return res.status(500).json({ error: "No recipient configured" });
+
+    // prepare transport
+    const transport = createTransport();
+    if (!transport) {
+      // SMTP not configured - fallback for development: save message to a local log file
+      try {
+        const fs = require("fs");
+        const logDir = path.join(__dirname, "..", "logs");
+        await fs.promises.mkdir(logDir, { recursive: true });
+        const logFile = path.join(logDir, "contact-messages.jsonl");
+        const fallbackEntry = {
+          timestamp: new Date().toISOString(),
+          eventId: eventId || null,
+          eventTitle,
+          recipient,
+          actorName,
+          actorEmail,
+          regno: regno || null,
+          branch: branch || null,
+          college: college || null,
+          message: message || null,
+        };
+        await fs.promises.appendFile(
+          logFile,
+          JSON.stringify(fallbackEntry) + "\n"
+        );
+        console.warn("SMTP not configured - saved contact message to", logFile);
+        return res.json({ success: true, fallback: true, savedTo: logFile });
+      } catch (e) {
+        console.error("Failed to write fallback contact log", e);
+        return res.status(500).json({ error: "SMTP not configured on server" });
+      }
+    }
 
     // Compose message
     const fromAddress =
@@ -177,115 +207,21 @@ async function sendContactEmail(req, res) {
       </html>
     `;
 
-    // Using SMTP (nodemailer) for sending — we'll create an SMTP transport below.
-
-    // prepare transport for SMTP
-    const transport = createTransport();
-    if (!transport) {
-      // SMTP not configured - fallback for development: save message to a local log file
-      try {
-        const fs = require("fs");
-        const logDir = path.join(__dirname, "..", "logs");
-        await fs.promises.mkdir(logDir, { recursive: true });
-        const logFile = path.join(logDir, "contact-messages.jsonl");
-        const fallbackEntry = {
-          timestamp: new Date().toISOString(),
-          eventId: eventId || null,
-          eventTitle,
-          recipient,
-          actorName,
-          actorEmail,
-          regno: regno || null,
-          branch: branch || null,
-          college: college || null,
-          message: message || null,
-        };
-        await fs.promises.appendFile(
-          logFile,
-          JSON.stringify(fallbackEntry) + "\n"
-        );
-        console.warn("SMTP not configured - saved contact message to", logFile);
-        return res.json({ success: true, fallback: true, savedTo: logFile });
-      } catch (e) {
-        console.error("Failed to write fallback contact log", e);
-        return res.status(500).json({ error: "SMTP not configured on server" });
-      }
-    }
-
-    // Try to send the email appearing to come from the user (actorEmail).
-    // Note: many SMTP providers will reject messages where the From address
-    // doesn't match the authenticated sender or a verified sender identity.
-    // We attempt sending as the user first, and if that fails we retry using
-    // the server MAIL_FROM and set Reply-To to the user's address so replies
-    // still go to the user.
-    const baseMail = {
+    const mailOptions = {
+      from: `${actorName} <${fromAddress}>`, // sent by server address
       to: recipient,
       subject,
       text,
       html,
+      replyTo: actorEmail,
     };
 
-    const userFrom = `${actorName} <${actorEmail}>`;
-    const serverFrom = `${actorName} <${fromAddress}>`;
-
-    try {
-      // Attempt to send with user's email as From
-      await transport.sendMail({
-        ...baseMail,
-        from: userFrom,
-        replyTo: actorEmail,
-      });
-      return res.json({ success: true, provider: "smtp", from: "user" });
-    } catch (firstErr) {
-      console.warn(
-        "Sending with user From failed, retrying with server MAIL_FROM",
-        firstErr && (firstErr.message || firstErr)
-      );
-      try {
-        // Retry using server fromAddress and set replyTo so recipient can reply to the user
-        await transport.sendMail({
-          ...baseMail,
-          from: serverFrom,
-          replyTo: actorEmail,
-        });
-        return res.json({
-          success: true,
-          provider: "smtp",
-          from: "server",
-          fallbackFromUser: true,
-        });
-      } catch (secondErr) {
-        console.error(
-          "Both attempts to send via SMTP failed",
-          secondErr && (secondErr.message || secondErr)
-        );
-        // fall through to fallback-to-file below
-      }
-    }
+    await transport.sendMail(mailOptions);
+    return res.json({ success: true });
   } catch (err) {
     console.error("sendContactEmail error", err);
     return res.status(500).json({ error: "Failed to send email" });
   }
 }
 
-// Protected endpoint helper to verify SMTP connectivity from the running process.
-// Returns connection success or the error message (for debugging only).
-async function smtpVerify(req, res) {
-  try {
-    const transport = createTransport();
-    if (!transport) {
-      return res.status(400).json({ ok: false, error: "SMTP not configured" });
-    }
-
-    // nodemailer transport.verify() will check connectivity and authentication
-    await transport.verify();
-    return res.json({ ok: true, message: "SMTP connection and auth verified" });
-  } catch (err) {
-    console.error("smtpVerify error", err && (err.message || err));
-    return res
-      .status(500)
-      .json({ ok: false, error: err && (err.message || String(err)) });
-  }
-}
-
-module.exports = { sendContactEmail, smtpVerify };
+module.exports = { sendContactEmail };
