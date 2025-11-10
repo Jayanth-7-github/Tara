@@ -2,29 +2,8 @@ const path = require("path");
 const nodemailer = require("nodemailer");
 const Event = require(path.join(__dirname, "..", "models", "Event"));
 
-let sgMail = null;
-// Support either SENDGRID_API_KEY (common) or SENDGRID_SECRET (your secret that may contain the API key).
-// Some dashboards provide a SID + SECRET pair; the SECRET typically contains the actual API key.
-const sendgridKey =
-  process.env.SENDGRID_API_KEY || process.env.SENDGRID_SECRET || null;
-if (sendgridKey) {
-  try {
-    sgMail = require("@sendgrid/mail");
-    sgMail.setApiKey(sendgridKey);
-    if (process.env.SENDGRID_SID) {
-      // SID is informational only for our usage; the SDK requires the API key.
-      console.info(
-        "SendGrid SID provided (not used as API key)",
-        process.env.SENDGRID_SID
-      );
-    }
-    // Do not print keys; just confirm that a key was found and sgMail configured.
-    console.info("SendGrid configured (API key present)");
-  } catch (e) {
-    console.warn("@sendgrid/mail not available", e && e.message);
-    sgMail = null;
-  }
-}
+// Using nodemailer (SMTP) for sending emails. If SMTP is not configured the
+// controller will fallback to logging messages to Backend/logs/contact-messages.jsonl.
 
 function escapeHtml(str) {
   if (!str && str !== 0) return "";
@@ -215,20 +194,31 @@ async function sendContactEmail(req, res) {
         // Log useful SendGrid error detail without exposing secrets.
         try {
           const sgBody = sgErr && sgErr.response && sgErr.response.body;
-          if (sgBody) console.error("sendContactEmail sendgrid response body:", sgBody);
+          if (sgBody)
+            console.error("sendContactEmail sendgrid response body:", sgBody);
         } catch (e) {
           // ignore logging errors
         }
 
         // If SendGrid returned 401 Unauthorized, return early with a helpful message
         // instead of trying SMTP (which often times out in hosted environments).
-        const sgCode = sgErr && (sgErr.code || (sgErr.response && sgErr.response.statusCode));
+        const sgCode =
+          sgErr &&
+          (sgErr.code || (sgErr.response && sgErr.response.statusCode));
         if (sgCode === 401) {
-          console.error("SendGrid authorization failed (401). Check SENDGRID_API_KEY/SECRET in env.");
-          return res.status(500).json({ error: "Email provider authorization failed (SendGrid 401). Check SENDGRID_API_KEY/SECRET." });
+          console.error(
+            "SendGrid authorization failed (401). Check SENDGRID_API_KEY/SECRET in env."
+          );
+          return res.status(500).json({
+            error:
+              "Email provider authorization failed (SendGrid 401). Check SENDGRID_API_KEY/SECRET.",
+          });
         }
 
-        console.error("sendContactEmail sendgrid error", sgErr && (sgErr.message || sgErr));
+        console.error(
+          "sendContactEmail sendgrid error",
+          sgErr && (sgErr.message || sgErr)
+        );
         // continue to try SMTP fallback below
       }
     }
@@ -266,17 +256,56 @@ async function sendContactEmail(req, res) {
       }
     }
 
-    const mailOptions = {
-      from: `${actorName} <${fromAddress}>`, // sent by server address
+    // Try to send the email appearing to come from the user (actorEmail).
+    // Note: many SMTP providers will reject messages where the From address
+    // doesn't match the authenticated sender or a verified sender identity.
+    // We attempt sending as the user first, and if that fails we retry using
+    // the server MAIL_FROM and set Reply-To to the user's address so replies
+    // still go to the user.
+    const baseMail = {
       to: recipient,
       subject,
       text,
       html,
-      replyTo: actorEmail,
     };
 
-    await transport.sendMail(mailOptions);
-    return res.json({ success: true, provider: "smtp" });
+    const userFrom = `${actorName} <${actorEmail}>`;
+    const serverFrom = `${actorName} <${fromAddress}>`;
+
+    try {
+      // Attempt to send with user's email as From
+      await transport.sendMail({
+        ...baseMail,
+        from: userFrom,
+        replyTo: actorEmail,
+      });
+      return res.json({ success: true, provider: "smtp", from: "user" });
+    } catch (firstErr) {
+      console.warn(
+        "Sending with user From failed, retrying with server MAIL_FROM",
+        firstErr && (firstErr.message || firstErr)
+      );
+      try {
+        // Retry using server fromAddress and set replyTo so recipient can reply to the user
+        await transport.sendMail({
+          ...baseMail,
+          from: serverFrom,
+          replyTo: actorEmail,
+        });
+        return res.json({
+          success: true,
+          provider: "smtp",
+          from: "server",
+          fallbackFromUser: true,
+        });
+      } catch (secondErr) {
+        console.error(
+          "Both attempts to send via SMTP failed",
+          secondErr && (secondErr.message || secondErr)
+        );
+        // fall through to fallback-to-file below
+      }
+    }
   } catch (err) {
     console.error("sendContactEmail error", err);
     return res.status(500).json({ error: "Failed to send email" });
