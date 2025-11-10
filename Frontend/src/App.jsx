@@ -15,6 +15,7 @@ import ManageAttendance from "./secret/pages/ManageAttendance";
 import UpdateAttendance from "./secret/pages/UpdateAttendance";
 import MarkAbsent from "./secret/pages/MarkAbsent";
 import AdminSecret from "./secret/pages/AdminSecret";
+import AddRoles from "./secret/pages/AddRoles";
 import { ADMIN_TOKEN } from "./services/constants";
 
 function App() {
@@ -59,6 +60,10 @@ function App() {
             <Route
               path={`/admin/secret/${ADMIN_TOKEN}`}
               element={<AdminSecret />}
+            />
+            <Route
+              path={`/admin/roles/${ADMIN_TOKEN}`}
+              element={<AddRoles />}
             />
             <Route
               path={`/admin/mark-absent/${ADMIN_TOKEN}`}

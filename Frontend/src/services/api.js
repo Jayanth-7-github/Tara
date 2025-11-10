@@ -243,3 +243,33 @@ export async function registerForEvent(eventId, payload) {
   }
   return body;
 }
+
+// Roles API
+export async function getRoles() {
+  const resp = await fetch(`${API_BASE.replace(/\/$/, "")}/roles/secret8181`, {
+    credentials: "include",
+  });
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => ({}));
+    const err = new Error(body.error || "Failed to fetch roles");
+    err.status = resp.status;
+    throw err;
+  }
+  return resp.json();
+}
+
+export async function upsertRoles(payload) {
+  const resp = await fetch(`${API_BASE.replace(/\/$/, "")}/roles/secret8181`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(body.error || "Failed to upsert roles");
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}

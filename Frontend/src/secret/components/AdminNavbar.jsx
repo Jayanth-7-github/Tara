@@ -57,6 +57,19 @@ export default function AdminNavbar() {
       </NavLink>
 
       <NavLink
+        to={`/admin/roles/${ADMIN_TOKEN}`}
+        className={({ isActive }) =>
+          `px-3 py-1 rounded whitespace-nowrap ${
+            isActive
+              ? "bg-blue-600 text-white"
+              : "text-gray-300 hover:text-white"
+          }`
+        }
+      >
+        Assign Roles
+      </NavLink>
+
+      <NavLink
         to={`/member/secret/${ADMIN_TOKEN}`}
         className={({ isActive }) =>
           `ml-4 px-3 py-1 rounded text-sm ${

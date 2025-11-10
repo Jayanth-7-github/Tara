@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { API_BASE, fetchStudent, checkTestTaken } from "../services/api";
+import {
+  API_BASE,
+  fetchStudent,
+  checkTestTaken,
+  getRoles,
+} from "../services/api";
 import { getMe } from "../services/auth";
 import RegisterForm from "./RegisterForm";
 
@@ -14,7 +19,12 @@ export default function EventsList({
   const [showFormFor, setShowFormFor] = useState(null);
   const [registered, setRegistered] = useState({});
   const [testTaken, setTestTaken] = useState({});
+  const [userRole, setUserRole] = useState("");
+  const [userRegno, setUserRegno] = useState("");
+  const [rolesMap, setRolesMap] = useState(null);
   const navigate = useNavigate();
+  const contactEmail =
+    import.meta.env.VITE_CONTACT_EMAIL || "admin@college.edu";
 
   // Load current user's registration state (if logged in) so registration persists across reload/login
   useEffect(() => {
@@ -24,6 +34,9 @@ export default function EventsList({
         const me = await getMe();
         // auth.getMe returns { user: { ... } } — accept both shapes for robustness
         const regno = me?.user?.regno || me?.regno;
+        const role = me?.user?.role || me?.role || "";
+        if (mounted && role) setUserRole(role);
+        if (mounted && regno) setUserRegno(String(regno).trim().toUpperCase());
         if (!regno) return;
         const student = await fetchStudent(regno);
         const regs = student.registrations || [];
@@ -40,6 +53,21 @@ export default function EventsList({
     })();
     return () => (mounted = false);
   }, []);
+
+  // Load roles mapping (admins/students and per-event assignments)
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const body = await getRoles().catch(() => ({}));
+        if (!mounted) return;
+        setRolesMap(body || {});
+      } catch (err) {
+        // ignore
+      }
+    })();
+    return () => (mounted = false);
+  }, [apiBase]);
 
   // When registrations change (or events load), check whether the logged-in user
   // has already taken the test for each registered event. We only query for
@@ -100,6 +128,42 @@ export default function EventsList({
         const id = ev._id || ev.id;
         const imageSrc = ev.imageUrl || `${apiBase}/events/${id}/image`;
 
+        // Precompute per-event permission: whether this logged-in user (or admin)
+        // is allowed to register for this specific event. The backend now
+        // exposes `studentsByEvent` keyed by event title/name, so we check
+        // that map using the event's title. We still fall back to a global
+        // `students` list for site-wide students.
+        const eventNameKey = String(ev.title || ev.name || id).trim();
+        let perEventStudents = null;
+        if (rolesMap && rolesMap.studentsByEvent) {
+          if (rolesMap.studentsByEvent[eventNameKey])
+            perEventStudents = rolesMap.studentsByEvent[eventNameKey];
+          else if (typeof rolesMap.studentsByEvent.get === "function")
+            perEventStudents = rolesMap.studentsByEvent.get(eventNameKey);
+        }
+        const globalStudents =
+          rolesMap && Array.isArray(rolesMap.students) ? rolesMap.students : [];
+        const regUpper = (userRegno || "").toUpperCase();
+        // Treat regnos present in rolesMap.admins as admins on the client as well
+        const globalAdmins =
+          rolesMap && Array.isArray(rolesMap.admins) ? rolesMap.admins : [];
+        const isAdminByRoles =
+          regUpper &&
+          globalAdmins.map((s) => String(s).toUpperCase()).includes(regUpper);
+        const inPerEvent =
+          perEventStudents &&
+          Array.isArray(perEventStudents) &&
+          perEventStudents
+            .map((s) => String(s).toUpperCase())
+            .includes(regUpper);
+        const inGlobal =
+          Array.isArray(globalStudents) &&
+          globalStudents.map((s) => String(s).toUpperCase()).includes(regUpper);
+        const allowedToRegister =
+          userRole === "admin" ||
+          isAdminByRoles ||
+          (regUpper && (inPerEvent || inGlobal));
+
         return (
           <article
             key={id}
@@ -134,21 +198,23 @@ export default function EventsList({
                 {registered[id] ? (
                   <>
                     <div className="text-sm text-green-300">Registered ✓</div>
-                    {testTaken[id] || hasTestResults ? (
-                      <button
-                        disabled
-                        className="px-4 py-2 text-sm  text-green-300 cursor-not-allowed transition shadow"
-                      >
-                         Test Taken ✓
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => navigate(`/test?eventId=${id}`)}
-                        className="px-3 py-1 text-xs rounded bg-green-600 hover:bg-green-700 transition text-white"
-                      >
-                        Take Test
-                      </button>
-                    )}
+                    {allowedToRegister ? (
+                      testTaken[id] || hasTestResults ? (
+                        <button
+                          disabled
+                          className="px-4 py-2 text-sm  text-green-300 cursor-not-allowed transition shadow"
+                        >
+                          Test Taken ✓
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => navigate(`/test?eventId=${id}`)}
+                          className="px-3 py-1 text-xs rounded bg-green-600 hover:bg-green-700 transition text-white"
+                        >
+                          Take Test
+                        </button>
+                      )
+                    ) : null}
                   </>
                 ) : showFormFor === id ? (
                   <>
@@ -161,29 +227,47 @@ export default function EventsList({
                         }}
                       />
                     </div>
-                    <button
-                      disabled
-                      title="Register to enable taking the test"
-                      className="px-3 py-1 text-xs rounded bg-gray-400 text-white opacity-60 cursor-not-allowed"
-                    >
-                      Take Test
-                    </button>
+                    {allowedToRegister && (
+                      <button
+                        disabled
+                        title="Register to enable taking the test"
+                        className="px-3 py-1 text-xs rounded bg-gray-400 text-white opacity-60 cursor-not-allowed"
+                      >
+                        Take Test
+                      </button>
+                    )}
                   </>
                 ) : (
                   <>
-                    <button
-                      onClick={() => setShowFormFor(id)}
-                      className="px-3 py-1 text-xs rounded bg-blue-600 hover:bg-blue-700 transition text-white"
-                    >
-                      Register
-                    </button>
-                    <button
-                      disabled
-                      title="Register to enable taking the test"
-                      className="px-3 py-1 text-xs rounded bg-gray-400 text-white opacity-60 cursor-not-allowed"
-                    >
-                      Take Test
-                    </button>
+                    {allowedToRegister ? (
+                      <button
+                        onClick={() => setShowFormFor(id)}
+                        className="px-3 py-1 text-xs rounded bg-blue-600 hover:bg-blue-700 transition text-white"
+                      >
+                        Register
+                      </button>
+                    ) : (
+                      <a
+                        href={`mailto:${encodeURIComponent(
+                          contactEmail
+                        )}?subject=${encodeURIComponent(
+                          "Register for " + (ev.title || "event")
+                        )}`}
+                        className="px-3 py-1 text-xs rounded bg-yellow-600 hover:bg-yellow-700 transition text-white"
+                        title="Contact admin to register"
+                      >
+                        Contact
+                      </a>
+                    )}
+                    {allowedToRegister && (
+                      <button
+                        disabled
+                        title="Register to enable taking the test"
+                        className="px-3 py-1 text-xs rounded bg-gray-400 text-white opacity-60 cursor-not-allowed"
+                      >
+                        Take Test
+                      </button>
+                    )}
                   </>
                 )}
               </div>

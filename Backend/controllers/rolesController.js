@@ -4,8 +4,22 @@ const RoleConfig = require("../models/RoleConfig");
 exports.getRoles = async (_req, res) => {
   try {
     const doc = await RoleConfig.findOne().lean();
-    if (!doc) return res.json({ admins: [], students: [] });
-    return res.json({ admins: doc.admins || [], students: doc.students || [] });
+    if (!doc)
+      return res.json({ admins: [], students: [], studentsByEvent: {} });
+
+    // Convert Maps (if present) to plain objects for easy client consumption
+    const studentsByEvent =
+      doc.studentsByEvent && typeof doc.studentsByEvent === "object"
+        ? doc.studentsByEvent instanceof Map
+          ? Object.fromEntries(doc.studentsByEvent)
+          : doc.studentsByEvent
+        : {};
+
+    return res.json({
+      admins: doc.admins || [],
+      students: doc.students || [],
+      studentsByEvent,
+    });
   } catch (err) {
     console.error("getRoles error", err);
     return res.status(500).json({ error: "Internal server error" });
@@ -16,7 +30,7 @@ exports.getRoles = async (_req, res) => {
 // This endpoint should be protected by admin middleware (done in routes).
 exports.upsertRoles = async (req, res) => {
   try {
-    const { admins, students } = req.body || {};
+    const { admins, students, eventId, eventTitle, eventName } = req.body || {};
 
     // Helper to normalize an input that may be an array, a single string,
     // or a comma/space separated list. We treat all identifiers as regnos
@@ -42,9 +56,50 @@ exports.upsertRoles = async (req, res) => {
       // If no document exists, create one with the provided arrays (may be empty)
       doc = await RoleConfig.create({
         admins: adminsArr,
-        students: studentsArr,
+        students: [],
+        studentsByEvent: {},
       });
+    }
+
+    // If an eventName (or eventTitle) is provided, update per-event maps (merge behavior)
+    const eventKeyRaw = eventName || eventTitle || eventId;
+    if (eventKeyRaw) {
+      const evKey = String(eventKeyRaw).trim();
+
+      // Admins are global: merge any provided admin regnos into the global admins list
+      if (adminsArr && adminsArr.length > 0) {
+        const existingAdmins = Array.isArray(doc.admins) ? doc.admins : [];
+        const mergedAdmins = Array.from(
+          new Set(existingAdmins.concat(adminsArr))
+        );
+        doc.admins = mergedAdmins;
+      }
+
+      // Merge students into studentsByEvent if provided
+      if (studentsArr && studentsArr.length > 0) {
+        if (!doc.studentsByEvent) doc.studentsByEvent = {};
+        if (
+          doc.studentsByEvent &&
+          typeof doc.studentsByEvent.get === "function"
+        ) {
+          const existing = doc.studentsByEvent.get(evKey) || [];
+          const merged = Array.from(
+            new Set((existing || []).concat(studentsArr))
+          );
+          doc.studentsByEvent.set(evKey, merged);
+        } else {
+          const existing = Array.isArray(doc.studentsByEvent[evKey])
+            ? doc.studentsByEvent[evKey]
+            : [];
+          const merged = Array.from(new Set(existing.concat(studentsArr)));
+          doc.studentsByEvent = doc.studentsByEvent || {};
+          doc.studentsByEvent[evKey] = merged;
+        }
+      }
+
+      await doc.save();
     } else {
+      // No event key: update global lists (legacy behavior)
       // Merge behavior: only add new entries if provided; do not replace with empty arrays
       if (adminsArr && adminsArr.length > 0) {
         const existing = Array.isArray(doc.admins) ? doc.admins : [];

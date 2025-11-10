@@ -205,3 +205,6 @@ exports.checkLogin = async (req, res) => {
     return res.status(401).json({ authenticated: false });
   }
 };
+
+// Expose determineRole for other modules (middleware) to consult the roles mapping.
+exports.determineRole = determineRole;
