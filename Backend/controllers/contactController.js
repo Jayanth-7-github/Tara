@@ -282,7 +282,9 @@ async function smtpVerify(req, res) {
     return res.json({ ok: true, message: "SMTP connection and auth verified" });
   } catch (err) {
     console.error("smtpVerify error", err && (err.message || err));
-    return res.status(500).json({ ok: false, error: err && (err.message || String(err)) });
+    return res
+      .status(500)
+      .json({ ok: false, error: err && (err.message || String(err)) });
   }
 }
 
