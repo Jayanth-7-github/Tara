@@ -18,6 +18,8 @@ if (sendgridKey) {
         process.env.SENDGRID_SID
       );
     }
+    // Do not print keys; just confirm that a key was found and sgMail configured.
+    console.info("SendGrid configured (API key present)");
   } catch (e) {
     console.warn("@sendgrid/mail not available", e && e.message);
     sgMail = null;
@@ -210,7 +212,23 @@ async function sendContactEmail(req, res) {
         await sgMail.send(msg);
         return res.json({ success: true, provider: "sendgrid" });
       } catch (sgErr) {
-        console.error("sendContactEmail sendgrid error", sgErr);
+        // Log useful SendGrid error detail without exposing secrets.
+        try {
+          const sgBody = sgErr && sgErr.response && sgErr.response.body;
+          if (sgBody) console.error("sendContactEmail sendgrid response body:", sgBody);
+        } catch (e) {
+          // ignore logging errors
+        }
+
+        // If SendGrid returned 401 Unauthorized, return early with a helpful message
+        // instead of trying SMTP (which often times out in hosted environments).
+        const sgCode = sgErr && (sgErr.code || (sgErr.response && sgErr.response.statusCode));
+        if (sgCode === 401) {
+          console.error("SendGrid authorization failed (401). Check SENDGRID_API_KEY/SECRET in env.");
+          return res.status(500).json({ error: "Email provider authorization failed (SendGrid 401). Check SENDGRID_API_KEY/SECRET." });
+        }
+
+        console.error("sendContactEmail sendgrid error", sgErr && (sgErr.message || sgErr));
         // continue to try SMTP fallback below
       }
     }
