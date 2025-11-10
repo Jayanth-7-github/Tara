@@ -17,6 +17,7 @@
     "mongodb": "^6.20.0",
     "mongoose": "^7.6.1",
     "nodemon": "^3.1.10",
+    "nodemailer": "^6.9.4",
     "bcryptjs": "^2.4.3",
     "jsonwebtoken": "^9.0.2",
     "cookie-parser": "^1.4.6"

@@ -7,6 +7,14 @@ const EventSchema = new Schema(
     venue: { type: String, trim: true },
     date: { type: Date, required: true },
     imageUrl: { type: String, trim: true },
+    // Email of the event manager/organizer. Required so each event has a contact.
+    managerEmail: {
+      type: String,
+      required: true,
+      trim: true,
+      lowercase: true,
+      match: [/^\S+@\S+\.\S+$/, "Invalid email address"],
+    },
     // Store image binary directly in MongoDB (optional). Use either imageUrl or image.
     image: {
       data: Buffer,

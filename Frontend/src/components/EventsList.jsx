@@ -8,6 +8,7 @@ import {
 } from "../services/api";
 import { getMe } from "../services/auth";
 import RegisterForm from "./RegisterForm";
+import ContactForm from "./ContactForm";
 
 export default function EventsList({
   events = [],
@@ -17,10 +18,13 @@ export default function EventsList({
 }) {
   const apiBase = API_BASE.replace(/\/$/, "");
   const [showFormFor, setShowFormFor] = useState(null);
+  const [showContactFor, setShowContactFor] = useState(null);
   const [registered, setRegistered] = useState({});
   const [testTaken, setTestTaken] = useState({});
   const [userRole, setUserRole] = useState("");
   const [userRegno, setUserRegno] = useState("");
+  const [userName, setUserName] = useState("");
+  const [userEmail, setUserEmail] = useState("");
   const [rolesMap, setRolesMap] = useState(null);
   const navigate = useNavigate();
   const contactEmail =
@@ -35,8 +39,12 @@ export default function EventsList({
         // auth.getMe returns { user: { ... } } — accept both shapes for robustness
         const regno = me?.user?.regno || me?.regno;
         const role = me?.user?.role || me?.role || "";
+        const name = me?.user?.name || me?.name || "";
+        const email = me?.user?.email || me?.email || "";
         if (mounted && role) setUserRole(role);
         if (mounted && regno) setUserRegno(String(regno).trim().toUpperCase());
+        if (mounted && name) setUserName(name);
+        if (mounted && email) setUserEmail(email);
         if (!regno) return;
         const student = await fetchStudent(regno);
         const regs = student.registrations || [];
@@ -248,12 +256,8 @@ export default function EventsList({
                       </button>
                     ) : (
                       <a
-                        href={`mailto:${encodeURIComponent(
-                          contactEmail
-                        )}?subject=${encodeURIComponent(
-                          "Register for " + (ev.title || "event")
-                        )}`}
-                        className="px-3 py-1 text-xs rounded bg-yellow-600 hover:bg-yellow-700 transition text-white"
+                        onClick={() => setShowContactFor(id)}
+                        className="px-3 py-1 text-xs rounded bg-yellow-600 hover:bg-yellow-700 transition text-white cursor-pointer"
                         title="Contact admin to register"
                       >
                         Contact
@@ -302,6 +306,25 @@ export default function EventsList({
                 setRegistered((s) => ({ ...s, [showFormFor]: true }));
                 setShowFormFor(null);
               }}
+            />
+          </div>
+        </div>
+      )}
+      {/* Contact modal */}
+      {showContactFor && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+          onClick={() => setShowContactFor(null)}
+        >
+          <div
+            className="w-full max-w-lg mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ContactForm
+              event={events.find((e) => (e._id || e.id) === showContactFor)}
+              fallbackEmail={contactEmail}
+              initial={{ name: userName, regno: userRegno, email: userEmail }}
+              onClose={() => setShowContactFor(null)}
             />
           </div>
         </div>

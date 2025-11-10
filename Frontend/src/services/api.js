@@ -273,3 +273,20 @@ export async function upsertRoles(payload) {
   }
   return body;
 }
+
+// Contact / messaging API - send a contact message to event manager
+export async function sendContact(payload) {
+  const resp = await fetch(`${API_BASE.replace(/\/$/, "")}/contact`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(body.error || "Failed to send contact message");
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}

@@ -41,6 +41,9 @@ export default function EventForm({
   const navigate = useNavigate();
   const [title, setTitle] = useState(initialData?.title || "");
   const [venue, setVenue] = useState(initialData?.venue || "");
+  const [managerEmail, setManagerEmail] = useState(
+    initialData?.managerEmail || ""
+  );
   const [date, setDate] = useState(
     initialData?.date
       ? new Date(initialData.date).toISOString().slice(0, 16)
@@ -57,6 +60,7 @@ export default function EventForm({
   useEffect(() => {
     setTitle(initialData?.title || "");
     setVenue(initialData?.venue || "");
+    setManagerEmail(initialData?.managerEmail || "");
     setDate(
       initialData?.date
         ? new Date(initialData.date).toISOString().slice(0, 16)
@@ -77,7 +81,15 @@ export default function EventForm({
     e.preventDefault();
     setError(null);
     if (!title || !date) {
-      setError("Please fill title and date");
+      setError("Please fill title, date and manager email");
+      return;
+    }
+
+    // basic client-side email validation
+    const emailRegex = /^\S+@\S+\.\S+$/;
+    if (!managerEmail || !emailRegex.test(String(managerEmail))) {
+      setError("Please provide a valid manager email");
+      setLoading(false);
       return;
     }
 
@@ -95,6 +107,7 @@ export default function EventForm({
         title,
         description,
         venue,
+        managerEmail,
         date,
         imageBase64,
         imageType,
@@ -139,6 +152,17 @@ export default function EventForm({
         <input
           value={venue}
           onChange={(e) => setVenue(e.target.value)}
+          className="mt-1 w-full rounded bg-gray-800 border border-gray-700 px-3 py-2 text-white text-sm"
+        />
+      </label>
+
+      <label className="block">
+        <span className="text-sm text-gray-200">Manager Email</span>
+        <input
+          value={managerEmail}
+          onChange={(e) => setManagerEmail(e.target.value)}
+          type="email"
+          required
           className="mt-1 w-full rounded bg-gray-800 border border-gray-700 px-3 py-2 text-white text-sm"
         />
       </label>

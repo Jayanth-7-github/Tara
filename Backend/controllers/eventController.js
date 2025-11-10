@@ -3,7 +3,7 @@ const Student = require("../models/Student");
 
 /**
  * Create a new event.
- * Expects JSON body: { title, description?, venue, date (ISO string), imageUrl }
+ * Expects JSON body: { title, description?, venue, date (ISO string), managerEmail, imageUrl }
  */
 async function createEvent(req, res) {
   try {
@@ -12,15 +12,18 @@ async function createEvent(req, res) {
       description,
       venue,
       date,
+      managerEmail,
       imageUrl,
       imageBase64,
       imageType,
     } = req.body;
 
-    if (!title || !date) {
+    if (!title || !date || !managerEmail) {
       return res
         .status(400)
-        .json({ error: "Missing required fields: title and date" });
+        .json({
+          error: "Missing required fields: title, date and managerEmail",
+        });
     }
 
     const parsedDate = new Date(date);
@@ -28,7 +31,19 @@ async function createEvent(req, res) {
       return res.status(400).json({ error: "Invalid date format" });
     }
 
-    const ev = new Event({ title, description, venue, date: parsedDate });
+    // basic email validation
+    const emailRegex = /^\S+@\S+\.\S+$/;
+    if (!emailRegex.test(String(managerEmail))) {
+      return res.status(400).json({ error: "Invalid managerEmail format" });
+    }
+
+    const ev = new Event({
+      title,
+      description,
+      venue,
+      date: parsedDate,
+      managerEmail: String(managerEmail).toLowerCase().trim(),
+    });
 
     // If frontend uploaded image as base64, store it in MongoDB
     if (imageBase64 && imageType) {
@@ -221,6 +236,7 @@ async function updateEvent(req, res) {
       description,
       venue,
       date,
+      managerEmail,
       imageBase64,
       imageType,
       imageUrl,
@@ -237,6 +253,16 @@ async function updateEvent(req, res) {
       if (Number.isNaN(parsed.getTime()))
         return res.status(400).json({ error: "Invalid date format" });
       ev.date = parsed;
+    }
+
+    // managerEmail handling: validate and update (do not allow clearing to empty)
+    if (managerEmail !== undefined) {
+      if (!managerEmail)
+        return res.status(400).json({ error: "managerEmail cannot be empty" });
+      const emailRegex = /^\S+@\S+\.\S+$/;
+      if (!emailRegex.test(String(managerEmail)))
+        return res.status(400).json({ error: "Invalid managerEmail format" });
+      ev.managerEmail = String(managerEmail).toLowerCase().trim();
     }
 
     // image handling: if imageBase64 provided, store binary. If imageUrl provided (and no base64), use URL and clear binary.

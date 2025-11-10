@@ -54,12 +54,14 @@ const testResultRoutes = require(path.join(
 ));
 const eventRoutes = require(path.join(__dirname, "routes", "eventRoutes"));
 const rolesRoutes = require(path.join(__dirname, "routes", "rolesRoutes"));
+const contactRoutes = require(path.join(__dirname, "routes", "contactRoutes"));
 
 app.use("/api/students", studentRoutes);
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/test-results", testResultRoutes);
 app.use("/api/events", eventRoutes);
+app.use("/api/contact", contactRoutes);
 // Mount roles routes at an obscure numeric path to make discovery harder.
 // The number used here matches the example identifier in `data/roles.json`.
 app.use("/api/roles/secret8181", rolesRoutes);
@@ -83,9 +85,7 @@ const startServer = async () => {
     await connectDB(process.env.MONGO_URL);
 
     server = app.listen(PORT, () => {
-      
-        console.log(`Server listening on http://localhost:${PORT}`);
-      
+      console.log(`Server listening on http://localhost:${PORT}`);
     });
   } catch (err) {
     console.error("Failed to start server:", err);
