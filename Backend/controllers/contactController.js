@@ -268,4 +268,22 @@ async function sendContactEmail(req, res) {
   }
 }
 
-module.exports = { sendContactEmail };
+// Protected endpoint helper to verify SMTP connectivity from the running process.
+// Returns connection success or the error message (for debugging only).
+async function smtpVerify(req, res) {
+  try {
+    const transport = createTransport();
+    if (!transport) {
+      return res.status(400).json({ ok: false, error: "SMTP not configured" });
+    }
+
+    // nodemailer transport.verify() will check connectivity and authentication
+    await transport.verify();
+    return res.json({ ok: true, message: "SMTP connection and auth verified" });
+  } catch (err) {
+    console.error("smtpVerify error", err && (err.message || err));
+    return res.status(500).json({ ok: false, error: err && (err.message || String(err)) });
+  }
+}
+
+module.exports = { sendContactEmail, smtpVerify };
