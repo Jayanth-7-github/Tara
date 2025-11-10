@@ -1,2 +1,2 @@
 // Centralized constants used across the frontend
-export const ADMIN_TOKEN = "12345678987654321";
+export const ADMIN_TOKEN = "tara_admin_token1543";
