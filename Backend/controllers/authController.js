@@ -4,7 +4,13 @@ const User = require("../models/User");
 const path = require("path");
 const RoleConfig = require("../models/RoleConfig");
 // roles file: list of admin and student identifiers (emails or regnos)
-let rolesConfig = { admins: [], students: [] };
+let rolesConfig = {
+  admins: [],
+  students: [],
+  members: [],
+  studentsByEvent: {},
+  eventManagersByEvent: {},
+};
 try {
   rolesConfig = require(path.join(__dirname, "..", "data", "roles.json"));
 } catch (e) {
@@ -18,16 +24,37 @@ try {
 async function loadRoles() {
   try {
     const doc = await RoleConfig.findOne().lean();
-    if (doc) return { admins: doc.admins || [], students: doc.students || [] };
+    if (doc) {
+      // convert Map-like fields to plain objects if necessary
+      const studentsByEvent =
+        doc.studentsByEvent instanceof Map
+          ? Object.fromEntries(doc.studentsByEvent)
+          : doc.studentsByEvent || {};
+      const eventManagersByEvent =
+        doc.eventManagersByEvent instanceof Map
+          ? Object.fromEntries(doc.eventManagersByEvent)
+          : doc.eventManagersByEvent || {};
+      return {
+        admins: doc.admins || [],
+        students: doc.students || [],
+        members: doc.members || [],
+        studentsByEvent,
+        eventManagersByEvent,
+      };
+    }
   } catch (err) {
     console.warn(
       "Failed to read roles from DB, using file fallback:",
       err?.message
     );
   }
+  // fallback to roles.json file contents (may include per-event maps)
   return {
     admins: rolesConfig.admins || [],
     students: rolesConfig.students || [],
+    members: rolesConfig.members || [],
+    studentsByEvent: rolesConfig.studentsByEvent || {},
+    eventManagersByEvent: rolesConfig.eventManagersByEvent || {},
   };
 }
 
@@ -39,12 +66,17 @@ async function determineRole({ email, regno }) {
   const roles = await loadRoles();
   const admins = Array.isArray(roles?.admins) ? roles.admins : [];
   const students = Array.isArray(roles?.students) ? roles.students : [];
+  const members = Array.isArray(roles?.members) ? roles.members : [];
 
   if (e && admins.includes(e)) return "admin";
   if (r && admins.includes(r)) return "admin";
 
   if (e && students.includes(e)) return "student";
   if (r && students.includes(r)) return "student";
+
+  // global members list: treat as 'member' (after students/admins checks)
+  if (e && members.includes(e)) return "member";
+  if (r && members.includes(r)) return "member";
 
   return "user";
 }
@@ -109,7 +141,8 @@ exports.signup = async (req, res) => {
 
     const token = signToken(user._id);
     res.cookie("token", token, cookieOptions());
-    return res.status(201).json({ user: user.toSafeJSON() });
+    const roles = await loadRoles();
+    return res.status(201).json({ user: user.toSafeJSON(), roles });
   } catch (err) {
     console.error("signup error", err);
     return res.status(500).json({ error: "Internal server error" });
@@ -156,7 +189,8 @@ exports.login = async (req, res) => {
     } catch (err) {
       console.warn("Failed to reconcile user role from roles config:", err);
     }
-    return res.json({ user: user.toSafeJSON() });
+    const roles = await loadRoles();
+    return res.json({ user: user.toSafeJSON(), roles });
   } catch (err) {
     console.error("login error", err);
     return res.status(500).json({ error: "Internal server error" });
@@ -173,7 +207,21 @@ exports.getMe = async (req, res) => {
     if (!req.user) return res.status(401).json({ error: "Unauthorized" });
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ error: "User not found" });
-    return res.json({ user: user.toSafeJSON() });
+    // Reconcile role in case roles config changed
+    try {
+      const desired = await determineRole({
+        email: user.email,
+        regno: user.regno,
+      });
+      if (user.role !== desired) {
+        user.role = desired;
+        await user.save();
+      }
+    } catch (err) {
+      console.warn("Failed to reconcile user role in getMe:", err);
+    }
+    const roles = await loadRoles();
+    return res.json({ user: user.toSafeJSON(), roles });
   } catch (err) {
     console.error("getMe error", err);
     return res.status(500).json({ error: "Internal server error" });
@@ -199,7 +247,8 @@ exports.checkLogin = async (req, res) => {
       console.warn("Failed to reconcile user role in checkLogin:", err);
     }
 
-    return res.json({ authenticated: true, user: user.toSafeJSON() });
+    const roles = await loadRoles();
+    return res.json({ authenticated: true, user: user.toSafeJSON(), roles });
   } catch (err) {
     console.error("checkLogin error", err);
     return res.status(401).json({ authenticated: false });

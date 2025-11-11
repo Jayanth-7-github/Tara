@@ -17,6 +17,7 @@ import MarkAbsent from "./secret/pages/MarkAbsent";
 import AdminSecret from "./secret/pages/AdminSecret";
 import AddRoles from "./secret/pages/AddRoles";
 import { ADMIN_TOKEN } from "./services/constants";
+import Hamburger from "./components/hamburger";
 
 function App() {
   return (
@@ -29,8 +30,8 @@ function App() {
               Tara
             </h2>
 
-            {/* Placeholder for future navigation (intentionally blank) */}
-            <div className="w-8 h-8" />
+            {/* Role-based hamburger menu (hidden for user/student) */}
+            <Hamburger />
           </div>
         </header>
 

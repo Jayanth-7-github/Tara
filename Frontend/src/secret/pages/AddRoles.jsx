@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { API_BASE, fetchEvents } from "../../services/api";
+import { API_BASE, fetchEvents, upsertRoles } from "../../services/api";
 import { getMe } from "../../services/auth";
 
 export default function AddRoles() {
@@ -9,6 +9,7 @@ export default function AddRoles() {
   const [eventId, setEventId] = useState("");
   const [admins, setAdmins] = useState("");
   const [students, setStudents] = useState("");
+  const [members, setMembers] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
   const navigate = useNavigate();
@@ -60,8 +61,8 @@ export default function AddRoles() {
   async function handleSubmit(e) {
     e.preventDefault();
     setMessage(null);
-    // Require either an event selected (for student updates) or admins provided
-    if (!eventId && !admins.trim()) {
+    // Require either an event selected (for student updates) or admins/members provided
+    if (!eventId && !admins.trim() && !members.trim()) {
       setMessage({
         type: "error",
         text: "Please select an event or provide global admins",
@@ -75,42 +76,27 @@ export default function AddRoles() {
       // Track whether we sent anything
       let didUpdate = false;
 
-      // If admins provided, update global admins in a separate request
+      // If admins provided, update global admins
       if (admins && String(admins).trim()) {
-        const respA = await fetch(
-          `${API_BASE.replace(/\/$/, "")}/roles/secret8181`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({ admins }),
-          }
-        );
-        const bodyA = await respA.json().catch(() => ({}));
-        if (!respA.ok)
-          throw new Error(bodyA.error || "Failed to update admins");
+        await upsertRoles({ admins });
+        didUpdate = true;
+      }
+
+      // If members provided, update global members
+      if (members && String(members).trim()) {
+        await upsertRoles({ members });
         didUpdate = true;
       }
 
       // If students provided, update per-event students (keyed by event title)
       if (students && String(students).trim()) {
         if (!eventId) throw new Error("Please select an event to add students");
+        // Prefer eventId when updating per-event lists so keys are stable
         const payload = {
-          eventTitle: selected.title || selected.eventName || "",
+          eventId: selected._id || selected.id || eventId,
           students,
         };
-        const respS = await fetch(
-          `${API_BASE.replace(/\/$/, "")}/roles/secret8181`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify(payload),
-          }
-        );
-        const bodyS = await respS.json().catch(() => ({}));
-        if (!respS.ok)
-          throw new Error(bodyS.error || "Failed to update students");
+        await upsertRoles(payload);
         didUpdate = true;
       }
 
@@ -120,6 +106,7 @@ export default function AddRoles() {
       // optionally clear inputs
       setAdmins("");
       setStudents("");
+      setMembers("");
     } catch (err) {
       setMessage({
         type: "error",
@@ -172,6 +159,18 @@ export default function AddRoles() {
 
           <div>
             <label className="text-sm text-gray-300 block mb-1">
+              Members (regnos)
+            </label>
+            <textarea
+              value={members}
+              onChange={(e) => setMembers(e.target.value)}
+              placeholder="e.g. 9924000555, 9924000666"
+              className="w-full bg-gray-900 text-white border border-gray-700 rounded px-3 py-2 h-20"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm text-gray-300 block mb-1">
               Students (regnos)
             </label>
             <textarea
@@ -200,6 +199,7 @@ export default function AddRoles() {
               onClick={() => {
                 setAdmins("");
                 setStudents("");
+                setMembers("");
               }}
               className="px-4 py-2 rounded bg-gray-700 text-white"
             >

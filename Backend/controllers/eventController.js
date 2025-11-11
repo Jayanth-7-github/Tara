@@ -1,5 +1,7 @@
 const Event = require("../models/Event");
 const Student = require("../models/Student");
+const RoleConfig = require("../models/RoleConfig");
+const User = require("../models/User");
 
 /**
  * Create a new event.
@@ -12,18 +14,16 @@ async function createEvent(req, res) {
       description,
       venue,
       date,
-      managerEmail,
       imageUrl,
       imageBase64,
       imageType,
     } = req.body;
+    let managerEmail = req.body.managerEmail;
 
     if (!title || !date || !managerEmail) {
-      return res
-        .status(400)
-        .json({
-          error: "Missing required fields: title, date and managerEmail",
-        });
+      return res.status(400).json({
+        error: "Missing required fields: title, date and managerEmail",
+      });
     }
 
     const parsedDate = new Date(date);
@@ -35,6 +35,55 @@ async function createEvent(req, res) {
     const emailRegex = /^\S+@\S+\.\S+$/;
     if (!emailRegex.test(String(managerEmail))) {
       return res.status(400).json({ error: "Invalid managerEmail format" });
+    }
+
+    // Permission: only admins or the user who is creating the event as their own manager can create.
+    let actor = null;
+    if (req.user && req.user.id)
+      actor = await User.findById(req.user.id).lean();
+    const isAdmin = actor && actor.role === "admin";
+    // Determine if actor is in the global 'members' list (RoleConfig) so we can
+    // treat them as an event manager on create even if their stored User.role
+    // hasn't been reconciled yet.
+    let isMember = false;
+    try {
+      const rcCheck = await RoleConfig.findOne().lean();
+      const membersList =
+        rcCheck && Array.isArray(rcCheck.members) ? rcCheck.members : [];
+      const actorRegno =
+        actor && actor.regno ? String(actor.regno).toUpperCase() : null;
+      const actorEmail =
+        actor && actor.email ? String(actor.email).toLowerCase() : null;
+      if (
+        actorRegno &&
+        membersList.map((m) => String(m).toUpperCase()).includes(actorRegno)
+      )
+        isMember = true;
+      if (
+        !isMember &&
+        actorEmail &&
+        membersList.map((m) => String(m).toLowerCase()).includes(actorEmail)
+      )
+        isMember = true;
+    } catch (e) {
+      // ignore
+    }
+
+    // If not admin, enforce managerEmail equals logged-in user's email; if not provided, set it to user's email
+    if (!isAdmin) {
+      const userEmail =
+        actor && actor.email ? String(actor.email).toLowerCase().trim() : null;
+      if (!userEmail) return res.status(403).json({ error: "Forbidden" });
+      if (
+        managerEmail &&
+        String(managerEmail).toLowerCase().trim() !== userEmail
+      ) {
+        return res.status(403).json({
+          error: "Non-admin users can only create events for themselves",
+        });
+      }
+      // ensure managerEmail set to user's email
+      managerEmail = userEmail;
     }
 
     const ev = new Event({
@@ -60,6 +109,56 @@ async function createEvent(req, res) {
     }
 
     await ev.save();
+
+    // If the creator is a 'member' (according to RoleConfig) or an admin,
+    // add them as an event manager for this specific event. This ensures
+    // admins who create events are recorded as per-event managers as well.
+    try {
+      if (actor && (isMember || isAdmin)) {
+        const rc = await RoleConfig.findOne();
+        const managerEmailNormalized = String(actor.email || "")
+          .toLowerCase()
+          .trim();
+        // Use the event title as the per-event key to match how studentsByEvent is stored
+        // Fall back to _id if title is missing
+        const evKey =
+          (ev.title && String(ev.title).trim()) || ev._id.toString();
+        if (!rc) {
+          const newRc = new RoleConfig();
+          if (!newRc.eventManagersByEvent) newRc.eventManagersByEvent = {};
+          if (typeof newRc.eventManagersByEvent.set === "function") {
+            newRc.eventManagersByEvent.set(evKey, [managerEmailNormalized]);
+          } else {
+            newRc.eventManagersByEvent = newRc.eventManagersByEvent || {};
+            newRc.eventManagersByEvent[evKey] = [managerEmailNormalized];
+          }
+          await newRc.save();
+        } else {
+          // merge into existing list
+          if (!rc.eventManagersByEvent) rc.eventManagersByEvent = {};
+          if (typeof rc.eventManagersByEvent.get === "function") {
+            const existing = rc.eventManagersByEvent.get(evKey) || [];
+            const merged = Array.from(
+              new Set((existing || []).concat([managerEmailNormalized]))
+            );
+            rc.eventManagersByEvent.set(evKey, merged);
+          } else {
+            const existing = Array.isArray(rc.eventManagersByEvent[evKey])
+              ? rc.eventManagersByEvent[evKey]
+              : [];
+            const merged = Array.from(
+              new Set(existing.concat([managerEmailNormalized]))
+            );
+            rc.eventManagersByEvent = rc.eventManagersByEvent || {};
+            rc.eventManagersByEvent[evKey] = merged;
+          }
+          await rc.save();
+        }
+      }
+    } catch (rcErr) {
+      // Log but don't fail event creation if role config update fails
+      console.error("Failed to persist event manager in RoleConfig:", rcErr);
+    }
 
     return res.status(201).json({ event: ev });
   } catch (err) {
@@ -245,6 +344,37 @@ async function updateEvent(req, res) {
     const ev = await Event.findById(id);
     if (!ev) return res.status(404).json({ error: "Event not found" });
 
+    // Permission: only admins or the event manager (or configured per-event managers) can update
+    let actor = null;
+    if (req.user && req.user.id)
+      actor = await User.findById(req.user.id).lean();
+    const isAdmin = actor && actor.role === "admin";
+    if (!isAdmin) {
+      const userEmail =
+        actor && actor.email ? String(actor.email).toLowerCase().trim() : null;
+      // check direct manager match
+      if (
+        userEmail &&
+        ev.managerEmail &&
+        String(ev.managerEmail).toLowerCase().trim() === userEmail
+      ) {
+        // allowed
+      } else {
+        // check RoleConfig per-event managers for this event title
+        const rc = await RoleConfig.findOne().lean();
+        const key = ev.title || ev._id.toString();
+        let managers = [];
+        if (rc && rc.eventManagersByEvent) {
+          if (rc.eventManagersByEvent instanceof Map)
+            managers = rc.eventManagersByEvent.get(key) || [];
+          else managers = rc.eventManagersByEvent[key] || [];
+        }
+        const normalized = (managers || []).map((m) => String(m).toLowerCase());
+        if (!userEmail || !normalized.includes(userEmail))
+          return res.status(403).json({ error: "Forbidden" });
+      }
+    }
+
     if (title !== undefined) ev.title = title;
     if (description !== undefined) ev.description = description;
     if (venue !== undefined) ev.venue = venue;
@@ -297,6 +427,35 @@ async function deleteEvent(req, res) {
     const id = req.params.id;
     const ev = await Event.findById(id);
     if (!ev) return res.status(404).json({ error: "Event not found" });
+
+    // Permission: only admins or the event manager (or configured per-event managers) can delete
+    let actor = null;
+    if (req.user && req.user.id)
+      actor = await User.findById(req.user.id).lean();
+    const isAdmin = actor && actor.role === "admin";
+    if (!isAdmin) {
+      const userEmail =
+        actor && actor.email ? String(actor.email).toLowerCase().trim() : null;
+      if (
+        userEmail &&
+        ev.managerEmail &&
+        String(ev.managerEmail).toLowerCase().trim() === userEmail
+      ) {
+        // allowed
+      } else {
+        const rc = await RoleConfig.findOne().lean();
+        const key = ev.title || ev._id.toString();
+        let managers = [];
+        if (rc && rc.eventManagersByEvent) {
+          if (rc.eventManagersByEvent instanceof Map)
+            managers = rc.eventManagersByEvent.get(key) || [];
+          else managers = rc.eventManagersByEvent[key] || [];
+        }
+        const normalized = (managers || []).map((m) => String(m).toLowerCase());
+        if (!userEmail || !normalized.includes(userEmail))
+          return res.status(403).json({ error: "Forbidden" });
+      }
+    }
 
     // remove registrations referencing this event from students
     try {

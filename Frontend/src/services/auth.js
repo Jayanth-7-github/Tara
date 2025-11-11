@@ -1,5 +1,6 @@
-const API_BASE = import.meta.env.VITE_API_BASE  || "https://tara-kbxn.onrender.com/api";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:2000/api";
 
+import { getRoles } from "./api"; // kept for backward-compatible fallback
 
 export async function login(email, password) {
   const resp = await fetch(`${API_BASE}/auth/login`, {
@@ -40,6 +41,25 @@ export async function getMe() {
   });
   const body = await resp.json().catch(() => ({}));
   if (!resp.ok) throw new Error(body.error || "Failed to load profile");
+  // Prefer roles returned from the backend; fall back to fetching roles if backend didn't return them
+  try {
+    if (!body.roles) {
+      const user = body.user || body;
+      if (user && user.regno) {
+        const rc = await getRoles().catch(() => ({}));
+        const members = Array.isArray(rc.members) ? rc.members : [];
+        const regnoUpper = String(user.regno).toUpperCase();
+        if (members.map((m) => String(m).toUpperCase()).includes(regnoUpper)) {
+          if (!user.role || user.role !== "admin") {
+            if (body.user) body.user.role = "member";
+            else body.role = "member";
+          }
+        }
+      }
+    }
+  } catch (err) {
+    // ignore
+  }
   return body;
 }
 
@@ -49,5 +69,24 @@ export async function checkLogin() {
   });
   const body = await resp.json().catch(() => ({}));
   if (!resp.ok) return { authenticated: false };
+  // Prefer roles returned from the backend; fall back to fetching roles if backend didn't return them
+  try {
+    if (body && body.authenticated && !body.roles) {
+      const user = body.user || body;
+      if (user && user.regno) {
+        const rc = await getRoles().catch(() => ({}));
+        const members = Array.isArray(rc.members) ? rc.members : [];
+        const regnoUpper = String(user.regno).toUpperCase();
+        if (members.map((m) => String(m).toUpperCase()).includes(regnoUpper)) {
+          if (!user.role || user.role !== "admin") {
+            if (body.user) body.user.role = "member";
+            else body.role = "member";
+          }
+        }
+      }
+    }
+  } catch (err) {
+    // ignore
+  }
   return body;
 }

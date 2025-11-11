@@ -5,6 +5,8 @@ import {
   fetchStudent,
   checkTestTaken,
   getRoles,
+  fetchEvents,
+  deleteEvent,
 } from "../services/api";
 import { getMe } from "../services/auth";
 import RegisterForm from "./RegisterForm";
@@ -19,6 +21,7 @@ export default function EventsList({
   const apiBase = API_BASE.replace(/\/$/, "");
   const [showFormFor, setShowFormFor] = useState(null);
   const [showContactFor, setShowContactFor] = useState(null);
+  const [showEditFor, setShowEditFor] = useState(null);
   const [registered, setRegistered] = useState({});
   const [testTaken, setTestTaken] = useState({});
   const [userRole, setUserRole] = useState("");
@@ -26,9 +29,10 @@ export default function EventsList({
   const [userName, setUserName] = useState("");
   const [userEmail, setUserEmail] = useState("");
   const [rolesMap, setRolesMap] = useState(null);
+  const [localEvents, setLocalEvents] = useState(events || []);
   const navigate = useNavigate();
   const contactEmail =
-    import.meta.env.VITE_CONTACT_EMAIL || "admin@college.edu";
+    import.meta.env.VITE_CONTACT_EMAIL || "99240041378@klu.ac.in";
 
   // Load current user's registration state (if logged in) so registration persists across reload/login
   useEffect(() => {
@@ -45,6 +49,10 @@ export default function EventsList({
         if (mounted && regno) setUserRegno(String(regno).trim().toUpperCase());
         if (mounted && name) setUserName(name);
         if (mounted && email) setUserEmail(email);
+        // If backend returned roles with the auth payload, use it as authoritative
+        if (me && me.roles) {
+          if (mounted) setRolesMap(me.roles);
+        }
         if (!regno) return;
         const student = await fetchStudent(regno);
         const regs = student.registrations || [];
@@ -67,6 +75,8 @@ export default function EventsList({
     let mounted = true;
     (async () => {
       try {
+        // Only fetch roles if we don't already have them from getMe
+        if (rolesMap) return;
         const body = await getRoles().catch(() => ({}));
         if (!mounted) return;
         setRolesMap(body || {});
@@ -76,6 +86,11 @@ export default function EventsList({
     })();
     return () => (mounted = false);
   }, [apiBase]);
+
+  // keep a local copy of events so we can update UI after edits/deletes
+  useEffect(() => {
+    setLocalEvents(Array.isArray(events) ? events : []);
+  }, [events]);
 
   // When registrations change (or events load), check whether the logged-in user
   // has already taken the test for each registered event. We only query for
@@ -132,7 +147,7 @@ export default function EventsList({
   return (
     // Use a wrapping flex layout so cards keep a compact width and align left when only one item
     <div className="flex flex-wrap gap-5 items-start">
-      {events.map((ev) => {
+      {localEvents.map((ev) => {
         const id = ev._id || ev.id;
         const imageSrc = ev.imageUrl || `${apiBase}/events/${id}/image`;
 
@@ -167,10 +182,48 @@ export default function EventsList({
         const inGlobal =
           Array.isArray(globalStudents) &&
           globalStudents.map((s) => String(s).toUpperCase()).includes(regUpper);
-        const allowedToRegister =
+        let allowedToRegister =
           userRole === "admin" ||
           isAdminByRoles ||
           (regUpper && (inPerEvent || inGlobal));
+
+        // Compute whether current user can manage (edit/delete) this event
+        const userEmailLower = (userEmail || "").toLowerCase().trim();
+        let isEventManager = false;
+        // First, direct managerEmail match by email
+        if (
+          userEmailLower &&
+          ev.managerEmail &&
+          String(ev.managerEmail).toLowerCase().trim() === userEmailLower
+        ) {
+          isEventManager = true;
+        }
+        // Next, check per-event managers stored in rolesMap keyed by event title (fall back to id)
+        if (!isEventManager && rolesMap && rolesMap.eventManagersByEvent) {
+          const em = rolesMap.eventManagersByEvent;
+          const eventKey = eventNameKey; // prefer title-like key
+          let list = [];
+          if (em) {
+            if (typeof em.get === "function") {
+              list = em.get(eventKey) || [];
+            } else if (em[eventKey]) {
+              list = em[eventKey] || [];
+            }
+          }
+          if (Array.isArray(list) && list.length) {
+            const lowered = list.map((s) => String(s || "").toLowerCase());
+            const uppered = list.map((s) => String(s || "").toUpperCase());
+            if (userEmailLower && lowered.includes(userEmailLower))
+              isEventManager = true;
+            if (!isEventManager && userRegno && uppered.includes(userRegno))
+              isEventManager = true;
+          }
+        }
+        // If the user is an event manager, grant them full rights for this event
+        if (isEventManager) allowedToRegister = true;
+
+        const canManage =
+          userRole === "admin" || isAdminByRoles || isEventManager;
 
         return (
           <article
@@ -197,10 +250,57 @@ export default function EventsList({
                     {ev.venue || ev.location}
                   </p>
                 </div>
-                <span className="text-xs text-gray-300">Event</span>
+                {/* show per-event status: Event manager / Admin / Event */}
+                <span className="text-xs text-gray-300">
+                  {isEventManager ? (
+                    <>
+                      {/* full label on small+ screens, short on xs */}
+                      <span className="hidden sm:inline px-2 py-0.5 bg-yellow-700 rounded text-yellow-100">
+                        Manager
+                      </span>
+                      <span className="inline sm:hidden px-2 py-0.5 bg-yellow-700 rounded text-yellow-100">
+                        Mgr
+                      </span>
+                    </>
+                  ) : userRole === "admin" || isAdminByRoles ? (
+                    <>
+                      <span className="hidden sm:inline px-2 py-0.5 bg-green-700 rounded text-green-100">
+                        Admin
+                      </span>
+                      <span className="inline sm:hidden px-2 py-0.5 bg-green-700 rounded text-green-100">
+                        Adm
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="hidden sm:inline">Event</span>
+                      <span className="inline sm:hidden">Ev</span>
+                    </>
+                  )}
+                </span>
               </div>
 
               <p className="mt-2 text-xs text-gray-300">{ev.description}</p>
+              {/* show per-event managers if present */}
+              {rolesMap &&
+                rolesMap.eventManagersByEvent &&
+                (() => {
+                  const em = rolesMap.eventManagersByEvent;
+                  const key = eventNameKey;
+                  let list = [];
+                  if (em) {
+                    if (typeof em.get === "function") list = em.get(key) || [];
+                    else list = em[key] || [];
+                  }
+                  if (Array.isArray(list) && list.length) {
+                    return (
+                      <p className="mt-2 text-xs text-gray-400">
+                        Event managers: {list.join(", ")}
+                      </p>
+                    );
+                  }
+                  return null;
+                })()}
 
               <div className="mt-4 flex items-center gap-3">
                 {registered[id] ? (
@@ -243,6 +343,45 @@ export default function EventsList({
                       >
                         Take Test
                       </button>
+                    )}
+                    {/* Edit/Delete for admins and event-managers */}
+                    {canManage && (
+                      <>
+                        <button
+                          onClick={() => setShowEditFor(id)}
+                          className="px-3 py-1 text-xs rounded bg-yellow-600 hover:bg-yellow-700 transition text-white"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (
+                              !confirm(
+                                `Delete event "${ev.title}"? This cannot be undone.`
+                              )
+                            )
+                              return;
+                            try {
+                              await deleteEvent(id);
+                              // refresh local list
+                              try {
+                                const fresh = await fetchEvents();
+                                setLocalEvents(fresh.events || fresh || []);
+                              } catch (e) {
+                                setLocalEvents((prev) =>
+                                  prev.filter((x) => (x._id || x.id) !== id)
+                                );
+                              }
+                            } catch (err) {
+                              console.error("Failed to delete event:", err);
+                              alert(err.message || "Delete failed");
+                            }
+                          }}
+                          className="px-3 py-1 text-xs rounded bg-red-600 hover:bg-red-700 transition text-white"
+                        >
+                          Delete
+                        </button>
+                      </>
                     )}
                   </>
                 ) : (
@@ -325,6 +464,47 @@ export default function EventsList({
               fallbackEmail={contactEmail}
               initial={{ name: userName, regno: userRegno, email: userEmail }}
               onClose={() => setShowContactFor(null)}
+            />
+          </div>
+        </div>
+      )}
+      {/* Edit modal */}
+      {showEditFor && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+          onClick={() => setShowEditFor(null)}
+        >
+          <div
+            className="bg-gray-800 border border-gray-700 rounded-2xl p-6 shadow-2xl max-w-3xl w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-semibold text-blue-400">
+                Edit Event
+              </h3>
+              <button
+                onClick={() => setShowEditFor(null)}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+            <EventForm
+              mode="edit"
+              eventId={showEditFor}
+              initialData={localEvents.find(
+                (e) => (e._id || e.id) === showEditFor
+              )}
+              onSuccess={async () => {
+                // refresh list and close modal
+                try {
+                  const fresh = await fetchEvents();
+                  setLocalEvents(fresh.events || fresh || []);
+                } catch (err) {
+                  // fallback: close modal and rely on parent to refresh
+                }
+                setShowEditFor(null);
+              }}
             />
           </div>
         </div>
