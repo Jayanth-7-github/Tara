@@ -15,21 +15,33 @@ export default function Hamburger() {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef(null);
 
+  // helper to load current role; exported as standalone function not necessary
   useEffect(() => {
     let mounted = true;
     async function load() {
       try {
         const body = await getMe();
-        // body shape may be { user: { role } } or { role }
         const r = (body && (body.user?.role || body.role)) || null;
         if (mounted) setRole(r);
       } catch (err) {
-        // if not logged in or error, keep role null
         if (mounted) setRole(null);
       }
     }
+
+    // initial load
     load();
-    return () => (mounted = false);
+
+    // when other parts of app change auth state, they should dispatch 'auth-changed'
+    // so we re-fetch role immediately rather than waiting for full reload.
+    function onAuthChange() {
+      load();
+    }
+    window.addEventListener("auth-changed", onAuthChange);
+
+    return () => {
+      mounted = false;
+      window.removeEventListener("auth-changed", onAuthChange);
+    };
   }, []);
 
   // click outside to close

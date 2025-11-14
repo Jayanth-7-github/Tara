@@ -20,7 +20,13 @@ const UserSchema = new mongoose.Schema(
       uppercase: true,
     },
     name: { type: String },
-    role: { type: String, enum: ["admin", "student", "user"], default: "user" },
+    // include 'member' as a valid role so users listed in RoleConfig.members
+    // can be stored as 'member' on the User document.
+    role: {
+      type: String,
+      enum: ["admin", "student", "member", "user"],
+      default: "user",
+    },
   },
   { timestamps: true }
 );

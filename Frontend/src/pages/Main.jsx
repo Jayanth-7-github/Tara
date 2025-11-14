@@ -17,11 +17,17 @@ export default function Main() {
     try {
       await logout();
       localStorage.removeItem("token");
+      try {
+        window.dispatchEvent(new Event("auth-changed"));
+      } catch (e) {}
       navigate("/login");
     } catch (error) {
       console.error("Logout failed:", error);
       // Still navigate to login even if logout API fails
       localStorage.removeItem("token");
+      try {
+        window.dispatchEvent(new Event("auth-changed"));
+      } catch (e) {}
       navigate("/login");
     }
   };

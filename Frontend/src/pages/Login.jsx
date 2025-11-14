@@ -70,6 +70,10 @@ export default function Login() {
       try {
         const me = await getMe();
         setProfile(me.user || null);
+        // notify other components that auth state changed (hamburger, nav, etc.)
+        try {
+          window.dispatchEvent(new Event("auth-changed"));
+        } catch (e) {}
       } catch {}
       // Navigate to Main after short delay
       setTimeout(() => navigate("/main"), 800);
