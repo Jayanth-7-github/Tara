@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:2000/api";
+const API_BASE = import.meta.env.VITE_API_BASE || "https://tara-kbxn.onrender.com/api";
 
 import { getRoles } from "./api"; // kept for backward-compatible fallback
 
