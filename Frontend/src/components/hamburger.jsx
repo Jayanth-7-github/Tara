@@ -71,18 +71,10 @@ export default function Hamburger() {
 
   // Define menus per role
   const adminMenu = [
-    { label: "Home", to: "/" },
-    { label: "About", to: "/about" },
-    { label: "Main", to: "/main" },
-    { label: "Events", to: "/events" },
-    { label: "Create Event", to: "/events/create" },
+    { label: "Dashboard", to: "/events/dashboard" },
+    { label: "Events", to: "/main" },
     { label: "Assignments", to: "/assignments" },
     { label: "Test", to: "/test" },
-    { label: "Login", to: "/login" },
-    { label: "Signup", to: "/signup" },
-    { label: "Member Secret", to: `/member/secret/${ADMIN_TOKEN}` },
-    { label: "Attendance", to: `/member/Attendance/${ADMIN_TOKEN}` },
-    { label: "Summary", to: `/member/summary/${ADMIN_TOKEN}` },
     {
       label: "Manage Attendance",
       to: `/admin/manage-attendance/${ADMIN_TOKEN}`,
@@ -97,13 +89,8 @@ export default function Hamburger() {
   ];
 
   const limitedMenu = [
-    { label: "Home", to: "/" },
-    { label: "About", to: "/about" },
-    { label: "Main", to: "/main" },
-    { label: "Events", to: "/events" },
-    { label: "Create Event", to: "/events/create" },
-    { label: "Attendance", to: `/member/Attendance/${ADMIN_TOKEN}` },
-    { label: "Summary", to: `/member/summary/${ADMIN_TOKEN}` },
+    { label: "Dashboard", to: "/events/dashboard" },
+    { label: "Events", to: "/main" },
   ];
 
   const menuToRender =

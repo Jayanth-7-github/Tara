@@ -290,3 +290,63 @@ export async function sendContact(payload) {
   }
   return body;
 }
+
+// Get contacts for events managed by logged-in user
+export async function getMyContacts() {
+  const resp = await fetch(
+    `${API_BASE.replace(/\/$/, "")}/contact/my-contacts`,
+    {
+      credentials: "include",
+    }
+  );
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => ({}));
+    const err = new Error(body.error || "Failed to fetch contacts");
+    err.status = resp.status;
+    throw err;
+  }
+  return resp.json();
+}
+
+// Update contact status (mark as read/handled)
+export async function updateContactStatus(contactId, status) {
+  const resp = await fetch(
+    `${API_BASE.replace(/\/$/, "")}/contact/${encodeURIComponent(
+      contactId
+    )}/status`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ status }),
+    }
+  );
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(body.error || "Failed to update contact status");
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}
+
+// Add contact as student for the event
+export async function addContactAsStudent(contactId) {
+  const resp = await fetch(
+    `${API_BASE.replace(/\/$/, "")}/contact/${encodeURIComponent(
+      contactId
+    )}/add-student`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+    }
+  );
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(body.error || "Failed to add student");
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}

@@ -1,43 +1,14 @@
 const path = require("path");
-const nodemailer = require("nodemailer");
 const Event = require(path.join(__dirname, "..", "models", "Event"));
-
-function escapeHtml(str) {
-  if (!str && str !== 0) return "";
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
-
-// Create transport using env configuration. Expect these env vars:
-// SMTP_HOST, SMTP_PORT, SMTP_SECURE (true/false), SMTP_USER, SMTP_PASS, MAIL_FROM
-function createTransport() {
-  const host = process.env.SMTP_HOST;
-  const port = process.env.SMTP_PORT
-    ? Number(process.env.SMTP_PORT)
-    : undefined;
-  const secure = (process.env.SMTP_SECURE || "false").toLowerCase() === "true";
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  if (!host || !port || !user || !pass) {
-    // missing SMTP config - return null to indicate transport unavailable
-    return null;
-  }
-
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure,
-    auth: { user, pass },
-  });
-}
+const Contact = require(path.join(__dirname, "..", "models", "Contact"));
+const User = require(path.join(__dirname, "..", "models", "User"));
+const RoleConfig = require(path.join(__dirname, "..", "models", "RoleConfig"));
+const Student = require(path.join(__dirname, "..", "models", "Student"));
 
 // POST /api/contact
 // body: { name, regno, email, branch, college, message, eventId }
-async function sendContactEmail(req, res) {
+// Saves contact message to database instead of sending email
+async function sendContactMessage(req, res) {
   try {
     const { name, regno, email, branch, college, message, eventId } =
       req.body || {};
@@ -45,11 +16,12 @@ async function sendContactEmail(req, res) {
     // If user is authenticated, prefer their profile values when fields missing
     let actorEmail = email;
     let actorName = name;
+    let userId = null;
     if (req.user && req.user.id) {
       try {
-        const User = require(path.join(__dirname, "..", "models", "User"));
         const user = await User.findById(req.user.id).lean();
         if (user) {
+          userId = user._id;
           actorEmail = actorEmail || user.email;
           actorName = actorName || user.name || user.regno || actorEmail;
         }
@@ -62,166 +34,338 @@ async function sendContactEmail(req, res) {
     if (!actorName || !actorEmail)
       return res.status(400).json({ error: "Missing name or email" });
 
-    // Determine recipient: prefer event.managerEmail
-    let recipient = process.env.CONTACT_EMAIL || process.env.MAIL_TO || null;
+    if (!eventId) return res.status(400).json({ error: "Missing eventId" });
+
+    // Determine recipient email and event title
+    let recipient = null;
     let eventTitle = "event";
-    if (eventId) {
-      try {
-        const ev = await Event.findById(eventId).lean();
-        if (ev) {
-          eventTitle = ev.title || eventTitle;
-          if (ev.managerEmail) recipient = ev.managerEmail;
-        }
-      } catch (e) {
-        // ignore event lookup errors
-      }
+    let event = null;
+
+    try {
+      event = await Event.findById(eventId).lean();
+      if (!event) return res.status(404).json({ error: "Event not found" });
+
+      eventTitle = event.title || eventTitle;
+      if (event.managerEmail) recipient = event.managerEmail;
+    } catch (e) {
+      return res.status(500).json({ error: "Failed to fetch event" });
     }
 
-    if (!recipient)
-      return res.status(500).json({ error: "No recipient configured" });
-
-    // prepare transport
-    const transport = createTransport();
-    if (!transport) {
-      // SMTP not configured - fallback for development: save message to a local log file
-      try {
-        const fs = require("fs");
-        const logDir = path.join(__dirname, "..", "logs");
-        await fs.promises.mkdir(logDir, { recursive: true });
-        const logFile = path.join(logDir, "contact-messages.jsonl");
-        const fallbackEntry = {
-          timestamp: new Date().toISOString(),
-          eventId: eventId || null,
-          eventTitle,
-          recipient,
-          actorName,
-          actorEmail,
-          regno: regno || null,
-          branch: branch || null,
-          college: college || null,
-          message: message || null,
-        };
-        await fs.promises.appendFile(
-          logFile,
-          JSON.stringify(fallbackEntry) + "\n"
-        );
-        console.warn("SMTP not configured - saved contact message to", logFile);
-        return res.json({ success: true, fallback: true, savedTo: logFile });
-      } catch (e) {
-        console.error("Failed to write fallback contact log", e);
-        return res.status(500).json({ error: "SMTP not configured on server" });
-      }
-    }
-
-    // Compose message
-    const fromAddress =
-      process.env.MAIL_FROM || process.env.SMTP_USER || "no-reply@example.com";
-    const subject = `Registration request for ${eventTitle}`;
-    const bodyLines = [];
-    bodyLines.push(`Name: ${actorName}`);
-    if (regno) bodyLines.push(`Regno: ${regno}`);
-    if (branch) bodyLines.push(`Branch: ${branch}`);
-    if (college) bodyLines.push(`College: ${college}`);
-    bodyLines.push(`Email: ${actorEmail}`);
-    bodyLines.push("\nMessage:\n");
-    bodyLines.push(message || "(no message provided)");
-
-    const text = bodyLines.join("\n");
-
-    // Build a professional HTML email with a card layout and emoji accents.
-    const html = `
-      <html>
-      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; background:#f4f6f8; margin:0; padding:20px;">
-        <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
-          <tr>
-            <td align="center">
-              <table style="max-width:600px; width:100%; background:#ffffff; border-radius:12px; overflow:hidden; box-shadow:0 6px 18px rgba(0,0,0,0.08);" cellpadding="0" cellspacing="0" role="presentation">
-                <tr>
-                  <td style="padding:20px 24px; background:linear-gradient(90deg,#0ea5e9,#6366f1); color:#fff;">
-                    <h2 style="margin:0; font-size:20px;">📨 New registration request</h2>
-                    <div style="opacity:0.95; font-size:13px; margin-top:6px;">A user has sent a registration request via the Tara app</div>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding:20px 24px; color:#111827;">
-                    <h3 style="margin:0 0 8px 0; font-size:16px;">Event: ${escapeHtml(
-                      eventTitle
-                    )}</h3>
-                    <p style="margin:0 0 12px 0; color:#6b7280; font-size:13px;">Recipient: ${escapeHtml(
-                      recipient
-                    )}</p>
-
-                    <table style="width:100%; border-collapse:collapse; margin-top:8px;">
-                      <tr>
-                        <td style="vertical-align:top; width:36px;">👤</td>
-                        <td>
-                          <strong>${escapeHtml(actorName)}</strong><br/>
-                          <span style="color:#6b7280; font-size:13px;">${escapeHtml(
-                            actorEmail
-                          )}</span>
-                        </td>
-                      </tr>
-                      ${
-                        regno
-                          ? `<tr><td style="vertical-align:top; width:36px;">🆔</td><td style="padding-top:8px; color:#374151;">Regno: ${escapeHtml(
-                              regno
-                            )}</td></tr>`
-                          : ""
-                      }
-                      ${
-                        branch
-                          ? `<tr><td style="vertical-align:top; width:36px;">🏫</td><td style="padding-top:8px; color:#374151;">Branch: ${escapeHtml(
-                              branch
-                            )}</td></tr>`
-                          : ""
-                      }
-                      ${
-                        college
-                          ? `<tr><td style="vertical-align:top; width:36px;">🎓</td><td style="padding-top:8px; color:#374151;">College: ${escapeHtml(
-                              college
-                            )}</td></tr>`
-                          : ""
-                      }
-                    </table>
-
-                    <div style="margin-top:16px; padding:12px; background:#f8fafc; border-radius:8px; border:1px solid #eef2ff;">
-                      <strong style="display:block; margin-bottom:6px;">Message</strong>
-                      <div style="white-space:pre-wrap; color:#374151; font-size:14px;">${escapeHtml(
-                        message
-                      )}</div>
-                    </div>
-
-                    <p style="margin:16px 0 0 0; color:#6b7280; font-size:12px;">Reply to this email to contact the user directly. (Reply-To is set to the user's address)</p>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding:12px 24px; background:#f9fafb; color:#6b7280; font-size:12px; text-align:center;">
-                    Sent from <strong>Tara</strong> • <span style="opacity:0.9">Thank you for organizing great events ✨</span>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-        </table>
-      </body>
-      </html>
-    `;
-
-    const mailOptions = {
-      from: `${actorName} <${fromAddress}>`, // sent by server address
-      to: recipient,
-      subject,
-      text,
-      html,
-      replyTo: actorEmail,
+    // Save contact message to database
+    const contactData = {
+      eventId,
+      eventTitle,
+      name: actorName,
+      regno: regno || undefined,
+      email: actorEmail,
+      branch: branch || undefined,
+      college: college || undefined,
+      message: message || undefined,
+      recipientEmail: recipient,
+      userId: userId || undefined,
+      status: "unread",
     };
 
-    await transport.sendMail(mailOptions);
-    return res.json({ success: true });
+    const contact = await Contact.create(contactData);
+    return res.json({ success: true, contactId: contact._id });
   } catch (err) {
-    console.error("sendContactEmail error", err);
-    return res.status(500).json({ error: "Failed to send email" });
+    console.error("sendContactMessage error", err);
+    return res.status(500).json({ error: "Failed to save contact message" });
   }
 }
 
-module.exports = { sendContactEmail };
+// GET /api/contact/my-contacts
+// Returns contacts for events managed by the logged-in user
+async function getMyContacts(req, res) {
+  try {
+    if (!req.user || !req.user.id)
+      return res.status(401).json({ error: "Unauthorized" });
+
+    const user = await User.findById(req.user.id).lean();
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const userEmail = user.email
+      ? String(user.email).toLowerCase().trim()
+      : null;
+    const isAdmin = user.role === "admin";
+
+    // Fetch all events this user manages
+    let managedEventIds = [];
+
+    if (isAdmin) {
+      // Admins see all contacts
+      const allEvents = await Event.find().select("_id").lean();
+      managedEventIds = allEvents.map((e) => e._id);
+    } else {
+      // Find events where user is manager
+      const events = await Event.find().lean();
+
+      // Also check RoleConfig for per-event managers
+      const rc = await RoleConfig.findOne().lean();
+
+      for (const ev of events) {
+        let isManager = false;
+
+        // Check direct managerEmail
+        if (
+          userEmail &&
+          ev.managerEmail &&
+          String(ev.managerEmail).toLowerCase().trim() === userEmail
+        ) {
+          isManager = true;
+        }
+
+        // Check RoleConfig eventManagersByEvent
+        if (!isManager && rc && rc.eventManagersByEvent) {
+          const key = ev.title || ev._id.toString();
+          let managers = [];
+          if (rc.eventManagersByEvent instanceof Map)
+            managers = rc.eventManagersByEvent.get(key) || [];
+          else managers = rc.eventManagersByEvent[key] || [];
+
+          const normalized = (managers || []).map((m) =>
+            String(m).toLowerCase()
+          );
+          if (userEmail && normalized.includes(userEmail)) {
+            isManager = true;
+          }
+        }
+
+        if (isManager) managedEventIds.push(ev._id);
+      }
+    }
+
+    if (managedEventIds.length === 0) {
+      return res.json({ contacts: [] });
+    }
+
+    // Fetch contacts for managed events
+    const contacts = await Contact.find({
+      eventId: { $in: managedEventIds },
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return res.json({ contacts });
+  } catch (err) {
+    console.error("getMyContacts error", err);
+    return res.status(500).json({ error: "Failed to fetch contacts" });
+  }
+}
+
+// PUT /api/contact/:id/status
+// Update contact status (mark as read/handled)
+async function updateContactStatus(req, res) {
+  try {
+    const { id } = req.params;
+    const { status } = req.body || {};
+
+    if (!["unread", "read", "handled"].includes(status)) {
+      return res.status(400).json({ error: "Invalid status" });
+    }
+
+    if (!req.user || !req.user.id)
+      return res.status(401).json({ error: "Unauthorized" });
+
+    const contact = await Contact.findById(id);
+    if (!contact) return res.status(404).json({ error: "Contact not found" });
+
+    // Verify user has permission (admin or event manager)
+    const user = await User.findById(req.user.id).lean();
+    const isAdmin = user && user.role === "admin";
+    const userEmail =
+      user && user.email ? String(user.email).toLowerCase().trim() : null;
+
+    if (!isAdmin) {
+      // Check if user manages this event
+      const event = await Event.findById(contact.eventId).lean();
+      if (!event) return res.status(404).json({ error: "Event not found" });
+
+      let isManager = false;
+      if (
+        userEmail &&
+        event.managerEmail &&
+        String(event.managerEmail).toLowerCase().trim() === userEmail
+      ) {
+        isManager = true;
+      }
+
+      if (!isManager) {
+        const rc = await RoleConfig.findOne().lean();
+        const key = event.title || event._id.toString();
+        let managers = [];
+        if (rc && rc.eventManagersByEvent) {
+          if (rc.eventManagersByEvent instanceof Map)
+            managers = rc.eventManagersByEvent.get(key) || [];
+          else managers = rc.eventManagersByEvent[key] || [];
+        }
+        const normalized = (managers || []).map((m) => String(m).toLowerCase());
+        if (userEmail && normalized.includes(userEmail)) {
+          isManager = true;
+        }
+      }
+
+      if (!isManager) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+    }
+
+    contact.status = status;
+    await contact.save();
+
+    return res.json({ success: true, contact });
+  } catch (err) {
+    console.error("updateContactStatus error", err);
+    return res.status(500).json({ error: "Failed to update contact status" });
+  }
+}
+
+// POST /api/contact/:id/add-student
+// Add contact as a student for the event
+async function addContactAsStudent(req, res) {
+  try {
+    const { id } = req.params;
+
+    if (!req.user || !req.user.id)
+      return res.status(401).json({ error: "Unauthorized" });
+
+    // Find the contact
+    const contact = await Contact.findById(id);
+    if (!contact) return res.status(404).json({ error: "Contact not found" });
+
+    // Verify permission (must be event manager for this event)
+    const event = await Event.findById(contact.eventId);
+    if (!event) return res.status(404).json({ error: "Event not found" });
+
+    const user = await User.findById(req.user.id).lean();
+    const isAdmin = user && user.role === "admin";
+    const userEmail =
+      user && user.email ? String(user.email).toLowerCase().trim() : null;
+
+    // Check if user is the event manager
+    let isManager = false;
+    if (
+      userEmail &&
+      event.managerEmail &&
+      String(event.managerEmail).toLowerCase().trim() === userEmail
+    ) {
+      isManager = true;
+    }
+
+    if (!isManager && !isAdmin) {
+      // Check if user is in eventManagersByEvent for this event
+      const rc = await RoleConfig.findOne().lean();
+      const key = event.title || event._id.toString();
+      let managers = [];
+      if (rc && rc.eventManagersByEvent) {
+        if (rc.eventManagersByEvent instanceof Map)
+          managers = rc.eventManagersByEvent.get(key) || [];
+        else managers = rc.eventManagersByEvent[key] || [];
+      }
+      const normalized = (managers || []).map((m) => String(m).toLowerCase());
+      if (userEmail && normalized.includes(userEmail)) {
+        isManager = true;
+      }
+    }
+
+    if (!isManager && !isAdmin) {
+      return res
+        .status(403)
+        .json({ error: "Not authorized to manage this event" });
+    }
+
+    // Validate contact has required student information
+    if (!contact.regno || !contact.name) {
+      return res
+        .status(400)
+        .json({
+          error: "Contact missing required student information (regno, name)",
+        });
+    }
+
+    // Check if student already exists
+    const existingStudent = await Student.findOne({
+      regno: new RegExp(`^${contact.regno}$`, "i"),
+    });
+
+    if (existingStudent) {
+      // Check if already registered for this event
+      const alreadyRegistered = existingStudent.registrations.some(
+        (reg) => reg.event.toString() === event._id.toString()
+      );
+
+      if (alreadyRegistered) {
+        return res.status(409).json({
+          error: "Student is already registered for this event",
+        });
+      }
+
+      // Add registration to existing student
+      existingStudent.registrations.push({
+        event: event._id,
+        eventName: event.title,
+        registeredAt: new Date(),
+      });
+      await existingStudent.save();
+
+      // Update event registered count
+      event.registeredCount = (event.registeredCount || 0) + 1;
+      await event.save();
+
+      // Update contact status to handled
+      contact.status = "handled";
+      await contact.save();
+
+      return res.json({
+        message: "Student registered for event successfully",
+        student: existingStudent,
+      });
+    }
+
+    // Create new student with event registration
+    const newStudent = await Student.create({
+      regno: contact.regno,
+      name: contact.name,
+      department: contact.branch,
+      college: contact.college,
+      email: contact.email,
+      registrations: [
+        {
+          event: event._id,
+          eventName: event.title,
+          registeredAt: new Date(),
+        },
+      ],
+    });
+
+    // Update event registered count
+    event.registeredCount = (event.registeredCount || 0) + 1;
+    await event.save();
+
+    // Update contact status to handled
+    contact.status = "handled";
+    await contact.save();
+
+    return res.json({
+      message: "Student created and registered for event successfully",
+      student: newStudent,
+    });
+  } catch (err) {
+    console.error("addContactAsStudent error", err);
+    if (err.code === 11000) {
+      return res
+        .status(409)
+        .json({
+          error: "Student with this registration number already exists",
+        });
+    }
+    return res.status(500).json({ error: "Failed to add student" });
+  }
+}
+
+module.exports = {
+  sendContactMessage,
+  getMyContacts,
+  updateContactStatus,
+  addContactAsStudent,
+};

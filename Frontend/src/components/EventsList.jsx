@@ -30,9 +30,22 @@ export default function EventsList({
   const [userEmail, setUserEmail] = useState("");
   const [rolesMap, setRolesMap] = useState(null);
   const [localEvents, setLocalEvents] = useState(events || []);
+  const [expressedInterest, setExpressedInterest] = useState({});
   const navigate = useNavigate();
   const contactEmail =
     import.meta.env.VITE_CONTACT_EMAIL || "99240041378@klu.ac.in";
+
+  // Load expressed interest from localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("expressedInterest");
+      if (stored) {
+        setExpressedInterest(JSON.parse(stored));
+      }
+    } catch (err) {
+      // ignore
+    }
+  }, []);
 
   // Load current user's registration state (if logged in) so registration persists across reload/login
   useEffect(() => {
@@ -306,23 +319,21 @@ export default function EventsList({
                 {registered[id] ? (
                   <>
                     <div className="text-sm text-green-300">Registered ✓</div>
-                    {allowedToRegister ? (
-                      testTaken[id] || hasTestResults ? (
-                        <button
-                          disabled
-                          className="px-4 py-2 text-sm  text-green-300 cursor-not-allowed transition shadow"
-                        >
-                          Test Taken ✓
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => navigate(`/test?eventId=${id}`)}
-                          className="px-3 py-1 text-xs rounded bg-green-600 hover:bg-green-700 transition text-white"
-                        >
-                          Take Test
-                        </button>
-                      )
-                    ) : null}
+                    {testTaken[id] || hasTestResults ? (
+                      <button
+                        disabled
+                        className="px-4 py-2 text-sm  text-green-300 cursor-not-allowed transition shadow"
+                      >
+                        Test Taken ✓
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => navigate(`/test?eventId=${id}`)}
+                        className="px-3 py-1 text-xs rounded bg-green-600 hover:bg-green-700 transition text-white"
+                      >
+                        Take Test
+                      </button>
+                    )}
                   </>
                 ) : showFormFor === id ? (
                   <>
@@ -335,54 +346,6 @@ export default function EventsList({
                         }}
                       />
                     </div>
-                    {allowedToRegister && (
-                      <button
-                        disabled
-                        title="Register to enable taking the test"
-                        className="px-3 py-1 text-xs rounded bg-gray-400 text-white opacity-60 cursor-not-allowed"
-                      >
-                        Take Test
-                      </button>
-                    )}
-                    {/* Edit/Delete for admins and event-managers */}
-                    {canManage && (
-                      <>
-                        <button
-                          onClick={() => setShowEditFor(id)}
-                          className="px-3 py-1 text-xs rounded bg-yellow-600 hover:bg-yellow-700 transition text-white"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={async () => {
-                            if (
-                              !confirm(
-                                `Delete event "${ev.title}"? This cannot be undone.`
-                              )
-                            )
-                              return;
-                            try {
-                              await deleteEvent(id);
-                              // refresh local list
-                              try {
-                                const fresh = await fetchEvents();
-                                setLocalEvents(fresh.events || fresh || []);
-                              } catch (e) {
-                                setLocalEvents((prev) =>
-                                  prev.filter((x) => (x._id || x.id) !== id)
-                                );
-                              }
-                            } catch (err) {
-                              console.error("Failed to delete event:", err);
-                              alert(err.message || "Delete failed");
-                            }
-                          }}
-                          className="px-3 py-1 text-xs rounded bg-red-600 hover:bg-red-700 transition text-white"
-                        >
-                          Delete
-                        </button>
-                      </>
-                    )}
                   </>
                 ) : (
                   <>
@@ -393,14 +356,22 @@ export default function EventsList({
                       >
                         Register
                       </button>
+                    ) : expressedInterest[id] ? (
+                      <button
+                        disabled
+                        className="px-3 py-1 text-xs rounded bg-gray-600 text-gray-300 cursor-not-allowed"
+                        title="Your interest has been sent to the event manager"
+                      >
+                        Waiting for Approval
+                      </button>
                     ) : (
-                      <a
+                      <button
                         onClick={() => setShowContactFor(id)}
                         className="px-3 py-1 text-xs rounded bg-yellow-600 hover:bg-yellow-700 transition text-white cursor-pointer"
-                        title="Contact admin to register"
+                        title="Express your interest to register"
                       >
-                        Contact
-                      </a>
+                        I'm Interested
+                      </button>
                     )}
                     {allowedToRegister && (
                       <button
@@ -464,6 +435,18 @@ export default function EventsList({
               fallbackEmail={contactEmail}
               initial={{ name: userName, regno: userRegno, email: userEmail }}
               onClose={() => setShowContactFor(null)}
+              onSent={() => {
+                // Mark interest as expressed
+                const newInterest = {
+                  ...expressedInterest,
+                  [showContactFor]: true,
+                };
+                setExpressedInterest(newInterest);
+                localStorage.setItem(
+                  "expressedInterest",
+                  JSON.stringify(newInterest)
+                );
+              }}
             />
           </div>
         </div>

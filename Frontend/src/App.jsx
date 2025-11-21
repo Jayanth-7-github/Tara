@@ -16,6 +16,8 @@ import UpdateAttendance from "./secret/pages/UpdateAttendance";
 import MarkAbsent from "./secret/pages/MarkAbsent";
 import AdminSecret from "./secret/pages/AdminSecret";
 import AddRoles from "./secret/pages/AddRoles";
+import EventContacts from "./pages/EventContacts";
+import EventManagerDashboard from "./pages/EventManagerDashboard";
 import { ADMIN_TOKEN } from "./services/constants";
 import Hamburger from "./components/hamburger";
 
@@ -75,6 +77,11 @@ function App() {
             {/* keep /events for backward compatibility and show dashboard which contains events */}
             <Route path="/events" element={<Main />} />
             <Route path="/events/create" element={<CreateEvent />} />
+            <Route path="/events/contacts" element={<EventContacts />} />
+            <Route
+              path="/events/dashboard"
+              element={<EventManagerDashboard />}
+            />
             <Route path="/assignments" element={<Assignments />} />
             <Route path="/test" element={<Test />} />
             <Route path="/login" element={<Login />} />
