@@ -1,6 +1,44 @@
 const path = require("path");
 const Student = require(path.join(__dirname, "..", "models", "Student"));
 
+function normalizeStudentInput(input) {
+  const body = input || {};
+
+  const regnoRaw =
+    body.regno ?? body.rollNumber ?? body.rollno ?? body["Roll Number"];
+  const nameRaw = body.name ?? body["Name"];
+
+  const teamNameRaw = body.teamName ?? body["Team Name"];
+  const roleRaw = body.role ?? body["Role"];
+  const emailRaw = body.email ?? body["Email"];
+  const branchRaw = body.branch ?? body["Branch"] ?? body.department;
+  const hostelNameRaw = body.hostelName ?? body["Hostel Name"];
+  const roomNoRaw = body.roomNo ?? body["Room No"];
+
+  const departmentRaw = body.department; // legacy
+  const yearRaw = body.year;
+  const phoneRaw = body.phone;
+
+  const regno = regnoRaw != null ? String(regnoRaw).trim() : "";
+  const name = nameRaw != null ? String(nameRaw).trim() : "";
+
+  const payload = { regno, name };
+
+  if (teamNameRaw != null) payload.teamName = String(teamNameRaw).trim();
+  if (roleRaw != null) payload.role = String(roleRaw).trim();
+  if (emailRaw != null) payload.email = String(emailRaw).trim();
+  if (branchRaw != null) payload.branch = String(branchRaw).trim();
+  if (hostelNameRaw != null) payload.hostelName = String(hostelNameRaw).trim();
+  if (roomNoRaw != null) payload.roomNo = String(roomNoRaw).trim();
+
+  // legacy fields (keep if caller still uses them)
+  if (departmentRaw != null) payload.department = String(departmentRaw).trim();
+  if (yearRaw != null) payload.year = String(yearRaw).trim();
+  if (phoneRaw != null) payload.phone = String(phoneRaw).trim();
+
+  return payload;
+}
+
 // GET /api/students/search?q=99
 // Search students by regno prefix
 exports.searchStudents = async (req, res) => {
@@ -14,7 +52,7 @@ exports.searchStudents = async (req, res) => {
     const students = await Student.find({
       regno: new RegExp(`^${query}`, "i"),
     })
-      .select("regno name department year")
+      .select("regno name branch department year role teamName")
       .limit(20)
       .lean();
     res.json(students);
@@ -56,13 +94,15 @@ exports.createStudent = async (req, res) => {
     });
   }
   try {
-    const { regno, name, department, year, phone } = req.body || {};
+    const normalized = normalizeStudentInput(req.body);
+    const { regno, name } = normalized;
 
     // Basic validation
     if (!regno || !name) {
-      return res
-        .status(400)
-        .json({ error: "Both 'regno' and 'name' are required." });
+      return res.status(400).json({
+        error:
+          "Both 'regno' (or 'Roll Number') and 'name' (or 'Name') are required.",
+      });
     }
 
     const trimmedRegno = String(regno).trim();
@@ -85,12 +125,10 @@ exports.createStudent = async (req, res) => {
     }
 
     const payload = {
+      ...normalized,
       regno: trimmedRegno,
       name: trimmedName,
     };
-    if (department != null) payload.department = String(department).trim();
-    if (year != null) payload.year = String(year).trim();
-    if (phone != null) payload.phone = String(phone).trim();
 
     const created = await Student.create(payload);
     // Return the created document
@@ -129,17 +167,15 @@ exports.createStudentsBulk = async (req, res) => {
 
     for (let i = 0; i < items.length; i++) {
       const item = items[i] || {};
-      const regno = item.regno != null ? String(item.regno).trim() : "";
-      const name = item.name != null ? String(item.name).trim() : "";
-      const department =
-        item.department != null ? String(item.department).trim() : undefined;
-      const year = item.year != null ? String(item.year).trim() : undefined;
-      const phone = item.phone != null ? String(item.phone).trim() : undefined;
+      const normalized = normalizeStudentInput(item);
+      const regno = normalized.regno;
+      const name = normalized.name;
 
       if (!regno || !name) {
         results.invalid.push({
           index: i,
-          reason: "Both 'regno' and 'name' are required.",
+          reason:
+            "Both 'regno' (or 'Roll Number') and 'name' (or 'Name') are required.",
         });
         continue;
       }
@@ -160,13 +196,7 @@ exports.createStudentsBulk = async (req, res) => {
           continue;
         }
 
-        const created = await Student.create({
-          regno,
-          name,
-          department,
-          year,
-          phone,
-        });
+        const created = await Student.create(normalized);
         results.created.push({ regno: created.regno, _id: created._id });
       } catch (err) {
         if (err && err.code === 11000) {

@@ -75,7 +75,7 @@ export default function SearchBar({ onSearch }) {
     <div ref={dropdownRef} className="relative w-full max-w-md mx-auto">
       <form
         onSubmit={handleSubmit}
-        className="flex flex-col sm:flex-row items-center gap-3 w-full bg-gray-800/70 shadow-sm rounded-xl border border-gray-700 p-2 sm:p-3 text-white"
+        className="flex flex-col sm:flex-row items-center gap-3 w-full bg-gray-800/50 shadow-lg rounded-xl border border-gray-700 p-3 text-white"
       >
         <input
           type="text"
@@ -101,12 +101,12 @@ export default function SearchBar({ onSearch }) {
 
       {/* Dropdown with filtered students */}
       {showDropdown && filteredStudents.length > 0 && (
-        <div className="absolute z-50 w-full mt-2 bg-gray-800 border border-gray-700 rounded-lg shadow-2xl max-h-64 overflow-y-auto">
+        <div className="absolute z-50 w-full mt-2 bg-gray-800/95 backdrop-blur-sm border border-gray-700 rounded-xl shadow-2xl max-h-64 overflow-y-auto">
           {filteredStudents.map((student) => (
             <button
               key={student._id}
               onClick={() => handleSelectStudent(student.regno)}
-              className="w-full px-4 py-3 text-left hover:bg-gray-700 transition-colors border-b border-gray-700/50 last:border-b-0"
+              className="w-full px-4 py-3 text-left hover:bg-gray-700/70 transition-colors border-b border-gray-700/50 last:border-b-0"
             >
               <div className="font-semibold text-white text-sm">
                 {student.regno}

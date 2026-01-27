@@ -75,6 +75,17 @@ export default function Login() {
           window.dispatchEvent(new Event("auth-changed"));
         } catch (e) {}
       } catch {}
+
+      // Debug: confirm server sees you as logged-in and show role in console
+      try {
+        const check = await checkLogin();
+        console.log("[auth] checkLogin after login:", check);
+        const role = check?.user?.role;
+        if (role) console.log("[auth] role:", role);
+      } catch (e) {
+        console.warn("[auth] checkLogin failed after login:", e);
+      }
+
       // Navigate to Main after short delay
       setTimeout(() => navigate("/main"), 800);
     } catch (err) {

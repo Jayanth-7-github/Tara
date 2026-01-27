@@ -34,7 +34,7 @@ function parseYMDHM(str) {
     Number(hh),
     Number(mm),
     0,
-    0
+    0,
   );
 }
 
@@ -56,12 +56,19 @@ const AttendanceSchema = new Schema(
     },
     // store a human-friendly local string for easy reads/exports
     timestampText: { type: String },
+
+    // Check-in / Check-out tracking
+    checkInAt: { type: Date },
+    checkInText: { type: String },
+    checkOutAt: { type: Date },
+    checkOutText: { type: String },
+
     // default to absent until explicitly marked present
     isPresent: { type: Boolean, default: false },
     // optional reference to Student
     student: { type: Types.ObjectId, ref: "Student", required: false },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 // compound index to prevent double-marking for same event + regno
@@ -75,6 +82,15 @@ AttendanceSchema.pre("save", function (next) {
     this.timestamp = roundToMinute(this.timestamp);
   }
   this.timestampText = formatLocalYMDHM(this.timestamp);
+
+  if (this.checkInAt) {
+    this.checkInAt = roundToMinute(this.checkInAt);
+    this.checkInText = formatLocalYMDHM(this.checkInAt);
+  }
+  if (this.checkOutAt) {
+    this.checkOutAt = roundToMinute(this.checkOutAt);
+    this.checkOutText = formatLocalYMDHM(this.checkOutAt);
+  }
   next();
 });
 
@@ -98,6 +114,32 @@ AttendanceSchema.pre("findOneAndUpdate", function (next) {
     if (update.$set) update.$set.timestampText = formatLocalYMDHM(t);
     else update.timestampText = formatLocalYMDHM(t);
   }
+
+  // Normalize check-in/out timestamps and mirror their text fields
+  const nextCheckIn = update.$set?.checkInAt || update.checkInAt;
+  if (nextCheckIn) {
+    const t = roundToMinute(nextCheckIn);
+    if (update.$set) {
+      update.$set.checkInAt = t;
+      update.$set.checkInText = formatLocalYMDHM(t);
+    } else {
+      update.checkInAt = t;
+      update.checkInText = formatLocalYMDHM(t);
+    }
+  }
+
+  const nextCheckOut = update.$set?.checkOutAt || update.checkOutAt;
+  if (nextCheckOut) {
+    const t = roundToMinute(nextCheckOut);
+    if (update.$set) {
+      update.$set.checkOutAt = t;
+      update.$set.checkOutText = formatLocalYMDHM(t);
+    } else {
+      update.checkOutAt = t;
+      update.checkOutText = formatLocalYMDHM(t);
+    }
+  }
+
   this.setUpdate(update);
   next();
 });

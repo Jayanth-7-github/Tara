@@ -1,5 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_BASE || "https://tara-kbxn.onrender.com/api";
-
+import { API_BASE } from "./constants";
 import { getRoles } from "./api"; // kept for backward-compatible fallback
 
 export async function login(email, password) {

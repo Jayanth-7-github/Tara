@@ -3,16 +3,16 @@ import { motion } from "framer-motion";
 
 export default function Secret() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white flex items-center justify-center p-4 font-sans">
+    <div className="min-h-screen bg-linear-to-br from-gray-950 via-black to-gray-900 text-white flex items-center justify-center p-4 font-sans">
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.7, ease: "easeOut" }}
-        className="max-w-4xl w-full bg-gray-800/50 backdrop-blur-xl border border-gray-700/60 shadow-2xl rounded-3xl p-8"
+        className="max-w-4xl w-full bg-gray-800/50 backdrop-blur-xl border border-gray-700 shadow-2xl rounded-2xl p-8"
       >
         {/* Header Section */}
         <div className="flex flex-col items-center text-center space-y-6">
-          <h1 className="text-3xl sm:text-4xl font-bold text-blue-400 tracking-wide">
+          <h1 className="text-3xl sm:text-4xl font-extrabold bg-linear-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">
             Secret Access Portal
           </h1>
 
@@ -63,12 +63,16 @@ export default function Secret() {
         {/* Info Section */}
         <div className="mt-8 text-center space-y-4">
           <p className="text-gray-300 text-lg leading-relaxed">
-            Welcome to the <span className="text-blue-400 font-semibold">Secret Entry Point</span>.  
-            Use the navigation above to manage attendance and view summaries for your event.
+            Welcome to the{" "}
+            <span className="text-blue-400 font-semibold">
+              Secret Entry Point
+            </span>
+            . Use the navigation above to manage attendance and view summaries
+            for your event.
           </p>
           <p className="text-gray-500 text-sm">
-            ⚠️ Keep this page private — it’s not accessible through the public interface.
-            Only authorized personnel should access this route.
+            ⚠️ Keep this page private — it’s not accessible through the public
+            interface. Only authorized personnel should access this route.
           </p>
         </div>
       </motion.div>

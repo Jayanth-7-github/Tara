@@ -1,11 +1,11 @@
-// Keep API base configurable via VITE_API_BASE; default to a relative '/api'
-// so the dev server or production server can route requests consistently.
-export const API_BASE =
-  import.meta.env.VITE_API_BASE || "https://tara-kbxn.onrender.com/api";
+import { API_BASE } from "./constants";
+
+// Backward-compatible export: some components import API_BASE from this module.
+export { API_BASE };
 
 export async function searchStudents(query) {
   const resp = await fetch(
-    `${API_BASE}/students/search?q=${encodeURIComponent(query)}`
+    `${API_BASE}/students/search?q=${encodeURIComponent(query)}`,
   );
   if (!resp.ok) throw new Error("Failed to search students");
   return resp.json();
@@ -40,27 +40,39 @@ export async function markAttendance(regno, eventName) {
 export async function checkAttendance(regno, eventName = "Vintra") {
   const resp = await fetch(
     `${API_BASE}/attendance/check/${encodeURIComponent(
-      regno
-    )}?eventName=${encodeURIComponent(eventName)}`
+      regno,
+    )}?eventName=${encodeURIComponent(eventName)}`,
   );
   if (!resp.ok) throw new Error("Failed to check attendance");
   return resp.json();
 }
 
-export async function getSummary() {
-  const resp = await fetch(`${API_BASE}/attendance/summary`);
+// options can be omitted, a string eventName, or an object: { eventName?: string, limit?: number }
+export async function getSummary(options) {
+  const opts =
+    typeof options === "string" ? { eventName: options } : options || {};
+  const url = new URL(`${API_BASE}/attendance/summary`);
+  if (opts.eventName) url.searchParams.set("eventName", opts.eventName);
+  if (opts.limit != null) url.searchParams.set("limit", String(opts.limit));
+  const resp = await fetch(url.toString());
   if (!resp.ok) throw new Error("Failed to fetch summary");
   return resp.json();
 }
 
 // options can be boolean (presentOnly) for backward compatibility,
-// or an object: { presentOnly?: boolean, allStudents?: boolean, eventName?: string }
+// or an object: { presentOnly?: boolean, allStudents?: boolean, checkInOnly?: boolean, checkOutOnly?: boolean, returnedOnly?: boolean, outNowOnly?: boolean, eventName?: string }
 export async function downloadCSV(options = false) {
   const opts =
     typeof options === "boolean" ? { presentOnly: options } : options || {};
   const url = new URL(`${API_BASE}/attendance/export`);
   if (opts.presentOnly) url.searchParams.set("present", "1");
   if (opts.allStudents) url.searchParams.set("allStudents", "1");
+  // Break tracking filters
+  if (opts.returnedOnly) url.searchParams.set("returnedOnly", "1");
+  if (opts.outNowOnly) url.searchParams.set("outNowOnly", "1");
+  // Legacy aliases (still supported)
+  if (opts.checkInOnly) url.searchParams.set("checkInOnly", "1");
+  if (opts.checkOutOnly) url.searchParams.set("checkOutOnly", "1");
   if (opts.eventName) url.searchParams.set("eventName", opts.eventName);
   const resp = await fetch(url.toString());
   if (!resp.ok) throw new Error("Failed to download CSV");
@@ -107,7 +119,7 @@ export async function updateAttendance(regno, body) {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
-    }
+    },
   );
   const respBody = await resp.json().catch(() => ({}));
   if (!resp.ok) {
@@ -195,7 +207,7 @@ export async function updateEvent(eventId, eventPayload) {
       headers: { "Content-Type": "application/json" },
       credentials: "include",
       body: JSON.stringify(eventPayload),
-    }
+    },
   );
   const body = await resp.json().catch(() => ({}));
   if (!resp.ok) {
@@ -212,7 +224,7 @@ export async function deleteEvent(eventId) {
     {
       method: "DELETE",
       credentials: "include",
-    }
+    },
   );
   const body = await resp.json().catch(() => ({}));
   if (!resp.ok) {
@@ -226,14 +238,14 @@ export async function deleteEvent(eventId) {
 export async function registerForEvent(eventId, payload) {
   const resp = await fetch(
     `${API_BASE.replace(/\/$/, "")}/events/${encodeURIComponent(
-      eventId
+      eventId,
     )}/register`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
       body: JSON.stringify(payload),
-    }
+    },
   );
   const body = await resp.json().catch(() => ({}));
   if (!resp.ok) {
@@ -297,7 +309,7 @@ export async function getMyContacts() {
     `${API_BASE.replace(/\/$/, "")}/contact/my-contacts`,
     {
       credentials: "include",
-    }
+    },
   );
   if (!resp.ok) {
     const body = await resp.json().catch(() => ({}));
@@ -312,14 +324,14 @@ export async function getMyContacts() {
 export async function updateContactStatus(contactId, status) {
   const resp = await fetch(
     `${API_BASE.replace(/\/$/, "")}/contact/${encodeURIComponent(
-      contactId
+      contactId,
     )}/status`,
     {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
       body: JSON.stringify({ status }),
-    }
+    },
   );
   const body = await resp.json().catch(() => ({}));
   if (!resp.ok) {
@@ -334,13 +346,13 @@ export async function updateContactStatus(contactId, status) {
 export async function addContactAsStudent(contactId) {
   const resp = await fetch(
     `${API_BASE.replace(/\/$/, "")}/contact/${encodeURIComponent(
-      contactId
+      contactId,
     )}/add-student`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-    }
+    },
   );
   const body = await resp.json().catch(() => ({}));
   if (!resp.ok) {

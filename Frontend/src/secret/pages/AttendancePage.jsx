@@ -10,6 +10,7 @@ import {
   getSummary,
   checkAttendance,
   fetchEvents,
+  updateAttendance,
 } from "../../services/api";
 import { motion } from "framer-motion";
 
@@ -23,6 +24,14 @@ export default function AttendancePage() {
   const [loading, setLoading] = useState(false);
   const [showManualSearch, setShowManualSearch] = useState(false);
   const [isMarked, setIsMarked] = useState(false);
+  const [attendanceInfo, setAttendanceInfo] = useState({
+    checkedIn: false,
+    checkedOut: false,
+    currentlyOut: false,
+    returned: false,
+    checkInText: "",
+    checkOutText: "",
+  });
 
   useEffect(() => {
     refreshSummary();
@@ -53,6 +62,14 @@ export default function AttendancePage() {
     setMessage("");
     setStudent(null);
     setIsMarked(false); // Reset marked state for new search
+    setAttendanceInfo({
+      checkedIn: false,
+      checkedOut: false,
+      currentlyOut: false,
+      returned: false,
+      checkInText: "",
+      checkOutText: "",
+    });
     setLoading(true);
     try {
       const s = await fetchStudent(regno);
@@ -63,10 +80,24 @@ export default function AttendancePage() {
       try {
         const eventName = selectedEvent?.title || "Vintra";
         const attendanceStatus = await checkAttendance(regno, eventName);
-        if (attendanceStatus.isMarked && attendanceStatus.isPresent) {
-          setIsMarked(true);
-          setMessage(`${s.name} has already marked attendance.`);
-        }
+        const a = attendanceStatus?.attendance;
+        const checkedIn = Boolean(a?.checkInAt);
+        const checkedOut = Boolean(a?.checkOutAt);
+        const currentlyOut = Boolean(
+          attendanceStatus?.currentlyOut ?? a?.currentlyOut,
+        );
+        const returned = Boolean(attendanceStatus?.returned ?? a?.returned);
+        setAttendanceInfo({
+          checkedIn,
+          checkedOut,
+          currentlyOut,
+          returned,
+          checkInText: a?.checkInText || "",
+          checkOutText: a?.checkOutText || "",
+        });
+        // Disable Check In unless they're currently out.
+        setIsMarked(!currentlyOut);
+        if (currentlyOut) setMessage(`${s.name} is currently out.`);
       } catch (checkErr) {
         console.error("Failed to check attendance:", checkErr);
       }
@@ -81,11 +112,81 @@ export default function AttendancePage() {
     try {
       const eventName = selectedEvent?.title || "Vintra";
       const res = await markAttendance(regno, eventName);
-      setMessage(res.message || "Attendance marked successfully!");
-      setIsMarked(true); // Mark as attended
+      setMessage(res.message || "Checked in successfully!");
+      // Refresh from server to apply break-state rules (out -> in)
+      try {
+        const attendanceStatus = await checkAttendance(regno, eventName);
+        const a = attendanceStatus?.attendance;
+        const checkedIn = Boolean(a?.checkInAt);
+        const checkedOut = Boolean(a?.checkOutAt);
+        const currentlyOut = Boolean(
+          attendanceStatus?.currentlyOut ?? a?.currentlyOut,
+        );
+        const returned = Boolean(attendanceStatus?.returned ?? a?.returned);
+        setAttendanceInfo({
+          checkedIn,
+          checkedOut,
+          currentlyOut,
+          returned,
+          checkInText: a?.checkInText || "",
+          checkOutText: a?.checkOutText || "",
+        });
+        setIsMarked(!currentlyOut);
+      } catch {
+        setIsMarked(true);
+      }
       refreshSummary();
+      return true;
     } catch (err) {
       setMessage(err.message || "Failed to mark attendance.");
+      return false;
+    }
+  };
+
+  const handleCheckOut = async (regno) => {
+    try {
+      const eventName = selectedEvent?.title || "Vintra";
+      const res = await updateAttendance(regno, {
+        eventName,
+        isPresent: false,
+      });
+      setMessage(res?.message || "Checked out successfully!");
+      // After checkout, re-check status to drive UI break-state rules reliably
+      try {
+        const attendanceStatus = await checkAttendance(regno, eventName);
+        const a = attendanceStatus?.attendance;
+        const checkedIn = Boolean(a?.checkInAt);
+        const checkedOut = Boolean(a?.checkOutAt);
+        const currentlyOut = Boolean(
+          attendanceStatus?.currentlyOut ?? a?.currentlyOut,
+        );
+        const returned = Boolean(attendanceStatus?.returned ?? a?.returned);
+        setAttendanceInfo({
+          checkedIn,
+          checkedOut,
+          currentlyOut,
+          returned,
+          checkInText: a?.checkInText || "",
+          checkOutText: a?.checkOutText || "",
+        });
+        setIsMarked(!currentlyOut);
+      } catch {
+        // fallback: assume currently out after checkout
+        setAttendanceInfo({
+          checkedIn: Boolean(res?.attendance?.checkInAt),
+          checkedOut: true,
+          currentlyOut: true,
+          returned: false,
+          checkInText: "",
+          checkOutText: "",
+        });
+        setIsMarked(false);
+      }
+      refreshSummary();
+      return true;
+    } catch (err) {
+      setMessage(err.message || "Failed to check out.");
+      return false;
     }
   };
 
@@ -204,12 +305,34 @@ export default function AttendancePage() {
         ) : student ? (
           <AttendanceCard
             student={student}
-            onMark={handleMark}
+            onCheckIn={handleMark}
+            onCheckOut={handleCheckOut}
             isMarked={isMarked}
+            attendanceInfo={attendanceInfo}
+            onClose={() => {
+              setStudent(null);
+              setIsMarked(false);
+              setAttendanceInfo({
+                checkedIn: false,
+                checkedOut: false,
+                currentlyOut: false,
+                returned: false,
+                checkInText: "",
+                checkOutText: "",
+              });
+            }}
             onCancel={() => {
               setStudent(null);
               setMessage("");
               setIsMarked(false);
+              setAttendanceInfo({
+                checkedIn: false,
+                checkedOut: false,
+                currentlyOut: false,
+                returned: false,
+                checkInText: "",
+                checkOutText: "",
+              });
             }}
           />
         ) : (

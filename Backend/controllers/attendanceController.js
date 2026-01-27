@@ -30,24 +30,67 @@ exports.markAttendance = async (req, res) => {
         .json({ error: "No student found for this registration number." });
 
     const event = eventName || "default";
+    const now = new Date();
 
-    // Prevent double-marking for same event
+    // Break tracking semantics:
+    // - "Check Out" records out time
+    // - "Check In" records return time after a checkout
     const already = await Attendance.findOne({
       regno: student.regno,
       eventName: event,
     }).lean();
     if (already) {
-      if (already.isPresent) {
+      const existingCheckInAt =
+        already.checkInAt || (already.isPresent ? already.timestamp : null);
+      const existingCheckOutAt =
+        already.checkOutAt || (!already.isPresent ? already.timestamp : null);
+      const inMs = existingCheckInAt
+        ? new Date(existingCheckInAt).getTime()
+        : null;
+      const outMs = existingCheckOutAt
+        ? new Date(existingCheckOutAt).getTime()
+        : null;
+      const currentlyOut = Boolean(outMs) && (!inMs || inMs <= outMs);
+
+      // If they're not currently out, there's nothing to "check in".
+      if (!currentlyOut) {
+        const checkInAt = existingCheckInAt;
+        const checkOutAt = existingCheckOutAt;
         return res.json({
-          message: `Attendance already marked for ${student.name}`,
-          attendance: already,
+          message: `${student.name} is already checked in.`,
+          attendance: {
+            ...already,
+            timestamp:
+              already.timestamp instanceof Date
+                ? already.timestamp.getTime()
+                : already.timestamp,
+            timestampText: formatLocalYMDHM(already.timestamp),
+            checkInAt:
+              checkInAt instanceof Date ? checkInAt.getTime() : checkInAt,
+            checkInText: checkInAt ? formatLocalYMDHM(checkInAt) : "",
+            checkOutAt:
+              checkOutAt instanceof Date ? checkOutAt.getTime() : checkOutAt,
+            checkOutText: checkOutAt ? formatLocalYMDHM(checkOutAt) : "",
+            currentlyOut: false,
+            returned: Boolean(checkInAt && checkOutAt && inMs > outMs),
+          },
         });
       }
-      // Flip to present if an absent record exists
+
+      // They're currently out, so this check-in represents a return.
+      // IMPORTANT: preserve the prior checkout time even when flipping isPresent=true.
+      const preservedCheckOutAt = already.checkOutAt || already.timestamp;
       const updated = await Attendance.findOneAndUpdate(
         { _id: already._id },
-        { $set: { isPresent: true } },
-        { new: true }
+        {
+          $set: {
+            isPresent: true,
+            timestamp: now,
+            checkInAt: now,
+            checkOutAt: preservedCheckOutAt,
+          },
+        },
+        { new: true },
       ).lean();
       const responseUpdated = {
         regno: updated.regno,
@@ -58,11 +101,25 @@ exports.markAttendance = async (req, res) => {
             ? updated.timestamp.getTime()
             : updated.timestamp,
         timestampText: formatLocalYMDHM(updated.timestamp),
+        checkInAt:
+          (updated.checkInAt || updated.timestamp) instanceof Date
+            ? (updated.checkInAt || updated.timestamp).getTime()
+            : updated.checkInAt || updated.timestamp,
+        checkInText: formatLocalYMDHM(updated.checkInAt || updated.timestamp),
+        checkOutAt:
+          (updated.checkOutAt || preservedCheckOutAt) instanceof Date
+            ? (updated.checkOutAt || preservedCheckOutAt).getTime()
+            : updated.checkOutAt || preservedCheckOutAt,
+        checkOutText: formatLocalYMDHM(
+          updated.checkOutAt || preservedCheckOutAt,
+        ),
+        currentlyOut: false,
+        returned: true,
         isPresent: updated.isPresent,
         _id: updated._id,
       };
       return res.json({
-        message: `Attendance updated to present for ${student.name}.`,
+        message: `Checked in successfully for ${student.name}.`,
         attendance: responseUpdated,
       });
     }
@@ -71,7 +128,8 @@ exports.markAttendance = async (req, res) => {
       regno: student.regno,
       name: student.name,
       eventName: event,
-      // timestamp handled by model default with minute rounding
+      timestamp: now,
+      checkInAt: now,
       isPresent: true,
       student: student._id,
     });
@@ -86,6 +144,18 @@ exports.markAttendance = async (req, res) => {
           ? record.timestamp.getTime()
           : record.timestamp,
       timestampText: formatLocalYMDHM(record.timestamp),
+      checkInAt:
+        (record.checkInAt || record.timestamp) instanceof Date
+          ? (record.checkInAt || record.timestamp).getTime()
+          : record.checkInAt || record.timestamp,
+      checkInText: formatLocalYMDHM(record.checkInAt || record.timestamp),
+      checkOutAt:
+        record.checkOutAt instanceof Date
+          ? record.checkOutAt.getTime()
+          : record.checkOutAt,
+      checkOutText: record.checkOutAt
+        ? formatLocalYMDHM(record.checkOutAt)
+        : "",
       isPresent: record.isPresent,
       _id: record._id,
     };
@@ -119,9 +189,23 @@ exports.checkAttendance = async (req, res) => {
       return res.json({ isMarked: false, isPresent: false });
     }
 
+    const checkInAt =
+      attendance.checkInAt ||
+      (attendance.isPresent ? attendance.timestamp : null);
+    const checkOutAt =
+      attendance.checkOutAt ||
+      (!attendance.isPresent ? attendance.timestamp : null);
+
+    const inMs = checkInAt ? new Date(checkInAt).getTime() : null;
+    const outMs = checkOutAt ? new Date(checkOutAt).getTime() : null;
+    const currentlyOut = Boolean(outMs) && (!inMs || inMs <= outMs);
+    const returned = Boolean(inMs && outMs && inMs > outMs);
+
     res.json({
       isMarked: true,
       isPresent: attendance.isPresent,
+      currentlyOut,
+      returned,
       attendance: {
         regno: attendance.regno,
         name: attendance.name,
@@ -131,6 +215,13 @@ exports.checkAttendance = async (req, res) => {
             ? attendance.timestamp.getTime()
             : attendance.timestamp,
         timestampText: formatLocalYMDHM(attendance.timestamp),
+        checkInAt: checkInAt instanceof Date ? checkInAt.getTime() : checkInAt,
+        checkInText: checkInAt ? formatLocalYMDHM(checkInAt) : "",
+        checkOutAt:
+          checkOutAt instanceof Date ? checkOutAt.getTime() : checkOutAt,
+        checkOutText: checkOutAt ? formatLocalYMDHM(checkOutAt) : "",
+        currentlyOut,
+        returned,
         isPresent: attendance.isPresent,
         _id: attendance._id,
       },
@@ -143,28 +234,119 @@ exports.checkAttendance = async (req, res) => {
 
 exports.getSummary = async (req, res) => {
   try {
-    const attendance = await Attendance.find({}).sort({ createdAt: -1 }).lean();
-    const total = attendance.length;
+    const eventFilterRaw = req.query?.eventName;
+    const eventFilter =
+      typeof eventFilterRaw === "string" && eventFilterRaw.trim()
+        ? eventFilterRaw.trim()
+        : null;
+
+    const limitRaw = Number(req.query?.limit);
+    const limit = Number.isFinite(limitRaw)
+      ? Math.max(1, Math.min(limitRaw, 20000))
+      : eventFilter
+        ? 20000
+        : 200;
+
+    const allAttendance = await Attendance.find({})
+      .select("eventName isPresent checkInAt checkOutAt timestamp")
+      .lean();
+
+    const total = allAttendance.length;
     const byEvent = {};
-    attendance.forEach((a) => {
+    const countsByEvent = {};
+
+    for (const a of allAttendance) {
       const e = a.eventName || "default";
-      byEvent[e] = byEvent[e] || 0;
-      byEvent[e]++;
+      byEvent[e] = (byEvent[e] || 0) + 1;
+      if (!countsByEvent[e]) {
+        countsByEvent[e] = {
+          totalRecords: 0,
+          totalCheckIns: 0,
+          totalCheckOuts: 0,
+          totalReturns: 0,
+          totalCurrentlyOut: 0,
+        };
+      }
+      countsByEvent[e].totalRecords++;
+
+      const checkInAt = a.checkInAt || (a.isPresent ? a.timestamp : null);
+      const checkOutAt = a.checkOutAt || (!a.isPresent ? a.timestamp : null);
+      const inMs = checkInAt ? new Date(checkInAt).getTime() : null;
+      const outMs = checkOutAt ? new Date(checkOutAt).getTime() : null;
+      const checkedIn = Boolean(inMs);
+      const checkedOut = Boolean(outMs);
+      const returned = Boolean(inMs && outMs && inMs > outMs);
+      const currentlyOut = Boolean(outMs) && (!inMs || inMs <= outMs);
+      if (checkedIn) countsByEvent[e].totalCheckIns++;
+      if (checkedOut) countsByEvent[e].totalCheckOuts++;
+      if (returned) countsByEvent[e].totalReturns++;
+      if (currentlyOut) countsByEvent[e].totalCurrentlyOut++;
+    }
+
+    const recordFilter = eventFilter ? { eventName: eventFilter } : {};
+    const attendance = await Attendance.find(recordFilter)
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
+
+    const regnos = Array.from(
+      new Set(
+        attendance
+          .map((r) => String(r.regno || "").toLowerCase())
+          .filter(Boolean),
+      ),
+    );
+    const students = regnos.length
+      ? await Student.find({
+          regno: { $in: attendance.map((r) => r.regno).filter(Boolean) },
+        })
+          .select("regno name teamName role email branch hostelName roomNo")
+          .lean()
+      : [];
+    const studentMap = new Map();
+    for (const s of students) {
+      studentMap.set(String(s.regno || "").toLowerCase(), s);
+    }
+
+    const records = attendance.map((r) => {
+      const s = studentMap.get(String(r.regno || "").toLowerCase()) || {};
+      const checkInAt = r.checkInAt || (r.isPresent ? r.timestamp : null);
+      const checkOutAt = r.checkOutAt || (!r.isPresent ? r.timestamp : null);
+      const inMs = checkInAt ? new Date(checkInAt).getTime() : null;
+      const outMs = checkOutAt ? new Date(checkOutAt).getTime() : null;
+      const checkedIn = Boolean(inMs);
+      const checkedOut = Boolean(outMs);
+      const returned = Boolean(inMs && outMs && inMs > outMs);
+      const currentlyOut = Boolean(outMs) && (!inMs || inMs <= outMs);
+      return {
+        regno: r.regno,
+        name: s.name || r.name,
+        teamName: s.teamName || "",
+        role: s.role || "",
+        email: s.email || "",
+        branch: s.branch || "",
+        hostelName: s.hostelName || "",
+        roomNo: s.roomNo || "",
+        eventName: r.eventName,
+        checkInAt: checkInAt instanceof Date ? checkInAt.getTime() : checkInAt,
+        checkInText: checkInAt ? formatLocalYMDHM(checkInAt) : "",
+        checkOutAt:
+          checkOutAt instanceof Date ? checkOutAt.getTime() : checkOutAt,
+        checkOutText: checkOutAt ? formatLocalYMDHM(checkOutAt) : "",
+        checkedIn,
+        checkedOut,
+        returned,
+        currentlyOut,
+        isPresent: r.isPresent,
+        // keep legacy fields for backward compatibility
+        timestamp:
+          r.timestamp instanceof Date ? r.timestamp.getTime() : r.timestamp,
+        timestampText: formatLocalYMDHM(r.timestamp),
+        _id: r._id,
+      };
     });
 
-    // recent 50 records (reverse of previous implementation)
-    const records = attendance.slice(0, 50).map((r) => ({
-      regno: r.regno,
-      name: r.name,
-      eventName: r.eventName,
-      timestamp:
-        r.timestamp instanceof Date ? r.timestamp.getTime() : r.timestamp,
-      timestampText: formatLocalYMDHM(r.timestamp),
-      isPresent: r.isPresent,
-      _id: r._id,
-    }));
-
-    res.json({ total, byEvent, records });
+    res.json({ total, byEvent, countsByEvent, records });
   } catch (err) {
     console.error("getSummary error:", err);
     res.status(500).json({ error: "Internal server error" });
@@ -177,7 +359,7 @@ exports.exportCSV = async (req, res) => {
     // Determine target event
     const hasEventName = Object.prototype.hasOwnProperty.call(
       req.query,
-      "eventName"
+      "eventName",
     );
     let eventName = hasEventName ? String(req.query.eventName || "") : "";
     if (!hasEventName || !eventName.trim()) {
@@ -188,13 +370,47 @@ exports.exportCSV = async (req, res) => {
       eventName = latest?.eventName || "default";
     }
     const allStudents = ["1", "true", "yes"].includes(
-      (req.query.allStudents || req.query.all || "").toString().toLowerCase()
+      (req.query.allStudents || req.query.all || "").toString().toLowerCase(),
     );
     const presentOnly = ["1", "true", "yes"].includes(
-      (req.query.present || "").toString().toLowerCase()
+      (req.query.present || "").toString().toLowerCase(),
     );
+    // Break tracking filters:
+    // - returnedOnly => returned after a checkout (checkInAt > checkOutAt)
+    // - outNowOnly   => currently out (checkout exists and no later check-in)
+    // Backward-compatible aliases:
+    // - checkInOnly  => returnedOnly
+    // - checkOutOnly => outNowOnly
+    const returnedOnly = ["1", "true", "yes"].includes(
+      (req.query.returnedOnly || "").toString().toLowerCase(),
+    );
+    const outNowOnly = ["1", "true", "yes"].includes(
+      (req.query.outNowOnly || req.query.outnow || "").toString().toLowerCase(),
+    );
+    const checkInOnly = ["1", "true", "yes"].includes(
+      (req.query.checkInOnly || req.query.checkin || "")
+        .toString()
+        .toLowerCase(),
+    );
+    const checkOutOnly = ["1", "true", "yes"].includes(
+      (req.query.checkOutOnly || req.query.checkout || "")
+        .toString()
+        .toLowerCase(),
+    );
+    const returnedFilter = returnedOnly || checkInOnly;
+    const outNowFilter = outNowOnly || checkOutOnly;
 
     const lines = [];
+
+    const escapeCell = (val) => {
+      let sval = val == null ? "" : String(val);
+      sval = sval.replace(/"/g, '""');
+      if (sval.search(/,|\n|"/) >= 0) return `"${sval}"`;
+      return sval;
+    };
+
+    const formatMaybe = (d) => (d ? formatLocalYMDHM(d) : "");
+    const truthySymbol = (b) => (b ? "✅" : "❌");
 
     if (allStudents) {
       // Export every student with a Yes/No present flag for the selected event
@@ -206,38 +422,79 @@ exports.exportCSV = async (req, res) => {
       }
 
       const keys = [
-        "regno",
-        "name",
-        "department",
-        "year",
-        "phone",
-        "eventName",
-        "timestamp",
-        "present",
+        "Roll Number",
+        "Name",
+        "Team Name",
+        "Role",
+        "Email",
+        "Branch",
+        "Hostel Name",
+        "Room No",
+        "Event",
+        "Check In",
+        "Check Out",
+        "Checked In",
+        "Checked Out",
+        "Returned",
+        "Currently Out",
+        "Present",
       ];
       lines.push(keys.join(","));
 
+      let totalCheckIns = 0;
+      let totalCheckOuts = 0;
+      let totalReturns = 0;
+      let totalCurrentlyOut = 0;
+
       for (const s of students) {
         const a = map.get(String(s.regno).toLowerCase());
+
+        const checkInAt = a?.checkInAt || (a?.isPresent ? a?.timestamp : null);
+        const checkOutAt =
+          a?.checkOutAt || (!a?.isPresent ? a?.timestamp : null);
+        const inMs = checkInAt ? new Date(checkInAt).getTime() : null;
+        const outMs = checkOutAt ? new Date(checkOutAt).getTime() : null;
+        const checkedIn = Boolean(inMs);
+        const checkedOut = Boolean(outMs);
+        const returned = Boolean(inMs && outMs && inMs > outMs);
+        const currentlyOut = Boolean(outMs) && (!inMs || inMs <= outMs);
+
+        if (checkedIn) totalCheckIns++;
+        if (checkedOut) totalCheckOuts++;
+        if (returned) totalReturns++;
+        if (currentlyOut) totalCurrentlyOut++;
+
         const v = {
-          regno: s.regno || "",
-          name: s.name || "",
-          department: s.department || "",
-          year: s.year || "",
-          phone: s.phone || "",
-          eventName,
-          timestamp: a ? formatLocalYMDHM(a.timestamp) : "",
-          present: a && a.isPresent ? "Yes" : "No",
+          "Roll Number": s.regno || "",
+          Name: s.name || "",
+          "Team Name": s.teamName || "",
+          Role: s.role || "",
+          Email: s.email || "",
+          Branch: s.branch || s.department || "",
+          "Hostel Name": s.hostelName || "",
+          "Room No": s.roomNo || "",
+          Event: eventName,
+          "Check In": checkInAt ? formatMaybe(checkInAt) : "",
+          "Check Out": checkOutAt ? formatMaybe(checkOutAt) : "",
+          "Checked In": truthySymbol(checkedIn),
+          "Checked Out": truthySymbol(checkedOut),
+          Returned: truthySymbol(returned),
+          "Currently Out": truthySymbol(currentlyOut),
+          Present: a && a.isPresent ? "Yes" : "No",
         };
-        const row = keys.map((k) => {
-          let val = v[k];
-          let sval = val == null ? "" : String(val);
-          sval = sval.replace(/"/g, '""');
-          if (sval.search(/,|\n|"/) >= 0) return `"${sval}"`;
-          return sval;
-        });
+        const row = keys.map((k) => escapeCell(v[k]));
         lines.push(row.join(","));
       }
+
+      lines.push("");
+      lines.push(["TOTAL CHECK INS", totalCheckIns].map(escapeCell).join(","));
+      lines.push(
+        ["TOTAL CHECK OUTS", totalCheckOuts].map(escapeCell).join(","),
+      );
+      lines.push(["TOTAL RETURNS", totalReturns].map(escapeCell).join(","));
+      lines.push(
+        ["TOTAL CURRENTLY OUT", totalCurrentlyOut].map(escapeCell).join(","),
+      );
     } else {
       // Export attendance records (optionally present-only)
       const filter = { eventName };
@@ -246,21 +503,109 @@ exports.exportCSV = async (req, res) => {
         .sort({ createdAt: -1 })
         .lean();
 
-      const keys = ["regno", "name", "eventName", "timestamp", "isPresent"];
+      const filteredAttendance =
+        returnedFilter || outNowFilter
+          ? attendance.filter((row) => {
+              const checkInAt =
+                row.checkInAt || (row.isPresent ? row.timestamp : null);
+              const checkOutAt =
+                row.checkOutAt || (!row.isPresent ? row.timestamp : null);
+              const inMs = checkInAt ? new Date(checkInAt).getTime() : null;
+              const outMs = checkOutAt ? new Date(checkOutAt).getTime() : null;
+              const returned = Boolean(inMs && outMs && inMs > outMs);
+              const currentlyOut = Boolean(outMs) && (!inMs || inMs <= outMs);
+              if (returnedFilter && !returned) return false;
+              if (outNowFilter && !currentlyOut) return false;
+              return true;
+            })
+          : attendance;
+
+      const regnos = Array.from(
+        new Set(filteredAttendance.map((r) => r.regno).filter(Boolean)),
+      );
+      const students = regnos.length
+        ? await Student.find({ regno: { $in: regnos } })
+            .select("regno name teamName role email branch hostelName roomNo")
+            .lean()
+        : [];
+      const studentMap = new Map();
+      for (const s of students) {
+        studentMap.set(String(s.regno || "").toLowerCase(), s);
+      }
+
+      const keys = [
+        "Roll Number",
+        "Name",
+        "Team Name",
+        "Role",
+        "Email",
+        "Branch",
+        "Hostel Name",
+        "Room No",
+        "Event",
+        "Check In",
+        "Check Out",
+        "Checked In",
+        "Checked Out",
+        "Returned",
+        "Currently Out",
+        "Present",
+      ];
       lines.push(keys.join(","));
 
-      for (const row of attendance) {
-        const vals = keys.map((k) => {
-          let v = row[k];
-          if (k === "timestamp") v = row[k] ? formatLocalYMDHM(row[k]) : "";
-          if (k === "isPresent") v = row[k] ? "Yes" : "No";
-          let s = v == null ? "" : String(v);
-          s = s.replace(/"/g, '""');
-          if (s.search(/,|\n|"/) >= 0) return `"${s}"`;
-          return s;
-        });
+      let totalCheckIns = 0;
+      let totalCheckOuts = 0;
+      let totalReturns = 0;
+      let totalCurrentlyOut = 0;
+
+      for (const row of filteredAttendance) {
+        const s = studentMap.get(String(row.regno || "").toLowerCase()) || {};
+        const checkInAt =
+          row.checkInAt || (row.isPresent ? row.timestamp : null);
+        const checkOutAt =
+          row.checkOutAt || (!row.isPresent ? row.timestamp : null);
+        const inMs = checkInAt ? new Date(checkInAt).getTime() : null;
+        const outMs = checkOutAt ? new Date(checkOutAt).getTime() : null;
+        const checkedIn = Boolean(inMs);
+        const checkedOut = Boolean(outMs);
+        const returned = Boolean(inMs && outMs && inMs > outMs);
+        const currentlyOut = Boolean(outMs) && (!inMs || inMs <= outMs);
+        if (checkedIn) totalCheckIns++;
+        if (checkedOut) totalCheckOuts++;
+        if (returned) totalReturns++;
+        if (currentlyOut) totalCurrentlyOut++;
+
+        const v = {
+          "Roll Number": row.regno || "",
+          Name: s.name || row.name || "",
+          "Team Name": s.teamName || "",
+          Role: s.role || "",
+          Email: s.email || "",
+          Branch: s.branch || "",
+          "Hostel Name": s.hostelName || "",
+          "Room No": s.roomNo || "",
+          Event: row.eventName || eventName,
+          "Check In": checkInAt ? formatMaybe(checkInAt) : "",
+          "Check Out": checkOutAt ? formatMaybe(checkOutAt) : "",
+          "Checked In": truthySymbol(checkedIn),
+          "Checked Out": truthySymbol(checkedOut),
+          Returned: truthySymbol(returned),
+          "Currently Out": truthySymbol(currentlyOut),
+          Present: row.isPresent ? "Yes" : "No",
+        };
+        const vals = keys.map((k) => escapeCell(v[k]));
         lines.push(vals.join(","));
       }
+
+      lines.push("");
+      lines.push(["TOTAL CHECK INS", totalCheckIns].map(escapeCell).join(","));
+      lines.push(
+        ["TOTAL CHECK OUTS", totalCheckOuts].map(escapeCell).join(","),
+      );
+      lines.push(["TOTAL RETURNS", totalReturns].map(escapeCell).join(","));
+      lines.push(
+        ["TOTAL CURRENTLY OUT", totalCurrentlyOut].map(escapeCell).join(","),
+      );
     }
 
     const csv = lines.join("\n");
@@ -272,10 +617,14 @@ exports.exportCSV = async (req, res) => {
       `attachment; filename="${
         allStudents
           ? "attendance_all_students"
-          : presentOnly
-          ? "attendance_present"
-          : "attendance_export"
-      }.csv"`
+          : returnedFilter
+            ? "attendance_returned"
+            : outNowFilter
+              ? "attendance_out_now"
+              : presentOnly
+                ? "attendance_present"
+                : "attendance_export"
+      }.csv"`,
     );
     res.send(bom + csv);
   } catch (err) {
@@ -296,6 +645,12 @@ exports.updateAttendance = async (req, res) => {
     const currentEvent =
       (req.body?.eventName || req.query?.eventName || "default").trim() ||
       "default";
+
+    // Target by case-insensitive regno and current event
+    const query = {
+      regno: new RegExp(`^${regnoParam}$`, "i"),
+      eventName: currentEvent,
+    };
 
     // Build update payload
     const updates = {};
@@ -346,6 +701,19 @@ exports.updateAttendance = async (req, res) => {
     const t = parseTimestamp(req.body);
     if (t && !isNaN(t.getTime())) updates.timestamp = t;
 
+    // Auto-populate check-in/check-out times based on isPresent toggles.
+    // - isPresent=true => checkInAt
+    // - isPresent=false => checkOutAt
+    if (typeof updates.isPresent === "boolean") {
+      const actionTime = updates.timestamp || new Date();
+      updates.timestamp = actionTime;
+      if (updates.isPresent === true) {
+        updates.checkInAt = actionTime;
+      } else {
+        updates.checkOutAt = actionTime;
+      }
+    }
+
     const newEventNameRaw = req.body?.newEventName;
     if (typeof newEventNameRaw === "string" && newEventNameRaw.trim()) {
       updates.eventName = newEventNameRaw.trim();
@@ -355,11 +723,16 @@ exports.updateAttendance = async (req, res) => {
       return res.status(400).json({ error: "No valid fields to update." });
     }
 
-    // Ensure we target by case-insensitive regno and current event
-    const query = {
-      regno: new RegExp(`^${regnoParam}$`, "i"),
-      eventName: currentEvent,
-    };
+    // If we're flipping from out->in and the record doesn't explicitly store checkOutAt,
+    // preserve the prior out time (previously stored only in timestamp while isPresent=false).
+    if (updates.isPresent === true) {
+      const existing = await Attendance.findOne(query)
+        .select("isPresent checkOutAt timestamp")
+        .lean();
+      if (existing && existing.isPresent === false && !existing.checkOutAt) {
+        updates.checkOutAt = existing.timestamp;
+      }
+    }
 
     // If eventName is changing, ensure no duplicate record exists for regno + newEventName
     if (updates.eventName && updates.eventName !== currentEvent) {
@@ -380,10 +753,61 @@ exports.updateAttendance = async (req, res) => {
       { $set: updates },
       {
         new: true,
-      }
+      },
     ).lean();
 
     if (!updated) {
+      // Allow "checkout" even if no record exists yet by creating an absent record.
+      // This supports workflows where students may check out without checking in.
+      if (updates.isPresent === false) {
+        const student = await Student.findOne({
+          regno: new RegExp(`^${regnoParam}$`, "i"),
+        }).lean();
+        if (!student) {
+          return res.status(404).json({
+            error: "No student found for this registration number.",
+          });
+        }
+
+        const actionTime = updates.timestamp || new Date();
+        const record = await Attendance.create({
+          regno: student.regno,
+          name: updates.name || student.name,
+          eventName: currentEvent,
+          timestamp: actionTime,
+          checkOutAt: actionTime,
+          isPresent: false,
+          student: student._id,
+        });
+
+        const checkInAt = record.checkInAt || null;
+        const checkOutAt = record.checkOutAt || record.timestamp;
+
+        const responseRecord = {
+          regno: record.regno,
+          name: record.name,
+          eventName: record.eventName,
+          timestamp:
+            record.timestamp instanceof Date
+              ? record.timestamp.getTime()
+              : record.timestamp,
+          timestampText: formatLocalYMDHM(record.timestamp),
+          checkInAt:
+            checkInAt instanceof Date ? checkInAt.getTime() : checkInAt,
+          checkInText: checkInAt ? formatLocalYMDHM(checkInAt) : "",
+          checkOutAt:
+            checkOutAt instanceof Date ? checkOutAt.getTime() : checkOutAt,
+          checkOutText: checkOutAt ? formatLocalYMDHM(checkOutAt) : "",
+          isPresent: record.isPresent,
+          _id: record._id,
+        };
+
+        return res.json({
+          message: "Checked out successfully.",
+          attendance: responseRecord,
+        });
+      }
+
       return res.status(404).json({
         error: "Attendance record not found for the specified student/event.",
       });
@@ -398,6 +822,29 @@ exports.updateAttendance = async (req, res) => {
           ? updated.timestamp.getTime()
           : updated.timestamp,
       timestampText: formatLocalYMDHM(updated.timestamp),
+      checkInAt:
+        (updated.checkInAt ||
+          (updated.isPresent ? updated.timestamp : null)) instanceof Date
+          ? (
+              updated.checkInAt ||
+              (updated.isPresent ? updated.timestamp : null)
+            ).getTime()
+          : updated.checkInAt || (updated.isPresent ? updated.timestamp : null),
+      checkInText: formatLocalYMDHM(
+        updated.checkInAt || (updated.isPresent ? updated.timestamp : null),
+      ),
+      checkOutAt:
+        (updated.checkOutAt ||
+          (!updated.isPresent ? updated.timestamp : null)) instanceof Date
+          ? (
+              updated.checkOutAt ||
+              (!updated.isPresent ? updated.timestamp : null)
+            ).getTime()
+          : updated.checkOutAt ||
+            (!updated.isPresent ? updated.timestamp : null),
+      checkOutText: formatLocalYMDHM(
+        updated.checkOutAt || (!updated.isPresent ? updated.timestamp : null),
+      ),
       isPresent: updated.isPresent,
       _id: updated._id,
     };

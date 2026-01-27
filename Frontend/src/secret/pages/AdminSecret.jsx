@@ -65,21 +65,24 @@ export default function AdminSecret() {
   }
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-gray-900 via-black to-gray-900 text-white font-sans py-10 px-5">
+    <div className="min-h-screen bg-linear-to-br from-gray-950 via-black to-gray-900 text-white font-sans py-10 px-5">
+      <AdminNavbar />
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="max-w-4xl mx-auto bg-gray-800/60 backdrop-blur-xl border border-gray-700/70 shadow-2xl rounded-2xl p-8"
+        className="max-w-4xl mx-auto bg-gray-800/50 backdrop-blur-xl border border-gray-700 shadow-2xl rounded-2xl overflow-hidden"
       >
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-blue-400">Admin Access</h1>
-            <p className="text-gray-400 text-sm">
-              Enter the passphrase to unlock admin-only tools.
-            </p>
-          </div>
+        <div className="bg-gray-800/50 px-6 pb-6 border-b border-gray-700">
+          <h1 className="text-3xl font-extrabold bg-linear-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent mb-2">
+            Admin Access
+          </h1>
+          <p className="text-sm text-gray-400">
+            Enter the passphrase to unlock admin-only tools and management
+            features
+          </p>
         </div>
+        <div className="p-8"></div>
 
         {unlocked ? (
           // When unlocked, only show the admin navbar as requested

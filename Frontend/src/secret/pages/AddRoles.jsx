@@ -118,102 +118,105 @@ export default function AddRoles() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 py-8 px-4">
-      <div className="max-w-3xl mx-auto bg-gray-800 border border-gray-700 rounded-2xl p-6">
-        <h2 className="text-xl font-semibold text-blue-300 mb-3">
-          Assign Roles (per event)
-        </h2>
-        <p className="text-sm text-gray-400 mb-4">
-          Select an event and provide regnos (comma or space separated). Admins
-          are global — adding regnos to Admins will grant them admin access for
-          all events.
-        </p>
+    <div className="min-h-screen bg-linear-to-br from-gray-950 via-black to-gray-900 py-8 px-4">
+      <div className="max-w-3xl mx-auto">
+        <div className="bg-gray-800/50 border border-gray-700 rounded-2xl px-6 pb-6 mb-6">
+          <h1 className="text-3xl font-extrabold bg-linear-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent mb-2">
+            Assign Roles
+          </h1>
+          <p className="text-sm text-gray-400">
+            Configure system admins, event members, and event-specific students.
+            Admins have global access across all events.
+          </p>
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="text-sm text-gray-300 block mb-1">Event</label>
-            <select
-              value={eventId}
-              onChange={(e) => setEventId(e.target.value)}
-              className="w-full bg-gray-900 text-white border border-gray-700 rounded px-3 py-2"
-            >
-              {events.map((ev) => (
-                <option key={ev._id || ev.id} value={ev._id || ev.id}>
-                  {ev.title}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="text-sm text-gray-300 block mb-1">
-              Global Admins (regnos)
-            </label>
-            <textarea
-              value={admins}
-              onChange={(e) => setAdmins(e.target.value)}
-              placeholder="e.g. 9924000111, 9924000222"
-              className="w-full bg-gray-900 text-white border border-gray-700 rounded px-3 py-2 h-20"
-            />
-          </div>
-
-          <div>
-            <label className="text-sm text-gray-300 block mb-1">
-              Members (regnos)
-            </label>
-            <textarea
-              value={members}
-              onChange={(e) => setMembers(e.target.value)}
-              placeholder="e.g. 9924000555, 9924000666"
-              className="w-full bg-gray-900 text-white border border-gray-700 rounded px-3 py-2 h-20"
-            />
-          </div>
-
-          <div>
-            <label className="text-sm text-gray-300 block mb-1">
-              Students (regnos)
-            </label>
-            <textarea
-              value={students}
-              onChange={(e) => setStudents(e.target.value)}
-              placeholder="e.g. 9924000333 9924000444"
-              className="w-full bg-gray-900 text-white border border-gray-700 rounded px-3 py-2 h-28"
-            />
-          </div>
-
-          {message && (
-            <div
-              className={`p-3 rounded ${
-                message.type === "error"
-                  ? "bg-red-700 text-white"
-                  : "bg-emerald-700 text-white"
-              }`}
-            >
-              {message.text}
+        <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="text-sm text-gray-300 block mb-1">Event</label>
+              <select
+                value={eventId}
+                onChange={(e) => setEventId(e.target.value)}
+                className="w-full bg-gray-900 text-white border border-gray-700 rounded px-3 py-2"
+              >
+                {events.map((ev) => (
+                  <option key={ev._id || ev.id} value={ev._id || ev.id}>
+                    {ev.title}
+                  </option>
+                ))}
+              </select>
             </div>
-          )}
 
-          <div className="flex gap-3 justify-end">
-            <button
-              type="button"
-              onClick={() => {
-                setAdmins("");
-                setStudents("");
-                setMembers("");
-              }}
-              className="px-4 py-2 rounded bg-gray-700 text-white"
-            >
-              Clear
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-4 py-2 rounded bg-blue-600 text-white"
-            >
-              {loading ? "Saving..." : "Save Roles"}
-            </button>
-          </div>
-        </form>
+            <div>
+              <label className="text-sm text-gray-300 block mb-1">
+                Global Admins (regnos)
+              </label>
+              <textarea
+                value={admins}
+                onChange={(e) => setAdmins(e.target.value)}
+                placeholder="e.g. 9924000111, 9924000222"
+                className="w-full bg-gray-900 text-white border border-gray-700 rounded px-3 py-2 h-20"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm text-gray-300 block mb-1">
+                Members (regnos)
+              </label>
+              <textarea
+                value={members}
+                onChange={(e) => setMembers(e.target.value)}
+                placeholder="e.g. 9924000555, 9924000666"
+                className="w-full bg-gray-900 text-white border border-gray-700 rounded px-3 py-2 h-20"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm text-gray-300 block mb-1">
+                Students (regnos)
+              </label>
+              <textarea
+                value={students}
+                onChange={(e) => setStudents(e.target.value)}
+                placeholder="e.g. 9924000333 9924000444"
+                className="w-full bg-gray-900 text-white border border-gray-700 rounded px-3 py-2 h-28"
+              />
+            </div>
+
+            {message && (
+              <div
+                className={`p-3 rounded ${
+                  message.type === "error"
+                    ? "bg-red-700 text-white"
+                    : "bg-emerald-700 text-white"
+                }`}
+              >
+                {message.text}
+              </div>
+            )}
+
+            <div className="flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setAdmins("");
+                  setStudents("");
+                  setMembers("");
+                }}
+                className="px-4 py-2 rounded bg-gray-700 text-white"
+              >
+                Clear
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="px-4 py-2 rounded bg-blue-600 text-white"
+              >
+                {loading ? "Saving..." : "Save Roles"}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );

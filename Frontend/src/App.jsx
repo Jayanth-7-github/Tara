@@ -18,6 +18,8 @@ import AdminSecret from "./secret/pages/AdminSecret";
 import AddRoles from "./secret/pages/AddRoles";
 import EventContacts from "./pages/EventContacts";
 import EventManagerDashboard from "./pages/EventManagerDashboard";
+import StudentDashboard from "./pages/StudentDashboard";
+import AdminDashboard from "./pages/AdminDashboard";
 import { ADMIN_TOKEN } from "./services/constants";
 import Hamburger from "./components/hamburger";
 
@@ -82,6 +84,8 @@ function App() {
               path="/events/dashboard"
               element={<EventManagerDashboard />}
             />
+            <Route path="/dashboard/student" element={<StudentDashboard />} />
+            <Route path="/dashboard/admin" element={<AdminDashboard />} />
             <Route path="/assignments" element={<Assignments />} />
             <Route path="/test" element={<Test />} />
             <Route path="/login" element={<Login />} />

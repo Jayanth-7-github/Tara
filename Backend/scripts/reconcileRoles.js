@@ -2,6 +2,19 @@ const { connectDB, disconnectDB } = require("../db");
 const User = require("../models/User");
 const authController = require("../controllers/authController");
 
+function roleRank(role) {
+  switch (String(role || "").toLowerCase()) {
+    case "admin":
+      return 3;
+    case "member":
+      return 2;
+    case "student":
+      return 1;
+    default:
+      return 0;
+  }
+}
+
 (async function main() {
   try {
     const mongo = process.env.MONGO_URL || "mongodb://localhost:27017/tara";
@@ -16,10 +29,14 @@ const authController = require("../controllers/authController");
           email: u.email,
           regno: u.regno,
         });
-        if (u.role !== desired) {
+        const current = u.role || "user";
+        // Only upgrade roles; never downgrade admins/members.
+        if (roleRank(desired) > roleRank(current)) {
           await User.updateOne({ _id: u._id }, { $set: { role: desired } });
           updated++;
-          console.log(`Updated ${u._id} (${u.email || u.regno}) -> ${desired}`);
+          console.log(
+            `Updated ${u._id} (${u.email || u.regno}) ${current} -> ${desired}`,
+          );
         }
       } catch (e) {
         console.warn(`Failed to determine role for ${u._id}:`, e.message || e);

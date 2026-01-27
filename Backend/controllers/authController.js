@@ -16,7 +16,7 @@ try {
 } catch (e) {
   // file may not exist or be malformed; we'll fall back to empty lists
   console.warn(
-    "roles.json not found or invalid — continuing with empty role lists"
+    "roles.json not found or invalid — continuing with empty role lists",
   );
 }
 
@@ -45,7 +45,7 @@ async function loadRoles() {
   } catch (err) {
     console.warn(
       "Failed to read roles from DB, using file fallback:",
-      err?.message
+      err?.message,
     );
   }
   // fallback to roles.json file contents (may include per-event maps)
@@ -79,6 +79,32 @@ async function determineRole({ email, regno }) {
   if (r && members.includes(r)) return "member";
 
   return "user";
+}
+
+function roleRank(role) {
+  switch (String(role || "").toLowerCase()) {
+    case "admin":
+      return 3;
+    case "member":
+      return 2;
+    case "student":
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+async function reconcileRoleIfNeeded(user) {
+  if (!user) return;
+  const desired = await determineRole({ email: user.email, regno: user.regno });
+
+  // Never downgrade a user's existing role based on roles config.
+  // This prevents a manually-set admin from being overwritten to "user".
+  const current = user.role || "user";
+  if (roleRank(desired) > roleRank(current)) {
+    user.role = desired;
+    await user.save();
+  }
 }
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
@@ -176,16 +202,9 @@ exports.login = async (req, res) => {
 
     const token = signToken(user._id);
     res.cookie("token", token, cookieOptions());
-    // Ensure stored role matches roles mapping (DB or file) if present
+    // Keep DB role as source of truth; only upgrade based on roles mapping
     try {
-      const desired = await determineRole({
-        email: user.email,
-        regno: user.regno,
-      });
-      if (user.role !== desired) {
-        user.role = desired;
-        await user.save();
-      }
+      await reconcileRoleIfNeeded(user);
     } catch (err) {
       console.warn("Failed to reconcile user role from roles config:", err);
     }
@@ -207,16 +226,9 @@ exports.getMe = async (req, res) => {
     if (!req.user) return res.status(401).json({ error: "Unauthorized" });
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ error: "User not found" });
-    // Reconcile role in case roles config changed
+    // Only upgrade role based on roles mapping; never downgrade
     try {
-      const desired = await determineRole({
-        email: user.email,
-        regno: user.regno,
-      });
-      if (user.role !== desired) {
-        user.role = desired;
-        await user.save();
-      }
+      await reconcileRoleIfNeeded(user);
     } catch (err) {
       console.warn("Failed to reconcile user role in getMe:", err);
     }
@@ -233,16 +245,9 @@ exports.checkLogin = async (req, res) => {
     if (!req.user) return res.status(401).json({ authenticated: false });
     const user = await User.findById(req.user.id);
     if (!user) return res.status(401).json({ authenticated: false });
-    // Reconcile role from roles.json in case the config changed
+    // Only upgrade role based on roles mapping; never downgrade
     try {
-      const desired = await determineRole({
-        email: user.email,
-        regno: user.regno,
-      });
-      if (user.role !== desired) {
-        user.role = desired;
-        await user.save();
-      }
+      await reconcileRoleIfNeeded(user);
     } catch (err) {
       console.warn("Failed to reconcile user role in checkLogin:", err);
     }
