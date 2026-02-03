@@ -54,8 +54,13 @@ const ContactSchema = new Schema(
       default: "unread",
       index: true,
     },
+    approved: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 // Compound index for efficient queries

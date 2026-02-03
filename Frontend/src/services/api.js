@@ -320,6 +320,23 @@ export async function getMyContacts() {
   return resp.json();
 }
 
+// Get contact requests created by the logged-in user (their interests)
+export async function getMyContactRequests() {
+  const resp = await fetch(
+    `${API_BASE.replace(/\/$/, "")}/contact/my-requests`,
+    {
+      credentials: "include",
+    },
+  );
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => ({}));
+    const err = new Error(body.error || "Failed to fetch your requests");
+    err.status = resp.status;
+    throw err;
+  }
+  return resp.json();
+}
+
 // Update contact status (mark as read/handled)
 export async function updateContactStatus(contactId, status) {
   const resp = await fetch(
@@ -357,6 +374,47 @@ export async function addContactAsStudent(contactId) {
   const body = await resp.json().catch(() => ({}));
   if (!resp.ok) {
     const err = new Error(body.error || "Failed to add student");
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}
+// Approve a contact request
+export async function approveContact(contactId) {
+  const resp = await fetch(
+    `${API_BASE.replace(/\/$/, "")}/contact/${encodeURIComponent(
+      contactId,
+    )}/approve`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+    },
+  );
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(body.error || "Failed to approve contact");
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}
+
+// Reject a contact request
+export async function rejectContact(contactId) {
+  const resp = await fetch(
+    `${API_BASE.replace(/\/$/, "")}/contact/${encodeURIComponent(
+      contactId,
+    )}/reject`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+    },
+  );
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(body.error || "Failed to reject contact");
     err.status = resp.status;
     throw err;
   }

@@ -48,13 +48,6 @@ export default function PublicHome() {
           >
             Get Started
           </button>
-
-          <Link
-            to="/about"
-            className="px-6 py-3 rounded-lg bg-gray-800 border border-gray-700 hover:bg-gray-700 text-gray-200 font-semibold transition-all duration-200"
-          >
-            Learn More
-          </Link>
         </div>
 
         {/* Footer */}

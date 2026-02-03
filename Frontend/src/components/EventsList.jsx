@@ -7,10 +7,11 @@ import {
   getRoles,
   fetchEvents,
   deleteEvent,
+  getMyContactRequests,
 } from "../services/api";
 import { getMe } from "../services/auth";
-import RegisterForm from "./RegisterForm";
 import ContactForm from "./ContactForm";
+import EventForm from "./EventForm";
 
 export default function EventsList({
   events = [],
@@ -19,7 +20,6 @@ export default function EventsList({
   hasTestResults = false,
 }) {
   const apiBase = API_BASE.replace(/\/$/, "");
-  const [showFormFor, setShowFormFor] = useState(null);
   const [showContactFor, setShowContactFor] = useState(null);
   const [showEditFor, setShowEditFor] = useState(null);
   const [registered, setRegistered] = useState({});
@@ -31,6 +31,8 @@ export default function EventsList({
   const [rolesMap, setRolesMap] = useState(null);
   const [localEvents, setLocalEvents] = useState(events || []);
   const [expressedInterest, setExpressedInterest] = useState({});
+  const [approvalStatus, setApprovalStatus] = useState({}); // Track approval status of expressed interests
+  const [userContacts, setUserContacts] = useState({}); // Map eventId to contact object
   const navigate = useNavigate();
   const contactEmail =
     import.meta.env.VITE_CONTACT_EMAIL || "99240041378@klu.ac.in";
@@ -82,6 +84,42 @@ export default function EventsList({
     })();
     return () => (mounted = false);
   }, []);
+
+  // Load user's contacts to check approval status
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        if (!userRegno) return;
+        const resp = await getMyContactRequests();
+        const contacts = resp.contacts || [];
+        const statusMap = {};
+        const contactMap = {};
+
+        for (const contact of contacts) {
+          const eventId = String(contact.eventId);
+          // Store the contact for later use
+          if (!contactMap[eventId]) {
+            contactMap[eventId] = contact;
+          }
+          // Map approval status
+          statusMap[eventId] = {
+            approved: contact.approved,
+            status: contact.status,
+            contactId: contact._id,
+          };
+        }
+
+        if (mounted) {
+          setApprovalStatus(statusMap);
+          setUserContacts(contactMap);
+        }
+      } catch (err) {
+        // ignore - user not logged in or no contacts
+      }
+    })();
+    return () => (mounted = false);
+  }, [userRegno]);
 
   // Load roles mapping (admins/students and per-event assignments)
   useEffect(() => {
@@ -199,6 +237,15 @@ export default function EventsList({
           userRole === "admin" ||
           isAdminByRoles ||
           (regUpper && (inPerEvent || inGlobal));
+
+        // Check if user's interest has been approved
+        const eventApprovalStatus = approvalStatus[id];
+        const isApproved = eventApprovalStatus && eventApprovalStatus.approved;
+
+        // If user's interest has been approved, allow registration
+        if (isApproved) {
+          allowedToRegister = true;
+        }
 
         // Compute whether current user can manage (edit/delete) this event
         const userEmailLower = (userEmail || "").toLowerCase().trim();
@@ -335,32 +382,36 @@ export default function EventsList({
                       </button>
                     )}
                   </>
-                ) : showFormFor === id ? (
-                  <>
-                    <div className="w-full">
-                      <RegisterForm
-                        eventId={id}
-                        onRegistered={() => {
-                          setRegistered((s) => ({ ...s, [id]: true }));
-                          setShowFormFor(null);
-                        }}
-                      />
-                    </div>
-                  </>
                 ) : (
                   <>
                     {allowedToRegister ? (
                       <button
-                        onClick={() => setShowFormFor(id)}
+                        onClick={() =>
+                          navigate(`/events/${id}/register`, {
+                            state: { eventTitle: ev.title },
+                          })
+                        }
                         className="px-3 py-1 text-xs rounded bg-blue-600 hover:bg-blue-700 transition text-white"
                       >
                         Register
                       </button>
-                    ) : expressedInterest[id] ? (
+                    ) : isApproved ? (
+                      <button
+                        onClick={() =>
+                          navigate(`/events/${id}/register`, {
+                            state: { eventTitle: ev.title },
+                          })
+                        }
+                        className="px-3 py-1 text-xs rounded bg-blue-600 hover:bg-blue-700 transition text-white"
+                        title="Your request has been approved. Click to register."
+                      >
+                        Register (Approved)
+                      </button>
+                    ) : eventApprovalStatus ? (
                       <button
                         disabled
                         className="px-3 py-1 text-xs rounded bg-gray-600 text-gray-300 cursor-not-allowed"
-                        title="Your interest has been sent to the event manager"
+                        title="Your interest request is waiting for manager approval"
                       >
                         Waiting for Approval
                       </button>
@@ -373,7 +424,7 @@ export default function EventsList({
                         I'm Interested
                       </button>
                     )}
-                    {allowedToRegister && (
+                    {/* {!allowedToRegister && !isApproved && (
                       <button
                         disabled
                         title="Register to enable taking the test"
@@ -381,7 +432,7 @@ export default function EventsList({
                       >
                         Take Test
                       </button>
-                    )}
+                    )} */}
                   </>
                 )}
               </div>
@@ -389,37 +440,6 @@ export default function EventsList({
           </article>
         );
       })}
-      {/* Modal for registration - centered like SearchBar modal */}
-      {showFormFor && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
-          onClick={() => setShowFormFor(null)}
-        >
-          <div
-            className="bg-gray-800 border border-gray-700 rounded-2xl p-6 shadow-2xl max-w-md w-full mx-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-semibold text-blue-400">
-                Register for Event
-              </h3>
-              <button
-                onClick={() => setShowFormFor(null)}
-                className="text-gray-400 hover:text-white transition-colors"
-              >
-                ✕
-              </button>
-            </div>
-            <RegisterForm
-              eventId={showFormFor}
-              onRegistered={() => {
-                setRegistered((s) => ({ ...s, [showFormFor]: true }));
-                setShowFormFor(null);
-              }}
-            />
-          </div>
-        </div>
-      )}
       {/* Contact modal */}
       {showContactFor && (
         <div
@@ -444,8 +464,16 @@ export default function EventsList({
                 setExpressedInterest(newInterest);
                 localStorage.setItem(
                   "expressedInterest",
-                  JSON.stringify(newInterest)
+                  JSON.stringify(newInterest),
                 );
+                // Refresh approval status
+                setApprovalStatus((prev) => ({
+                  ...prev,
+                  [showContactFor]: {
+                    approved: false,
+                    status: "unread",
+                  },
+                }));
               }}
             />
           </div>
@@ -476,7 +504,7 @@ export default function EventsList({
               mode="edit"
               eventId={showEditFor}
               initialData={localEvents.find(
-                (e) => (e._id || e.id) === showEditFor
+                (e) => (e._id || e.id) === showEditFor,
               )}
               onSuccess={async () => {
                 // refresh list and close modal
