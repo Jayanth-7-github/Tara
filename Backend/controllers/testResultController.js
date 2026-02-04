@@ -1,4 +1,6 @@
 const TestResult = require("../models/TestResult");
+const Event = require("../models/Event");
+const User = require("../models/User");
 
 // Submit test result
 exports.submitTest = async (req, res) => {
@@ -6,12 +8,15 @@ exports.submitTest = async (req, res) => {
     const userId = req.user.id;
     const {
       testTitle,
+      eventId,
+      eventName,
       answers,
       markedForReview,
       correctAnswers,
       totalQuestions,
       timeSpent,
       environment,
+      marksPerQuestion, // Extract custom marks per question
     } = req.body;
 
     if (!answers || !totalQuestions || !correctAnswers) {
@@ -20,44 +25,77 @@ exports.submitTest = async (req, res) => {
       });
     }
 
+    const marks = marksPerQuestion ? Number(marksPerQuestion) : 1;
+
     // Convert answers object to Map
     const answersMap = new Map(Object.entries(answers));
     const markedMap = markedForReview
       ? new Map(Object.entries(markedForReview))
       : new Map();
 
-    // Calculate score by comparing user answers with correct answers
+    // Calculate score: Use provided score if available, otherwise calculate for MCQs
     let calculatedScore = 0;
-    console.log("Calculating score...");
-    console.log("User answers:", answers);
-    console.log("Correct answers:", correctAnswers);
 
-    Object.keys(correctAnswers).forEach((questionId) => {
-      const userAnswer = answers[questionId];
-      const correctAnswer = correctAnswers[questionId];
-      console.log(
-        `Q${questionId}: User=${userAnswer}, Correct=${correctAnswer}, Match=${
+    if (req.body.score !== undefined) {
+      calculatedScore = req.body.score;
+      console.log("Using frontend provided score:", calculatedScore);
+    } else {
+      console.log("Calculating score on backend (MCQ fallback)...");
+      console.log("User answers:", answers);
+      console.log("Correct answers:", correctAnswers);
+      console.log("Marks per question:", marks);
+
+      Object.keys(correctAnswers).forEach((questionId) => {
+        const userAnswer = answers[questionId];
+        const correctAnswer = correctAnswers[questionId];
+        console.log(
+          `Q${questionId}: User=${userAnswer}, Correct=${correctAnswer}, Match=${Number(userAnswer) === Number(correctAnswer)
+          }`
+        );
+        // Convert both to numbers for comparison (in case they're strings)
+        if (
+          userAnswer !== undefined &&
           Number(userAnswer) === Number(correctAnswer)
-        }`
-      );
-      // Convert both to numbers for comparison (in case they're strings)
-      if (
-        userAnswer !== undefined &&
-        Number(userAnswer) === Number(correctAnswer)
-      ) {
-        calculatedScore++;
-      }
-    });
+        ) {
+          calculatedScore += marks;
+        }
+      });
+    }
 
     console.log("Final calculated score:", calculatedScore);
 
+    // Ensure totalQuestions represents total possible score if using weighted marks
+    const finalTotalMaxScore = (totalQuestions || 0) * marks;
+
+    let finalEventId = eventId;
+    let finalEventName = eventName || testTitle || "Event Assessment";
+
+    // Smart Event Linking: If eventId is missing, try to find an event with matching title
+    // This fixes cases where frontend doesn't send eventId but testTitle matches event title
+    if (!finalEventId && testTitle) {
+      try {
+        const linkedEvent = await Event.findOne({
+          title: { $regex: new RegExp(`^${testTitle}$`, 'i') }
+        });
+        if (linkedEvent) {
+          finalEventId = linkedEvent._id;
+          finalEventName = linkedEvent.title;
+          console.log(`Auto-linked test "${testTitle}" to event "${linkedEvent.title}" (${linkedEvent._id})`);
+        }
+      } catch (err) {
+        console.warn("Failed to auto-link event:", err);
+      }
+    }
+
     const testResult = await TestResult.create({
       userId,
-      testTitle: testTitle || "Event Assessment",
+      testTitle: testTitle || finalEventName,
+      eventId: finalEventId || null,
+      eventName: finalEventName,
       answers: answersMap,
       markedForReview: markedMap,
       score: calculatedScore,
-      totalQuestions,
+      totalQuestions: finalTotalMaxScore,
       timeSpent: timeSpent || 0,
       environment: environment || {},
     });
@@ -173,6 +211,77 @@ exports.checkTaken = async (req, res) => {
     return res.json({ taken: Boolean(exists) });
   } catch (err) {
     console.error("checkTaken error", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// Get all results (for admins/managers)
+exports.getAllResults = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const user = await User.findById(userId);
+
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    // Only allow admin or member
+    if (user.role !== "admin" && user.role !== "member") {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    const { testTitle } = req.query;
+    const filter = {};
+
+    // If specific test title requested, use it
+    if (testTitle) {
+      filter.testTitle = testTitle;
+    }
+
+    // MEMBER SPECIFIC LOGIC: Only show results for their events
+    if (user.role === "member") {
+      const userEmail = (user.email || "").toLowerCase().trim();
+      // Find events managed by this user
+      const managedEvents = await Event.find({
+        managerEmail: { $regex: new RegExp(`^${userEmail}$`, "i") },
+      });
+
+      const managedTitles = managedEvents.map((ev) => ev.title);
+      const managedEventIds = managedEvents.map((ev) => ev._id);
+
+      // If specific test title requested
+      if (testTitle) {
+        // Verify ownership: requested title must match one of their events
+        const targetEvent = managedEvents.find((e) => e.title === testTitle);
+        if (!targetEvent) {
+          // Title requested is not one of theirs -> return empty
+          return res.json({ results: [] });
+        }
+
+        // Smart Filter: Match by Title OR by the ID of that matched event
+        // This handles cases where testTitle is generic but eventId is specific
+        delete filter.testTitle; // Remove simple string match
+        filter.$or = [
+          { testTitle: testTitle },
+          { eventName: testTitle },
+          { eventId: targetEvent._id },
+        ];
+      } else {
+        // No specific title requested, restrict to ALL their events (by ID or Title)
+        filter.$or = [
+          { eventId: { $in: managedEventIds } },
+          { testTitle: { $in: managedTitles } },
+          { eventName: { $in: managedTitles } },
+        ];
+      }
+    }
+
+    const results = await TestResult.find(filter)
+      .sort({ createdAt: -1 })
+      .populate("userId", "name email regno")
+      .select("-markedForReview");
+
+    return res.json({ results });
+  } catch (err) {
+    console.error("getAllResults error", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 };

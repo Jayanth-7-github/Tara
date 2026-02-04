@@ -17,6 +17,7 @@ async function createEvent(req, res) {
       imageUrl,
       imageBase64,
       imageType,
+      isTestEnabled,
     } = req.body;
     let managerEmail = req.body.managerEmail;
 
@@ -92,6 +93,7 @@ async function createEvent(req, res) {
       venue,
       date: parsedDate,
       managerEmail: String(managerEmail).toLowerCase().trim(),
+      isTestEnabled: isTestEnabled !== undefined ? isTestEnabled : false,
     });
 
     // If frontend uploaded image as base64, store it in MongoDB
@@ -339,6 +341,8 @@ async function updateEvent(req, res) {
       imageBase64,
       imageType,
       imageUrl,
+      isTestEnabled, // <--- Added
+      questions, // <--- Added
     } = req.body || {};
 
     const ev = await Event.findById(id);
@@ -383,6 +387,16 @@ async function updateEvent(req, res) {
       if (Number.isNaN(parsed.getTime()))
         return res.status(400).json({ error: "Invalid date format" });
       ev.date = parsed;
+    }
+
+    // Handle isTestEnabled update
+    if (isTestEnabled !== undefined) {
+      ev.isTestEnabled = isTestEnabled;
+    }
+
+    // Handle questions update
+    if (questions !== undefined) {
+      ev.questions = questions;
     }
 
     // managerEmail handling: validate and update (do not allow clearing to empty)

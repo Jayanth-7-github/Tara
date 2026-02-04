@@ -1,5 +1,27 @@
 const { Schema, model } = require("mongoose");
 
+const QuestionSchema = new Schema({
+  id: { type: String }, // Use string ID to be flexible, or rely on _id
+  type: { type: String, enum: ["mcq", "coding"], default: "mcq" },
+  text: { type: String, required: true },
+  options: [String],
+  correctAnswer: { type: Schema.Types.Mixed }, // Number index for MCQ
+  marks: { type: Number, default: 1 },
+  // Coding specific
+  initialCode: String,
+  testCases: [
+    {
+      input: String,
+      expected: String,
+    },
+  ],
+  example: {
+    input: String,
+    output: String,
+  },
+  language: { type: String, default: "c++" },
+});
+
 const EventSchema = new Schema(
   {
     title: { type: String, required: true, trim: true },
@@ -23,6 +45,8 @@ const EventSchema = new Schema(
     // Counters (normalized registration stored on Student.registrations)
     registeredCount: { type: Number, default: 0 },
     attendedCount: { type: Number, default: 0 },
+    isTestEnabled: { type: Boolean, default: false },
+    questions: [QuestionSchema],
   },
   { timestamps: true }
 );

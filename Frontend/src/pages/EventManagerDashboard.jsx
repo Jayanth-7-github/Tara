@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { checkLogin } from "../services/auth";
-import { fetchEvents, API_BASE } from "../services/api";
+import { fetchEvents, API_BASE, getAllTestResults } from "../services/api";
 import { ADMIN_TOKEN } from "../services/constants";
 
 export default function EventManagerDashboard() {
@@ -10,6 +11,7 @@ export default function EventManagerDashboard() {
   const [authorized, setAuthorized] = useState(false);
   const [user, setUser] = useState(null);
   const [events, setEvents] = useState([]);
+
   const [stats, setStats] = useState({
     totalEvents: 0,
     totalRegistrations: 0,
@@ -75,17 +77,17 @@ export default function EventManagerDashboard() {
       const now = new Date();
       const totalRegistrations = managedEvents.reduce(
         (sum, ev) => sum + (ev.registeredCount || 0),
-        0
+        0,
       );
       const totalAttendance = managedEvents.reduce(
         (sum, ev) => sum + (ev.attendedCount || 0),
-        0
+        0,
       );
       const upcomingEvents = managedEvents.filter(
-        (ev) => new Date(ev.date) > now
+        (ev) => new Date(ev.date) > now,
       ).length;
       const pastEvents = managedEvents.filter(
-        (ev) => new Date(ev.date) <= now
+        (ev) => new Date(ev.date) <= now,
       ).length;
 
       setStats({
@@ -95,6 +97,7 @@ export default function EventManagerDashboard() {
         upcomingEvents,
         pastEvents,
       });
+
     } catch (err) {
       console.error("Failed to load data:", err);
     }
@@ -108,7 +111,7 @@ export default function EventManagerDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-950 via-black to-gray-900 text-white flex items-center justify-center">
+      <div className="min-h-screen bg-linear-to-br from-gray-950 via-black to-gray-900 text-white flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-400">Loading dashboard...</p>
@@ -119,7 +122,7 @@ export default function EventManagerDashboard() {
 
   if (!authorized) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-950 via-black to-gray-900 text-white flex items-center justify-center">
+      <div className="min-h-screen bg-linear-to-br from-gray-950 via-black to-gray-900 text-white flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-red-400 mb-4">
             Access Denied
@@ -139,13 +142,13 @@ export default function EventManagerDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-black to-gray-900 text-white">
+    <div className="min-h-screen bg-linear-to-br from-gray-950 via-black to-gray-900 text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-2">
             <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">
+              <h1 className="text-3xl font-bold bg-linear-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">
                 Event Manager Dashboard
               </h1>
               <p className="text-gray-400 mt-1">
@@ -279,8 +282,9 @@ export default function EventManagerDashboard() {
             <p className="text-xs text-gray-500 mt-1">
               {stats.totalRegistrations > 0
                 ? `${Math.round(
-                    (stats.totalAttendance / stats.totalRegistrations) * 100
-                  )}% attendance rate`
+                  (stats.totalAttendance / stats.totalRegistrations) * 100,
+                )
+                }% attendance rate`
                 : "No data"}
             </p>
           </div>
@@ -461,6 +465,132 @@ export default function EventManagerDashboard() {
               Access attendance summaries and analytics
             </p>
           </button>
+
+          <button
+            onClick={() => navigate("/events/questions")}
+            className="bg-gray-800/50 backdrop-blur border border-gray-700 rounded-xl p-6 hover:border-pink-500/50 transition text-left group"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-3 bg-pink-500/10 rounded-lg group-hover:bg-pink-500/20 transition">
+                <svg
+                  className="w-6 h-6 text-pink-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </div>
+              <svg
+                className="w-5 h-5 text-gray-600 group-hover:text-pink-400 transition"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-white mb-1">
+              Test Questions
+            </h3>
+            <p className="text-sm text-gray-400">
+              Set up MCQs and Coding problems
+            </p>
+          </button>
+
+          <button
+            onClick={() => navigate("/events/approvals")}
+            className="bg-gray-800/50 backdrop-blur border border-gray-700 rounded-xl p-6 hover:border-yellow-500/50 transition text-left group"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-3 bg-yellow-500/10 rounded-lg group-hover:bg-yellow-500/20 transition">
+                <svg
+                  className="w-6 h-6 text-yellow-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </div>
+              <svg
+                className="w-5 h-5 text-gray-600 group-hover:text-yellow-400 transition"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-white mb-1">
+              Manage Approvals
+            </h3>
+            <p className="text-sm text-gray-400">
+              Review and approve registration requests
+            </p>
+          </button>
+
+          <button
+            onClick={() => navigate("/events/results")}
+            className="bg-gray-800/50 backdrop-blur border border-gray-700 rounded-xl p-6 hover:border-teal-500/50 transition text-left group"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-3 bg-teal-500/10 rounded-lg group-hover:bg-teal-500/20 transition">
+                <svg
+                  className="w-6 h-6 text-teal-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+                  />
+                </svg>
+              </div>
+              <svg
+                className="w-5 h-5 text-gray-600 group-hover:text-teal-400 transition"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-white mb-1">
+              Student Results
+            </h3>
+            <p className="text-sm text-gray-400">
+              View assessment scores and reports
+            </p>
+          </button>
         </div>
 
         {/* Events List */}
@@ -519,7 +649,7 @@ export default function EventManagerDashboard() {
                   >
                     <div className="flex items-start gap-4">
                       {/* Event Image */}
-                      <div className="w-24 h-24 rounded-lg overflow-hidden bg-gray-700 flex-shrink-0">
+                      <div className="w-24 h-24 rounded-lg overflow-hidden bg-gray-700 shrink-0">
                         {imageSrc && (
                           <img
                             src={imageSrc}
@@ -597,11 +727,10 @@ export default function EventManagerDashboard() {
                             </div>
                           </div>
                           <span
-                            className={`px-3 py-1 rounded-full text-xs font-medium ${
-                              isUpcoming
-                                ? "bg-green-500/10 text-green-400"
-                                : "bg-gray-500/10 text-gray-400"
-                            }`}
+                            className={`px-3 py-1 rounded-full text-xs font-medium ${isUpcoming
+                              ? "bg-green-500/10 text-green-400"
+                              : "bg-gray-500/10 text-gray-400"
+                              }`}
                           >
                             {isUpcoming ? "Upcoming" : "Completed"}
                           </span>
@@ -683,10 +812,10 @@ export default function EventManagerDashboard() {
                               <p className="text-sm font-semibold text-white">
                                 {event.registeredCount > 0
                                   ? `${Math.round(
-                                      ((event.attendedCount || 0) /
-                                        event.registeredCount) *
-                                        100
-                                    )}%`
+                                    ((event.attendedCount || 0) /
+                                      event.registeredCount) *
+                                    100,
+                                  )}%`
                                   : "N/A"}
                               </p>
                               <p className="text-xs text-gray-500">
@@ -703,7 +832,7 @@ export default function EventManagerDashboard() {
             </div>
           )}
         </div>
-      </div>
-    </div>
+      </div >
+    </div >
   );
 }

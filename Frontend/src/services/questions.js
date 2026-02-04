@@ -2,6 +2,7 @@
 export const questions = [
   {
     id: 1,
+    type: "mcq",
     text: "What is polymorphism in object-oriented programming?",
     options: [
       "The ability of different objects to respond to the same method call",
@@ -13,6 +14,7 @@ export const questions = [
   },
   {
     id: 2,
+    type: "mcq",
     text: "Which type of polymorphism is resolved at compile time?",
     options: [
       "Method overloading",
@@ -24,6 +26,7 @@ export const questions = [
   },
   {
     id: 3,
+    type: "mcq",
     text: "What is method overriding?",
     options: [
       "A subclass provides a specific implementation of a method already defined in its superclass",
@@ -35,12 +38,14 @@ export const questions = [
   },
   {
     id: 4,
+    type: "mcq",
     text: "In Java, which keyword is used to achieve runtime polymorphism?",
     options: ["extends", "implements", "static", "final"],
     correctAnswer: 0,
   },
   {
     id: 5,
+    type: "mcq",
     text: "What is the output when a subclass method is called through a superclass reference?",
     options: [
       "The subclass method is executed (dynamic binding)",
@@ -52,6 +57,7 @@ export const questions = [
   },
   {
     id: 6,
+    type: "mcq",
     text: "Which of the following is an example of compile-time polymorphism?",
     options: [
       "Method overloading",
@@ -63,6 +69,7 @@ export const questions = [
   },
   {
     id: 7,
+    type: "mcq",
     text: "Can we achieve polymorphism without inheritance?",
     options: [
       "Yes, through interfaces",
@@ -74,6 +81,7 @@ export const questions = [
   },
   {
     id: 8,
+    type: "mcq",
     text: "What is the difference between overloading and overriding?",
     options: [
       "Overloading is compile-time, overriding is runtime",
@@ -85,6 +93,7 @@ export const questions = [
   },
   {
     id: 9,
+    type: "mcq",
     text: "Which polymorphism type allows a single interface to represent different data types?",
     options: [
       "Parametric polymorphism (Generics)",
@@ -96,6 +105,7 @@ export const questions = [
   },
   {
     id: 10,
+    type: "mcq",
     text: "In polymorphism, what does 'late binding' mean?",
     options: [
       "Method calls are resolved at runtime",
@@ -107,15 +117,87 @@ export const questions = [
   },
 ];
 
-// Function to get all questions
-export const getAllQuestions = () => {
-  return questions;
-};
+export const codingQuestions = [
+  {
+    id: 11,
+    type: "coding",
+    text: "Write a program to add two numbers.",
+    marks: 20,
+    initialCode: "#include <iostream>\n\nint sum(int a, int b) {\n    // Write your code here\n    return 0;\n}\n\nint main() {\n    int a, b;\n    std::cin >> a >> b;\n    std::cout << sum(a, b);\n    return 0;\n}",
+    testCases: [
+      { input: "2 3", expected: "5" },
+      { input: "10 20", expected: "30" },
+      { input: "-5 5", expected: "0" },
+      { input: "100 200", expected: "300" },
+      { input: "7 7", expected: "14" },
+      { input: "1 0", expected: "1" },
+      { input: "0 0", expected: "0" },
+      { input: "-10 -20", expected: "-30" },
+      { input: "99 1", expected: "100" },
+      { input: "50 50", expected: "100" }
+    ],
+    example: { input: "2 3", output: "5" },
+    language: "c++"
+  },
+  {
+    id: 12,
+    type: "coding",
+    text: "Write a program to check if a number is a Palindrome.",
+    marks: 20,
+    initialCode: "#include <iostream>\n\nbool isPalindrome(int n) {\n    // Write your code here\n    return false;\n}\n\nint main() {\n    int n;\n    std::cin >> n;\n    std::cout << (isPalindrome(n) ? \"true\" : \"false\");\n    return 0;\n}",
+    testCases: [
+      { input: "121", expected: "true" },
+      { input: "123", expected: "false" },
+      { input: "1001", expected: "true" },
+      { input: "12321", expected: "true" },
+      { input: "10", expected: "false" },
+      { input: "1", expected: "true" },
+      { input: "11", expected: "true" },
+      { input: "1221", expected: "true" },
+      { input: "987", expected: "false" },
+      { input: "5555", expected: "true" }
+    ],
+    example: { input: "121", output: "true" },
+    language: "c++"
+  },
+  {
+    id: 13,
+    type: "coding",
+    text: "Write a program to find the Factorial of a number.",
+    marks: 20,
+    initialCode: "#include <iostream>\n\nlong long factorial(int n) {\n    // Write your code here\n    return 0;\n}\n\nint main() {\n    int n;\n    std::cin >> n;\n    std::cout << factorial(n);\n    return 0;\n}",
+    testCases: [
+      { input: "5", expected: "120" },
+      { input: "0", expected: "1" },
+      { input: "1", expected: "1" },
+      { input: "3", expected: "6" },
+      { input: "6", expected: "720" },
+      { input: "10", expected: "3628800" },
+      { input: "4", expected: "24" },
+      { input: "2", expected: "2" },
+      { input: "7", expected: "5040" },
+      { input: "8", expected: "40320" }
+    ],
+    example: { input: "5", output: "120" },
+    language: "c++"
+  }
+];
 
 // Function to get questions without correct answers (for displaying to user)
-export const getQuestionsForUser = () => {
+export const getQuestionsForUser = (type = 'mcq') => {
+  if (type === 'coding') {
+    return codingQuestions;
+  }
   return questions.map(({ correctAnswer, ...question }) => question);
 };
+
+export const getMCQQuestionsForUser = () => {
+  return questions.map(({ correctAnswer, ...question }) => question);
+}
+
+export const getCodingQuestionsForUser = () => {
+  return codingQuestions;
+}
 
 // Function to get correct answers map (for backend validation)
 export const getCorrectAnswers = () => {

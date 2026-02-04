@@ -7,16 +7,22 @@ const TestResultSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    eventId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Event",
+    },
+    eventName: {
+      type: String,
+    },
     testTitle: {
       type: String,
-      default: "Polymorphism Assessment",
+      default: "Event Assessment",
     },
     answers: {
       type: Map,
-      of: Number,
+      of: mongoose.Schema.Types.Mixed,
       required: true,
-      // Format: { questionId: selectedAnswerIndex }
-      // Example: { "1": 0, "2": 2 } where numbers are option indexes
+      // Format: { questionId: selectedAnswerIndex (Number) OR { code: String, passed: Number } }
     },
     markedForReview: {
       type: Map,

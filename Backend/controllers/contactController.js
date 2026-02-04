@@ -124,7 +124,7 @@ async function getMyContacts(req, res) {
           else managers = rc.eventManagersByEvent[key] || [];
 
           const normalized = (managers || []).map((m) =>
-            String(m).toLowerCase()
+            String(m).toLowerCase(),
           );
           if (userEmail && normalized.includes(userEmail)) {
             isManager = true;
@@ -150,6 +150,40 @@ async function getMyContacts(req, res) {
   } catch (err) {
     console.error("getMyContacts error", err);
     return res.status(500).json({ error: "Failed to fetch contacts" });
+  }
+}
+
+// GET /api/contact/my-requests
+// Returns contact requests created by the logged-in user (their own interests)
+async function getMyRequests(req, res) {
+  try {
+    if (!req.user || !req.user.id)
+      return res.status(401).json({ error: "Unauthorized" });
+
+    const user = await User.findById(req.user.id).lean();
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const email = user.email ? String(user.email).toLowerCase().trim() : null;
+    const regno = user.regno ? String(user.regno).toUpperCase().trim() : null;
+
+    // Prefer userId when present, but also support matching by email/regno
+    const orClauses = [];
+    if (user._id) orClauses.push({ userId: user._id });
+    if (email) orClauses.push({ email: new RegExp(`^${email}$`, "i") });
+    if (regno) orClauses.push({ regno: new RegExp(`^${regno}$`, "i") });
+
+    if (!orClauses.length) {
+      return res.json({ contacts: [] });
+    }
+
+    const contacts = await Contact.find({ $or: orClauses })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return res.json({ contacts });
+  } catch (err) {
+    console.error("getMyRequests error", err);
+    return res.status(500).json({ error: "Failed to fetch your requests" });
   }
 }
 
@@ -276,11 +310,9 @@ async function addContactAsStudent(req, res) {
 
     // Validate contact has required student information
     if (!contact.regno || !contact.name) {
-      return res
-        .status(400)
-        .json({
-          error: "Contact missing required student information (regno, name)",
-        });
+      return res.status(400).json({
+        error: "Contact missing required student information (regno, name)",
+      });
     }
 
     // Check if student already exists
@@ -291,7 +323,7 @@ async function addContactAsStudent(req, res) {
     if (existingStudent) {
       // Check if already registered for this event
       const alreadyRegistered = existingStudent.registrations.some(
-        (reg) => reg.event.toString() === event._id.toString()
+        (reg) => reg.event.toString() === event._id.toString(),
       );
 
       if (alreadyRegistered) {
@@ -353,11 +385,9 @@ async function addContactAsStudent(req, res) {
   } catch (err) {
     console.error("addContactAsStudent error", err);
     if (err.code === 11000) {
-      return res
-        .status(409)
-        .json({
-          error: "Student with this registration number already exists",
-        });
+      return res.status(409).json({
+        error: "Student with this registration number already exists",
+      });
     }
     return res.status(500).json({ error: "Failed to add student" });
   }
@@ -368,4 +398,135 @@ module.exports = {
   getMyContacts,
   updateContactStatus,
   addContactAsStudent,
+  approveContact,
+  rejectContact,
+  getMyRequests,
 };
+
+// PUT /api/contact/:id/approve
+// Approve a contact request
+async function approveContact(req, res) {
+  try {
+    const { id } = req.params;
+
+    if (!req.user || !req.user.id)
+      return res.status(401).json({ error: "Unauthorized" });
+
+    const contact = await Contact.findById(id);
+    if (!contact) return res.status(404).json({ error: "Contact not found" });
+
+    // Verify permission (must be event manager for this event)
+    const event = await Event.findById(contact.eventId);
+    if (!event) return res.status(404).json({ error: "Event not found" });
+
+    const user = await User.findById(req.user.id).lean();
+    const isAdmin = user && user.role === "admin";
+    const userEmail =
+      user && user.email ? String(user.email).toLowerCase().trim() : null;
+
+    // Check if user is the event manager
+    let isManager = false;
+    if (
+      userEmail &&
+      event.managerEmail &&
+      String(event.managerEmail).toLowerCase().trim() === userEmail
+    ) {
+      isManager = true;
+    }
+
+    if (!isManager && !isAdmin) {
+      // Check if user is in eventManagersByEvent for this event
+      const rc = await RoleConfig.findOne().lean();
+      const key = event.title || event._id.toString();
+      let managers = [];
+      if (rc && rc.eventManagersByEvent) {
+        if (rc.eventManagersByEvent instanceof Map)
+          managers = rc.eventManagersByEvent.get(key) || [];
+        else managers = rc.eventManagersByEvent[key] || [];
+      }
+      const normalized = (managers || []).map((m) => String(m).toLowerCase());
+      if (userEmail && normalized.includes(userEmail)) {
+        isManager = true;
+      }
+    }
+
+    if (!isManager && !isAdmin) {
+      return res
+        .status(403)
+        .json({ error: "Not authorized to manage this event" });
+    }
+
+    contact.approved = true;
+    contact.status = "read";
+    await contact.save();
+
+    return res.json({ success: true, contact });
+  } catch (err) {
+    console.error("approveContact error", err);
+    return res.status(500).json({ error: "Failed to approve contact" });
+  }
+}
+
+// PUT /api/contact/:id/reject
+// Reject a contact request
+async function rejectContact(req, res) {
+  try {
+    const { id } = req.params;
+
+    if (!req.user || !req.user.id)
+      return res.status(401).json({ error: "Unauthorized" });
+
+    const contact = await Contact.findById(id);
+    if (!contact) return res.status(404).json({ error: "Contact not found" });
+
+    // Verify permission (must be event manager for this event)
+    const event = await Event.findById(contact.eventId);
+    if (!event) return res.status(404).json({ error: "Event not found" });
+
+    const user = await User.findById(req.user.id).lean();
+    const isAdmin = user && user.role === "admin";
+    const userEmail =
+      user && user.email ? String(user.email).toLowerCase().trim() : null;
+
+    // Check if user is the event manager
+    let isManager = false;
+    if (
+      userEmail &&
+      event.managerEmail &&
+      String(event.managerEmail).toLowerCase().trim() === userEmail
+    ) {
+      isManager = true;
+    }
+
+    if (!isManager && !isAdmin) {
+      // Check if user is in eventManagersByEvent for this event
+      const rc = await RoleConfig.findOne().lean();
+      const key = event.title || event._id.toString();
+      let managers = [];
+      if (rc && rc.eventManagersByEvent) {
+        if (rc.eventManagersByEvent instanceof Map)
+          managers = rc.eventManagersByEvent.get(key) || [];
+        else managers = rc.eventManagersByEvent[key] || [];
+      }
+      const normalized = (managers || []).map((m) => String(m).toLowerCase());
+      if (userEmail && normalized.includes(userEmail)) {
+        isManager = true;
+      }
+    }
+
+    if (!isManager && !isAdmin) {
+      return res
+        .status(403)
+        .json({ error: "Not authorized to manage this event" });
+    }
+
+    contact.approved = false;
+    contact.status = "handled";
+    await contact.save();
+
+    return res.json({ success: true, contact });
+  } catch (err) {
+    console.error("rejectContact error", err);
+    return res.status(500).json({ error: "Failed to reject contact" });
+  }
+}

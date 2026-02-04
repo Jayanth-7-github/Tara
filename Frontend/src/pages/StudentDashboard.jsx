@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { checkLogin } from "../services/auth";
-import { fetchEvents, getMyTestStats, API_BASE } from "../services/api";
+import { fetchEvents, getMyTestStats, fetchStudent, API_BASE } from "../services/api";
 
 export default function StudentDashboard() {
   const navigate = useNavigate();
@@ -54,21 +54,30 @@ export default function StudentDashboard() {
 
   const loadData = async () => {
     try {
-      // Fetch events
       const data = await fetchEvents();
       const allEvents = data.events || data || [];
 
-      // Filter registered events
-      const userId = user._id || user.id;
+      let registeredEventIds = [];
+      let studentData = null;
+
+      if (user.regno) {
+        try {
+          studentData = await fetchStudent(user.regno);
+          if (studentData && studentData.registrations) {
+            registeredEventIds = studentData.registrations.map(r =>
+              typeof r.event === 'object' ? r.event._id : r.event
+            );
+          }
+        } catch (err) {
+          console.warn("Could not fetch student profile (likely not yet registered as Student):", err);
+        }
+      }
+
       const registeredEvents = allEvents.filter((ev) =>
-        (ev.registeredUsers || []).includes(userId)
+        registeredEventIds.includes(ev._id || ev.id)
       );
 
-      // Filter attended events
-      const attendedEvents = allEvents.filter((ev) =>
-        (ev.attendedUsers || []).includes(userId)
-      );
-
+      const attendedEvents = [];
       const now = new Date();
       const upcoming = registeredEvents.filter(
         (ev) => new Date(ev.date) > now
@@ -76,13 +85,12 @@ export default function StudentDashboard() {
 
       setEvents(registeredEvents);
 
-      // Fetch test stats
       try {
         const testData = await getMyTestStats();
         setTestStats(testData);
         setStats({
           registeredEvents: registeredEvents.length,
-          attendedEvents: attendedEvents.length,
+          attendedEvents: 0,
           upcomingEvents: upcoming,
           completedTests: testData?.totalTests || 0,
           pendingTests: registeredEvents.length - (testData?.totalTests || 0),
@@ -91,7 +99,7 @@ export default function StudentDashboard() {
         console.error("Failed to load test stats:", err);
         setStats({
           registeredEvents: registeredEvents.length,
-          attendedEvents: attendedEvents.length,
+          attendedEvents: 0,
           upcomingEvents: upcoming,
           completedTests: 0,
           pendingTests: 0,
@@ -119,14 +127,13 @@ export default function StudentDashboard() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">
-            Student Dashboard
+            Student Portal
           </h1>
           <p className="text-gray-400 mt-1">
-            Welcome back, {user?.name || user?.email}
+            Welcome, {user?.name || user?.email}
           </p>
         </div>
 
-        {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
           <div className="bg-gray-800/50 backdrop-blur border border-gray-700 rounded-xl p-6 hover:border-blue-500/50 transition">
             <div className="flex items-center justify-between mb-2">
@@ -210,7 +217,7 @@ export default function StudentDashboard() {
           <div className="bg-gray-800/50 backdrop-blur border border-gray-700 rounded-xl p-6 hover:border-purple-500/50 transition">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-medium text-gray-400">
-                Tests Completed
+                Assessments
               </h3>
               <div className="p-2 bg-purple-500/10 rounded-lg">
                 <svg
@@ -231,13 +238,13 @@ export default function StudentDashboard() {
             <p className="text-3xl font-bold text-white">
               {stats.completedTests}
             </p>
-            <p className="text-xs text-gray-500 mt-1">Assessments done</p>
+            <p className="text-xs text-gray-500 mt-1">Tests submitted</p>
           </div>
 
           <div className="bg-gray-800/50 backdrop-blur border border-gray-700 rounded-xl p-6 hover:border-orange-500/50 transition">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-medium text-gray-400">
-                Attendance Rate
+                Participation Rate
               </h3>
               <div className="p-2 bg-orange-500/10 rounded-lg">
                 <svg
@@ -258,15 +265,14 @@ export default function StudentDashboard() {
             <p className="text-3xl font-bold text-white">
               {stats.registeredEvents > 0
                 ? `${Math.round(
-                    (stats.attendedEvents / stats.registeredEvents) * 100
-                  )}%`
+                  (stats.attendedEvents / stats.registeredEvents) * 100
+                )}%`
                 : "0%"}
             </p>
-            <p className="text-xs text-gray-500 mt-1">Overall performance</p>
+            <p className="text-xs text-gray-500 mt-1">Engagement level</p>
           </div>
         </div>
 
-        {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <button
             onClick={() => navigate("/main")}
@@ -311,7 +317,7 @@ export default function StudentDashboard() {
           </button>
 
           <button
-            onClick={() => navigate("/test")}
+            onClick={() => navigate("/realtest")}
             className="bg-gray-800/50 backdrop-blur border border-gray-700 rounded-xl p-6 hover:border-green-500/50 transition text-left group"
           >
             <div className="flex items-center justify-between mb-3">
@@ -344,9 +350,11 @@ export default function StudentDashboard() {
                 />
               </svg>
             </div>
-            <h3 className="text-lg font-semibold text-white mb-1">Take Test</h3>
+            <h3 className="text-lg font-semibold text-white mb-1">
+              Start Assessment
+            </h3>
             <p className="text-sm text-gray-400">
-              Complete assessments for registered events
+              Access your scheduled evaluations
             </p>
           </button>
 
@@ -385,15 +393,14 @@ export default function StudentDashboard() {
               </svg>
             </div>
             <h3 className="text-lg font-semibold text-white mb-1">
-              Assignments
+              Submission History
             </h3>
             <p className="text-sm text-gray-400">
-              View and complete your assignments
+              Review your past activities and results
             </p>
           </button>
         </div>
 
-        {/* Registered Events */}
         <div className="bg-gray-800/50 backdrop-blur border border-gray-700 rounded-xl">
           <div className="px-6 py-4 border-b border-gray-700">
             <h2 className="text-xl font-semibold text-white">
@@ -532,17 +539,16 @@ export default function StudentDashboard() {
                           </div>
                           <div className="flex flex-col gap-2">
                             <span
-                              className={`px-3 py-1 rounded-full text-xs font-medium ${
-                                isUpcoming
-                                  ? "bg-green-500/10 text-green-400"
-                                  : "bg-gray-500/10 text-gray-400"
-                              }`}
+                              className={`px-3 py-1 rounded-full text-xs font-medium ${isUpcoming
+                                ? "bg-green-500/10 text-green-400"
+                                : "bg-gray-500/10 text-gray-400"
+                                }`}
                             >
-                              {isUpcoming ? "Upcoming" : "Completed"}
+                              {isUpcoming ? "Scheduled" : "Concluded"}
                             </span>
                             {hasAttended && (
                               <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-500/10 text-blue-400">
-                                ✓ Attended
+                                ✓ Verified
                               </span>
                             )}
                           </div>

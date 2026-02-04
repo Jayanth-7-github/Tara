@@ -7,10 +7,12 @@ import {
   getRoles,
   fetchEvents,
   deleteEvent,
+  updateEvent,
+  getMyContactRequests,
 } from "../services/api";
 import { getMe } from "../services/auth";
-import RegisterForm from "./RegisterForm";
 import ContactForm from "./ContactForm";
+import EventForm from "./EventForm";
 
 export default function EventsList({
   events = [],
@@ -19,8 +21,8 @@ export default function EventsList({
   hasTestResults = false,
 }) {
   const apiBase = API_BASE.replace(/\/$/, "");
-  const [showFormFor, setShowFormFor] = useState(null);
   const [showContactFor, setShowContactFor] = useState(null);
+  const [showDetailsFor, setShowDetailsFor] = useState(null);
   const [showEditFor, setShowEditFor] = useState(null);
   const [registered, setRegistered] = useState({});
   const [testTaken, setTestTaken] = useState({});
@@ -31,6 +33,8 @@ export default function EventsList({
   const [rolesMap, setRolesMap] = useState(null);
   const [localEvents, setLocalEvents] = useState(events || []);
   const [expressedInterest, setExpressedInterest] = useState({});
+  const [approvalStatus, setApprovalStatus] = useState({}); // Track approval status of expressed interests
+  const [userContacts, setUserContacts] = useState({}); // Map eventId to contact object
   const navigate = useNavigate();
   const contactEmail =
     import.meta.env.VITE_CONTACT_EMAIL || "99240041378@klu.ac.in";
@@ -83,6 +87,42 @@ export default function EventsList({
     return () => (mounted = false);
   }, []);
 
+  // Load user's contacts to check approval status
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        if (!userRegno) return;
+        const resp = await getMyContactRequests();
+        const contacts = resp.contacts || [];
+        const statusMap = {};
+        const contactMap = {};
+
+        for (const contact of contacts) {
+          const eventId = String(contact.eventId);
+          // Store the contact for later use
+          if (!contactMap[eventId]) {
+            contactMap[eventId] = contact;
+          }
+          // Map approval status
+          statusMap[eventId] = {
+            approved: contact.approved,
+            status: contact.status,
+            contactId: contact._id,
+          };
+        }
+
+        if (mounted) {
+          setApprovalStatus(statusMap);
+          setUserContacts(contactMap);
+        }
+      } catch (err) {
+        // ignore - user not logged in or no contacts
+      }
+    })();
+    return () => (mounted = false);
+  }, [userRegno]);
+
   // Load roles mapping (admins/students and per-event assignments)
   useEffect(() => {
     let mounted = true;
@@ -105,30 +145,40 @@ export default function EventsList({
     setLocalEvents(Array.isArray(events) ? events : []);
   }, [events]);
 
-  // When registrations change (or events load), check whether the logged-in user
-  // has already taken the test for each registered event. We only query for
-  // events the user is registered for to reduce API calls.
+  // When registrations change (or events load), check test status for each event
   useEffect(() => {
     let mounted = true;
     (async () => {
       try {
-        // For each event that the user is registered for, call checkTestTaken
         const entries = Object.keys(registered).filter((id) => registered[id]);
         if (!entries.length) return;
-        for (const id of entries) {
-          // find event by id to get a title (backend expects testTitle)
-          const ev = events.find((e) => (e._id || e.id) === id);
-          if (!ev) continue;
-          try {
-            const resp = await checkTestTaken(ev.title);
-            if (!mounted) return;
-            setTestTaken((t) => ({ ...t, [id]: Boolean(resp && resp.taken) }));
-          } catch (err) {
-            // ignore per-event check errors
-            if (!mounted) return;
-            setTestTaken((t) => ({ ...t, [id]: false }));
-          }
-        }
+
+        // Since ExamPage currently uses hardcoded titles, we check these titles globally
+        // In a real app, these titles should probably include the event ID.
+        const mcqTitle = "Module Practice Assessment | Polymorphism";
+        const codingTitle = "Module Practice Assessment | Coding Round";
+
+        // We can batch check or just check once if titles are global.
+        // But to keep structure ready for event-specific checks, let's keep the loop or mapping.
+        // Assuming for now the tests are linked to these specific titles regardless of event.
+
+        const mcqResp = await checkTestTaken(mcqTitle).catch(() => ({ taken: false }));
+        const codingResp = await checkTestTaken(codingTitle).catch(() => ({ taken: false }));
+
+        if (!mounted) return;
+
+        const status = {
+          mcq: Boolean(mcqResp?.taken),
+          coding: Boolean(codingResp?.taken)
+        };
+
+        const newTestTaken = {};
+        entries.forEach(id => {
+          newTestTaken[id] = status;
+        });
+
+        setTestTaken(newTestTaken);
+
       } catch (err) {
         // no-op
       }
@@ -158,17 +208,63 @@ export default function EventsList({
   }
 
   return (
-    // Use a wrapping flex layout so cards keep a compact width and align left when only one item
-    <div className="flex flex-wrap gap-5 items-start">
-      {localEvents.map((ev) => {
-        const id = ev._id || ev.id;
+    <>
+      <div className="flex flex-wrap gap-5 items-start">
+        {localEvents.map((ev) => {
+          const id = ev._id || ev.id;
+          const imageSrc = ev.imageUrl || `${apiBase}/events/${id}/image`;
+
+          return (
+            <article
+              key={id}
+              onClick={() => setShowDetailsFor(id)}
+              className="rounded-2xl overflow-hidden border border-gray-800 shadow-sm bg-transparent w-full sm:w-80 cursor-pointer hover:border-blue-500 transition-colors group"
+            >
+              {imageSrc && (
+                <img
+                  src={imageSrc}
+                  alt={ev.title}
+                  className="w-full h-44 object-contain bg-white group-hover:scale-105 transition-transform duration-300"
+                  style={{ objectFit: "contain" }}
+                />
+              )}
+
+              <div className="p-4 bg-gray-900 relative">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-100 mb-1">
+                      {ev.title}
+                    </h3>
+                    <p className="text-xs text-gray-400">
+                      {new Date(ev.date).toLocaleString()}
+                    </p>
+                  </div>
+                  {/* Status Badge */}
+                  {registered[id] && (
+                    <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-green-900/50 text-green-400 rounded-full border border-green-800">
+                      Registered
+                    </span>
+                  )}
+                </div>
+
+                <p className="mt-2 text-xs text-gray-400 line-clamp-2">
+                  {ev.description}
+                </p>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+
+      {/* Event Details Modal */}
+      {showDetailsFor && (() => {
+        const id = showDetailsFor;
+        const ev = localEvents.find(e => (e._id || e.id) === id);
+        if (!ev) return null;
+
         const imageSrc = ev.imageUrl || `${apiBase}/events/${id}/image`;
 
-        // Precompute per-event permission: whether this logged-in user (or admin)
-        // is allowed to register for this specific event. The backend now
-        // exposes `studentsByEvent` keyed by event title/name, so we check
-        // that map using the event's title. We still fall back to a global
-        // `students` list for site-wide students.
+        // Re-calculate permissions logic for the modal context
         const eventNameKey = String(ev.title || ev.name || id).trim();
         let perEventStudents = null;
         if (rolesMap && rolesMap.studentsByEvent) {
@@ -177,249 +273,232 @@ export default function EventsList({
           else if (typeof rolesMap.studentsByEvent.get === "function")
             perEventStudents = rolesMap.studentsByEvent.get(eventNameKey);
         }
-        const globalStudents =
-          rolesMap && Array.isArray(rolesMap.students) ? rolesMap.students : [];
+        const globalStudents = rolesMap && Array.isArray(rolesMap.students) ? rolesMap.students : [];
         const regUpper = (userRegno || "").toUpperCase();
-        // Treat regnos present in rolesMap.admins as admins on the client as well
-        const globalAdmins =
-          rolesMap && Array.isArray(rolesMap.admins) ? rolesMap.admins : [];
-        const isAdminByRoles =
-          regUpper &&
-          globalAdmins.map((s) => String(s).toUpperCase()).includes(regUpper);
-        const inPerEvent =
-          perEventStudents &&
-          Array.isArray(perEventStudents) &&
-          perEventStudents
-            .map((s) => String(s).toUpperCase())
-            .includes(regUpper);
-        const inGlobal =
-          Array.isArray(globalStudents) &&
-          globalStudents.map((s) => String(s).toUpperCase()).includes(regUpper);
-        let allowedToRegister =
-          userRole === "admin" ||
-          isAdminByRoles ||
-          (regUpper && (inPerEvent || inGlobal));
+        const globalAdmins = rolesMap && Array.isArray(rolesMap.admins) ? rolesMap.admins : [];
+        const isAdminByRoles = regUpper && globalAdmins.map((s) => String(s).toUpperCase()).includes(regUpper);
+        const inPerEvent = perEventStudents && Array.isArray(perEventStudents) && perEventStudents.map((s) => String(s).toUpperCase()).includes(regUpper);
+        const inGlobal = Array.isArray(globalStudents) && globalStudents.map((s) => String(s).toUpperCase()).includes(regUpper);
 
-        // Compute whether current user can manage (edit/delete) this event
+        const eventApprovalStatus = approvalStatus[id];
+        const isApproved = eventApprovalStatus && eventApprovalStatus.approved;
+
+        let allowedToRegister = userRole === "admin" || isAdminByRoles || (regUpper && (inPerEvent || inGlobal)) || isApproved;
+
         const userEmailLower = (userEmail || "").toLowerCase().trim();
         let isEventManager = false;
-        // First, direct managerEmail match by email
-        if (
-          userEmailLower &&
-          ev.managerEmail &&
-          String(ev.managerEmail).toLowerCase().trim() === userEmailLower
-        ) {
+        if (userEmailLower && ev.managerEmail && String(ev.managerEmail).toLowerCase().trim() === userEmailLower) {
           isEventManager = true;
         }
-        // Next, check per-event managers stored in rolesMap keyed by event title (fall back to id)
         if (!isEventManager && rolesMap && rolesMap.eventManagersByEvent) {
           const em = rolesMap.eventManagersByEvent;
-          const eventKey = eventNameKey; // prefer title-like key
+          const eventKey = eventNameKey;
           let list = [];
           if (em) {
-            if (typeof em.get === "function") {
-              list = em.get(eventKey) || [];
-            } else if (em[eventKey]) {
-              list = em[eventKey] || [];
-            }
+            if (typeof em.get === "function") list = em.get(eventKey) || [];
+            else list = em[eventKey] || [];
           }
           if (Array.isArray(list) && list.length) {
-            const lowered = list.map((s) => String(s || "").toLowerCase());
-            const uppered = list.map((s) => String(s || "").toUpperCase());
-            if (userEmailLower && lowered.includes(userEmailLower))
-              isEventManager = true;
-            if (!isEventManager && userRegno && uppered.includes(userRegno))
-              isEventManager = true;
+            const lowered = list.map(s => String(s || "").toLowerCase());
+            const uppered = list.map(s => String(s || "").toUpperCase());
+            if (userEmailLower && lowered.includes(userEmailLower)) isEventManager = true;
+            if (!isEventManager && userRegno && uppered.includes(userRegno)) isEventManager = true;
           }
         }
-        // If the user is an event manager, grant them full rights for this event
         if (isEventManager) allowedToRegister = true;
 
-        const canManage =
-          userRole === "admin" || isAdminByRoles || isEventManager;
-
         return (
-          <article
-            key={id}
-            className="rounded-2xl overflow-hidden border border-gray-800 shadow-sm bg-transparent w-full sm:w-80"
-          >
-            {imageSrc && (
-              <img
-                src={imageSrc}
-                alt={ev.title}
-                className="w-full h-44 object-contain bg-white"
-                style={{ objectFit: "contain" }}
-              />
-            )}
+          <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/80 backdrop-blur-md" onClick={() => setShowDetailsFor(null)}>
+            <div className="w-[80vw] h-[80vh] bg-gray-900 border border-gray-700 rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row" onClick={e => e.stopPropagation()}>
 
-            <div className="p-4 bg-gray-900 relative">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-100">
-                    {ev.title}
-                  </h3>
-                  <p className="text-xs text-gray-400">
-                    {new Date(ev.date).toLocaleString()} •{" "}
-                    {ev.venue || ev.location}
-                  </p>
-                </div>
-                {/* show per-event status: Event manager / Admin / Event */}
-                <span className="text-xs text-gray-300">
-                  {isEventManager ? (
-                    <>
-                      {/* full label on small+ screens, short on xs */}
-                      <span className="hidden sm:inline px-2 py-0.5 bg-yellow-700 rounded text-yellow-100">
-                        Manager
-                      </span>
-                      <span className="inline sm:hidden px-2 py-0.5 bg-yellow-700 rounded text-yellow-100">
-                        Mgr
-                      </span>
-                    </>
-                  ) : userRole === "admin" || isAdminByRoles ? (
-                    <>
-                      <span className="hidden sm:inline px-2 py-0.5 bg-green-700 rounded text-green-100">
-                        Admin
-                      </span>
-                      <span className="inline sm:hidden px-2 py-0.5 bg-green-700 rounded text-green-100">
-                        Adm
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="hidden sm:inline">Event</span>
-                      <span className="inline sm:hidden">Ev</span>
-                    </>
-                  )}
-                </span>
-              </div>
-
-              <p className="mt-2 text-xs text-gray-300">{ev.description}</p>
-              {/* show per-event managers if present */}
-              {rolesMap &&
-                rolesMap.eventManagersByEvent &&
-                (() => {
-                  const em = rolesMap.eventManagersByEvent;
-                  const key = eventNameKey;
-                  let list = [];
-                  if (em) {
-                    if (typeof em.get === "function") list = em.get(key) || [];
-                    else list = em[key] || [];
-                  }
-                  if (Array.isArray(list) && list.length) {
-                    return (
-                      <p className="mt-2 text-xs text-gray-400">
-                        Event managers: {list.join(", ")}
-                      </p>
-                    );
-                  }
-                  return null;
-                })()}
-
-              <div className="mt-4 flex items-center gap-3">
-                {registered[id] ? (
-                  <>
-                    <div className="text-sm text-green-300">Registered ✓</div>
-                    {testTaken[id] || hasTestResults ? (
-                      <button
-                        disabled
-                        className="px-4 py-2 text-sm  text-green-300 cursor-not-allowed transition shadow"
-                      >
-                        Test Taken ✓
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => navigate(`/test?eventId=${id}`)}
-                        className="px-3 py-1 text-xs rounded bg-green-600 hover:bg-green-700 transition text-white"
-                      >
-                        Take Test
-                      </button>
-                    )}
-                  </>
-                ) : showFormFor === id ? (
-                  <>
-                    <div className="w-full">
-                      <RegisterForm
-                        eventId={id}
-                        onRegistered={() => {
-                          setRegistered((s) => ({ ...s, [id]: true }));
-                          setShowFormFor(null);
-                        }}
-                      />
-                    </div>
-                  </>
+              {/* Left Side: Image */}
+              <div className="w-full md:w-1/2 h-64 md:h-full bg-black relative">
+                {imageSrc ? (
+                  <img
+                    src={imageSrc}
+                    alt={ev.title}
+                    className="w-full h-full object-contain p-4"
+                  />
                 ) : (
-                  <>
-                    {allowedToRegister ? (
-                      <button
-                        onClick={() => setShowFormFor(id)}
-                        className="px-3 py-1 text-xs rounded bg-blue-600 hover:bg-blue-700 transition text-white"
-                      >
-                        Register
-                      </button>
-                    ) : expressedInterest[id] ? (
-                      <button
-                        disabled
-                        className="px-3 py-1 text-xs rounded bg-gray-600 text-gray-300 cursor-not-allowed"
-                        title="Your interest has been sent to the event manager"
-                      >
-                        Waiting for Approval
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => setShowContactFor(id)}
-                        className="px-3 py-1 text-xs rounded bg-yellow-600 hover:bg-yellow-700 transition text-white cursor-pointer"
-                        title="Express your interest to register"
-                      >
-                        I'm Interested
-                      </button>
-                    )}
-                    {allowedToRegister && (
-                      <button
-                        disabled
-                        title="Register to enable taking the test"
-                        className="px-3 py-1 text-xs rounded bg-gray-400 text-white opacity-60 cursor-not-allowed"
-                      >
-                        Take Test
-                      </button>
-                    )}
-                  </>
+                  <div className="w-full h-full flex items-center justify-center text-gray-700">No Image</div>
                 )}
+                <button
+                  onClick={() => setShowDetailsFor(null)}
+                  className="absolute top-4 left-4 md:hidden bg-black/50 p-2 rounded-full text-white"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Right Side: Details */}
+              <div className="w-full md:w-1/2 h-full flex flex-col bg-gray-900 border-l border-gray-800">
+                <div className="flex-1 p-8 overflow-y-auto">
+                  <div className="flex justify-between items-start mb-6">
+                    <div>
+                      <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">{new Date(ev.date).toLocaleDateString()}</span>
+                      <h2 className="text-3xl font-bold text-white mt-2 leading-tight">{ev.title}</h2>
+                      <p className="text-gray-400 text-sm mt-1">{ev.venue || ev.location} • {new Date(ev.date).toLocaleTimeString()}</p>
+                    </div>
+                    <button
+                      onClick={() => setShowDetailsFor(null)}
+                      className="hidden md:block text-gray-500 hover:text-white transition-colors"
+                    >
+                      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  <div className="prose prose-invert max-w-none">
+                    <p className="text-gray-300 leading-relaxed text-lg">{ev.description}</p>
+                  </div>
+
+                  {/* Metadata */}
+                  <div className="mt-8 space-y-4 border-t border-gray-800 pt-6">
+                    {isEventManager && (
+                      <div className="flex flex-col gap-4 mb-6">
+                        <div className="flex items-center gap-2">
+                          <span className="bg-yellow-900/30 text-yellow-500 px-3 py-1 rounded text-xs font-bold uppercase">You manage this event</span>
+                        </div>
+
+                        <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 flex items-center justify-between">
+                          <div>
+                            <h4 className="text-white font-semibold text-sm">Test Availability</h4>
+                            <p className="text-gray-400 text-xs mt-1">
+                              {ev.isTestEnabled !== false ? "Tests are visible to students." : "Tests are hidden from students."}
+                            </p>
+                          </div>
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              try {
+                                const newStatus = ev.isTestEnabled === false ? true : false;
+                                await updateEvent(id, { isTestEnabled: newStatus });
+                                // Update local state immediately for UI response
+                                setLocalEvents(prev => prev.map(item =>
+                                  (item._id || item.id) === id ? { ...item, isTestEnabled: newStatus } : item
+                                ));
+                              } catch (err) {
+                                console.error("Failed to toggle test", err);
+                              }
+                            }}
+                            className={`px-4 py-2 rounded-lg font-bold text-xs transition-colors ${ev.isTestEnabled !== false
+                              ? "bg-red-500/10 text-red-400 border border-red-500/50 hover:bg-red-500/20"
+                              : "bg-green-500/10 text-green-400 border border-green-500/50 hover:bg-green-500/20"
+                              }`}
+                          >
+                            {ev.isTestEnabled !== false ? "Disable Tests" : "Enable Tests"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {/* Show managers */}
+                    {rolesMap && rolesMap.eventManagersByEvent && (() => {
+                      const em = rolesMap.eventManagersByEvent;
+                      const key = eventNameKey;
+                      let list = [];
+                      if (em) {
+                        if (typeof em.get === "function") list = em.get(key) || [];
+                        else list = em[key] || [];
+                      }
+                      if (Array.isArray(list) && list.length) {
+                        return (
+                          <div>
+                            <h4 className="text-sm font-bold text-gray-500 uppercase">Managers</h4>
+                            <p className="text-gray-300 text-sm">{list.join(", ")}</p>
+                          </div>
+                        );
+                      }
+                    })()}
+                  </div>
+                </div>
+
+                {/* Footer Actions */}
+                <div className="p-6 border-t border-gray-800 bg-gray-900/50 flex flex-wrap gap-4 items-center justify-between">
+                  <div>
+                    {registered[id] ? (
+                      <span className="flex items-center gap-2 text-green-400 font-bold">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        You are registered
+                      </span>
+                    ) : (
+                      <span className="text-gray-500 text-sm">Join this event to get started.</span>
+                    )}
+                  </div>
+
+                  <div className="flex gap-3">
+                    {registered[id] ? (
+                      <>
+                        {ev.isTestEnabled !== false ? (
+                          <>
+                            {testTaken[id]?.coding ? (
+                              <button disabled className="px-6 py-3 rounded-xl bg-gray-800 text-gray-500 font-bold cursor-not-allowed">
+                                All Tests Completed
+                              </button>
+                            ) : testTaken[id]?.mcq ? (
+                              <button
+                                onClick={() => navigate("/test/coding", { state: { eventId: id, eventName: ev.title } })}
+                                className="px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold shadow-lg shadow-purple-900/20 transition-all hover:scale-105"
+                              >
+                                Take Test 2 (Coding)
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => navigate("/test", { state: { eventId: id, eventName: ev.title } })}
+                                className="px-6 py-3 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold shadow-lg shadow-green-900/20 transition-all hover:scale-105"
+                              >
+                                Take Test 1 (MCQ)
+                              </button>
+                            )}
+                          </>
+                        ) : null}
+                      </>
+                    ) : (
+                      <>
+                        {eventApprovalStatus ? (
+                          <button disabled className="px-6 py-3 rounded-xl bg-gray-700 text-gray-400 font-bold cursor-not-allowed">
+                            Request Pending...
+                          </button>
+                        ) : !userEmail?.toLowerCase().trim().endsWith("@klu.ac.in") && !allowedToRegister && !isApproved ? (
+                          <button
+                            onClick={() => setShowContactFor(id)}
+                            className="px-6 py-3 rounded-xl bg-yellow-600 hover:bg-yellow-700 text-white font-bold shadow-lg shadow-yellow-900/20 transition-all hover:scale-105"
+                          >
+                            Express Interest
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => navigate(`/events/${id}/register`, { state: { eventTitle: ev.title } })}
+                            className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-900/20 transition-all hover:scale-105"
+                          >
+                            Register Now
+                          </button>
+                        )}
+                      </>
+                    )}
+
+                    {/* Edit Action for Managers/Admins */}
+                    {(userRole === "admin" || isAdminByRoles || isEventManager) && (
+                      <button
+                        onClick={() => {
+                          setShowDetailsFor(null);
+                          setShowEditFor(id);
+                        }}
+                        className="px-4 py-3 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium transition-colors"
+                      >
+                        Edit
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
-          </article>
-        );
-      })}
-      {/* Modal for registration - centered like SearchBar modal */}
-      {showFormFor && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
-          onClick={() => setShowFormFor(null)}
-        >
-          <div
-            className="bg-gray-800 border border-gray-700 rounded-2xl p-6 shadow-2xl max-w-md w-full mx-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-semibold text-blue-400">
-                Register for Event
-              </h3>
-              <button
-                onClick={() => setShowFormFor(null)}
-                className="text-gray-400 hover:text-white transition-colors"
-              >
-                ✕
-              </button>
-            </div>
-            <RegisterForm
-              eventId={showFormFor}
-              onRegistered={() => {
-                setRegistered((s) => ({ ...s, [showFormFor]: true }));
-                setShowFormFor(null);
-              }}
-            />
           </div>
-        </div>
-      )}
+        );
+      })()}
+
       {/* Contact modal */}
       {showContactFor && (
         <div
@@ -444,8 +523,16 @@ export default function EventsList({
                 setExpressedInterest(newInterest);
                 localStorage.setItem(
                   "expressedInterest",
-                  JSON.stringify(newInterest)
+                  JSON.stringify(newInterest),
                 );
+                // Refresh approval status
+                setApprovalStatus((prev) => ({
+                  ...prev,
+                  [showContactFor]: {
+                    approved: false,
+                    status: "unread",
+                  },
+                }));
               }}
             />
           </div>
@@ -476,7 +563,7 @@ export default function EventsList({
               mode="edit"
               eventId={showEditFor}
               initialData={localEvents.find(
-                (e) => (e._id || e.id) === showEditFor
+                (e) => (e._id || e.id) === showEditFor,
               )}
               onSuccess={async () => {
                 // refresh list and close modal
@@ -492,6 +579,6 @@ export default function EventsList({
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
