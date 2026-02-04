@@ -1,8 +1,20 @@
 const RoleConfig = require("../models/RoleConfig");
 
 // Return current roles mapping (admins/students)
-exports.getRoles = async (_req, res) => {
+exports.getRoles = async (req, res) => {
   try {
+    // Basic user filtering: only admins/members see the full config
+    const role = (req.user && req.user.role) || "user";
+    if (role !== "admin" && role !== "member") {
+      return res.json({
+        admins: [],
+        students: [],
+        members: [],
+        studentsByEvent: {},
+        eventManagersByEvent: {},
+      });
+    }
+
     const doc = await RoleConfig.findOne().lean();
     if (!doc)
       return res.json({

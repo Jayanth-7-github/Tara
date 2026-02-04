@@ -3,8 +3,8 @@ const router = express.Router();
 const rolesController = require("../controllers/rolesController");
 const { protect } = require("../middleware/auth");
 
-// Public read
-router.get("/", rolesController.getRoles);
+// Public read - now protected
+router.get("/", protect, rolesController.getRoles);
 
 // Update (admin only) - requires authentication and admin role
 const { requireAdmin } = require("../middleware/auth");

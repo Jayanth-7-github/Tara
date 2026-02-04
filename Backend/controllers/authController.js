@@ -167,7 +167,10 @@ exports.signup = async (req, res) => {
 
     const token = signToken(user._id);
     res.cookie("token", token, cookieOptions());
-    const roles = await loadRoles();
+    let roles = undefined;
+    if (user.role === "admin" || user.role === "member") {
+      roles = await loadRoles();
+    }
     return res.status(201).json({ user: user.toSafeJSON(), roles });
   } catch (err) {
     console.error("signup error", err);
@@ -208,7 +211,10 @@ exports.login = async (req, res) => {
     } catch (err) {
       console.warn("Failed to reconcile user role from roles config:", err);
     }
-    const roles = await loadRoles();
+    let roles = undefined;
+    if (user.role === "admin" || user.role === "member") {
+      roles = await loadRoles();
+    }
     return res.json({ user: user.toSafeJSON(), roles });
   } catch (err) {
     console.error("login error", err);
@@ -232,7 +238,10 @@ exports.getMe = async (req, res) => {
     } catch (err) {
       console.warn("Failed to reconcile user role in getMe:", err);
     }
-    const roles = await loadRoles();
+    let roles = undefined;
+    if (user.role === "admin" || user.role === "member") {
+      roles = await loadRoles();
+    }
     return res.json({ user: user.toSafeJSON(), roles });
   } catch (err) {
     console.error("getMe error", err);
@@ -252,7 +261,10 @@ exports.checkLogin = async (req, res) => {
       console.warn("Failed to reconcile user role in checkLogin:", err);
     }
 
-    const roles = await loadRoles();
+    let roles = undefined;
+    if (user.role === "admin" || user.role === "member") {
+      roles = await loadRoles();
+    }
     return res.json({ authenticated: true, user: user.toSafeJSON(), roles });
   } catch (err) {
     console.error("checkLogin error", err);
