@@ -83,7 +83,6 @@ function App() {
             <Route path="/about" element={<About />} />
             <Route path="/main" element={<Main />} />
 
-            <Route path="/events" element={<Main />} />
             <Route path="/events/create" element={<CreateEvent />} />
             <Route path="/events/contacts" element={<EventContacts />} />
             <Route
@@ -92,11 +91,12 @@ function App() {
             />
             <Route path="/events/questions" element={<ManageQuestions />} />
             <Route path="/events/results" element={<StudentResults />} />
+            <Route path="/events/approvals" element={<ManageApprovals />} />
             <Route
-              path="/events/:eventId/register"
+              path="/event-registration/:eventId"
               element={<EventRegister />}
             />
-            <Route path="/events/approvals" element={<ManageApprovals />} />
+            <Route path="/events" element={<Main />} />
             <Route path="/dashboard/student" element={<StudentDashboard />} />
             <Route path="/dashboard/admin" element={<AdminDashboard />} />
             <Route path="/assignments" element={<Assignments />} />

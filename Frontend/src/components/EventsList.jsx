@@ -439,14 +439,14 @@ export default function EventsList({
                               </button>
                             ) : testTaken[id]?.mcq ? (
                               <button
-                                onClick={() => navigate("/test/coding", { state: { eventId: id, eventName: ev.title } })}
+                                onClick={() => window.open(`/test/coding?eventId=${id}&eventName=${encodeURIComponent(ev.title)}`, '_blank')}
                                 className="px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold shadow-lg shadow-purple-900/20 transition-all hover:scale-105"
                               >
                                 Take Test 2 (Coding)
                               </button>
                             ) : (
                               <button
-                                onClick={() => navigate("/test", { state: { eventId: id, eventName: ev.title } })}
+                                onClick={() => window.open(`/test?eventId=${id}&eventName=${encodeURIComponent(ev.title)}`, '_blank')}
                                 className="px-6 py-3 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold shadow-lg shadow-green-900/20 transition-all hover:scale-105"
                               >
                                 Take Test 1 (MCQ)
@@ -470,7 +470,7 @@ export default function EventsList({
                           </button>
                         ) : (
                           <button
-                            onClick={() => navigate(`/events/${id}/register`, { state: { eventTitle: ev.title } })}
+                            onClick={() => navigate(`/event-registration/${id}`, { state: { eventTitle: ev.title } })}
                             className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-900/20 transition-all hover:scale-105"
                           >
                             Register Now
