@@ -131,8 +131,7 @@ export default function ExamSidebar({
             <button
               key={q.id}
               onClick={() => setCurrentIndex(idx)}
-              className={`aspect-square rounded-lg border-2 text-sm font-semibold flex items-center justify-center transition-all duration-200 relative group shadow-sm hover:shadow-md ${
-                isCurrent
+              className={`aspect-square rounded-lg border-2 text-sm font-semibold flex items-center justify-center transition-all duration-200 relative group shadow-sm hover:shadow-md ${isCurrent
                   ? "border-blue-500 ring-2 ring-blue-300 bg-blue-50 text-blue-700 scale-105"
                   : isAnsweredAndMarked
                     ? "border-purple-400 bg-purple-50 text-purple-700 hover:border-purple-500"
@@ -141,10 +140,10 @@ export default function ExamSidebar({
                       : answered
                         ? "border-green-400 bg-green-50 text-green-700 hover:border-green-500"
                         : "border-gray-300 bg-white text-gray-600 hover:border-gray-400 hover:bg-gray-50"
-              }`}
+                }`}
               title={q.text}
             >
-              {q.id}
+              {idx + 1}
               {answered && !isCurrent && !isMarked && (
                 <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-green-500 rounded-full border-2 border-white shadow-sm" />
               )}

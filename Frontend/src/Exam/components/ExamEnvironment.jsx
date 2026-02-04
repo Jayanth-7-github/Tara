@@ -1,4 +1,5 @@
 import React from "react";
+import { SECURITY_CODE } from "../../services/constants";
 
 export default function ExamEnvironment({
   isCameraOn,
@@ -299,7 +300,7 @@ export default function ExamEnvironment({
             cameraStreamRef.current &&
             cameraStreamRef.current.getAudioTracks &&
             cameraStreamRef.current.getAudioTracks().length > 0 &&
-            securityCode.join("") === "000000"
+            securityCode.join("") === SECURITY_CODE
             ? "bg-linear-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 hover:shadow-xl transform hover:scale-105"
             : "bg-gray-400 cursor-not-allowed opacity-60"
             }`}

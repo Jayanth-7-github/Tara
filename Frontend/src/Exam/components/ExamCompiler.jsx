@@ -4,7 +4,8 @@ export default function ExamCompiler({
     initialCode = "// Write your code here...",
     language = "javascript",
     testCases = [],
-    onRun,
+    onStatusUpdate,
+    initialPassed = null,
 }) {
     const [code, setCode] = useState(initialCode);
     const [input, setInput] = useState("");
@@ -18,6 +19,7 @@ export default function ExamCompiler({
     const [activeTestCaseIndex, setActiveTestCaseIndex] = useState(0);
 
     const templates = {
+        "c": `#include <stdio.h>\n\nint main() {\n    printf("Hello World");\n    return 0;\n}`,
         "c++": `#include <iostream>\n\nint main() {\n    std::cout << "Hello World!";\n    return 0;\n}`,
         "java": `public class Main {\n    public static void main(String[] args) {\n        System.out.println("Hello World");\n    }\n}`,
         "python": `print("Hello World")`,
@@ -27,6 +29,13 @@ export default function ExamCompiler({
     const handleRun = async () => {
         setIsRunning(true);
         setOutput("Running...");
+
+        // Notify parent of code update (no test results yet)
+        if (onStatusUpdate) {
+            const isMatch = code === initialCode;
+            onStatusUpdate({ code, passed: isMatch ? initialPassed : null });
+        }
+        if (onRun) onRun(code);
 
         const langMap = {
             "c++": "cpp",
@@ -39,7 +48,7 @@ export default function ExamCompiler({
             "js": "javascript"
         };
         const apiLang = langMap[selectedLanguage.toLowerCase()] || selectedLanguage.toLowerCase();
-        const version = apiLang === "cpp" ? "10.2.0" : apiLang === "java" ? "15.0.2" : apiLang === "python" ? "3.10.0" : "18.15.0";
+        const version = apiLang === "cpp" || apiLang === "c" ? "10.2.0" : apiLang === "java" ? "15.0.2" : apiLang === "python" ? "3.10.0" : "18.15.0";
 
         try {
             const response = await fetch("https://emkc.org/api/v2/piston/execute", {
@@ -63,7 +72,6 @@ export default function ExamCompiler({
             setOutput(`Execution failed: ${error.message}`);
         } finally {
             setIsRunning(false);
-            if (onRun) onRun(code);
         }
     };
 
@@ -84,7 +92,7 @@ export default function ExamCompiler({
             "js": "javascript"
         };
         const apiLang = langMap[selectedLanguage.toLowerCase()] || selectedLanguage.toLowerCase();
-        const version = apiLang === "cpp" ? "10.2.0" : apiLang === "java" ? "15.0.2" : apiLang === "python" ? "3.10.0" : "18.15.0";
+        const version = apiLang === "cpp" || apiLang === "c" ? "10.2.0" : apiLang === "java" ? "15.0.2" : apiLang === "python" ? "3.10.0" : "18.15.0";
 
         const newResults = {};
         let allPassed = true;
@@ -133,6 +141,11 @@ export default function ExamCompiler({
         setTestResults(newResults);
         setOutput(prev => prev + `\n\nResult: ${allPassed ? "ALL TESTS PASSED" : "SOME TESTS FAILED"}`);
         setIsRunning(false);
+
+        const passedCount = Object.values(newResults).filter(r => r.success).length;
+        if (onStatusUpdate) {
+            onStatusUpdate({ code, passed: passedCount });
+        }
     };
 
     return (
@@ -152,10 +165,11 @@ export default function ExamCompiler({
                         }}
                         className="bg-gray-700 text-gray-200 text-xs font-mono font-bold px-2 py-1 rounded border border-gray-600 focus:outline-none focus:border-blue-500 uppercase tracking-wide"
                     >
-                        <option value="C++">C++</option>
-                        <option value="Java">Java</option>
-                        <option value="Python">Python</option>
-                        <option value="JavaScript">NodeJS</option>
+                        <option value="c">C</option>
+                        <option value="c++">C++</option>
+                        <option value="java">Java</option>
+                        <option value="python">Python</option>
+                        <option value="javascript">NodeJS</option>
                     </select>
                 </div>
                 <div className="flex items-center gap-2">
@@ -172,7 +186,17 @@ export default function ExamCompiler({
             <div className="flex-1 relative">
                 <textarea
                     value={code}
-                    onChange={(e) => setCode(e.target.value)}
+                    onChange={(e) => {
+                        const val = e.target.value;
+                        setCode(val);
+                        if (onStatusUpdate) {
+                            const isMatch = val === initialCode;
+                            onStatusUpdate({ code: val, passed: isMatch ? initialPassed : null });
+                        }
+                    }}
+                    onPaste={(e) => { e.preventDefault(); }}
+                    onCopy={(e) => { e.preventDefault(); }}
+                    onCut={(e) => { e.preventDefault(); }}
                     onKeyDown={(e) => {
                         const pairs = {
                             "(": ")",
@@ -181,6 +205,20 @@ export default function ExamCompiler({
                             "\"": "\"",
                             "'": "'"
                         };
+
+                        if (e.key === "Tab") {
+                            e.preventDefault();
+                            const start = e.target.selectionStart;
+                            const end = e.target.selectionEnd;
+                            const val = e.target.value;
+                            const newValue = val.substring(0, start) + "    " + val.substring(end);
+                            setCode(newValue);
+                            // Set cursor position after the inserted spaces
+                            setTimeout(() => {
+                                e.target.selectionStart = e.target.selectionEnd = start + 4;
+                            }, 0);
+                            return;
+                        }
 
                         if (pairs[e.key]) {
                             e.preventDefault();
@@ -267,6 +305,9 @@ export default function ExamCompiler({
                                 <textarea
                                     value={input}
                                     onChange={(e) => setInput(e.target.value)}
+                                    onPaste={(e) => { e.preventDefault(); }}
+                                    onCopy={(e) => { e.preventDefault(); }}
+                                    onCut={(e) => { e.preventDefault(); }}
                                     placeholder="Enter your input here..."
                                     className="w-full h-full bg-[#1e1e1e] border border-gray-700 rounded-sm p-3 text-sm text-gray-300 focus:outline-none focus:border-gray-500 font-mono resize-none"
                                     spellCheck="false"
@@ -326,7 +367,7 @@ export default function ExamCompiler({
                                         </button>
                                     </div>
                                     <div className="flex-1 overflow-y-auto">
-                                        {testCases.map((tc, i) => {
+                                        {testCases.slice(0, 2).map((tc, i) => {
                                             const res = testResults[i];
                                             const isPass = res?.success;
                                             const isFail = res && !res.success;
@@ -347,6 +388,11 @@ export default function ExamCompiler({
                                                 </div>
                                             );
                                         })}
+                                        {testCases.length > 2 && (
+                                            <div className="px-4 py-3 text-xs text-gray-500 italic border-b border-gray-700/50">
+                                                + {testCases.length - 2} hidden test cases
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 

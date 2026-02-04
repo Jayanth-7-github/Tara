@@ -1,4 +1,5 @@
 import React from "react";
+import ExamCompiler from "./ExamCompiler";
 
 export default function ExamQuestionPanel({
   currentQuestion,
@@ -20,11 +21,10 @@ export default function ExamQuestionPanel({
             onClick={() => toggleMarkForReview(currentQuestion.id)}
           >
             <span
-              className={`inline-flex w-5 h-5 border-2 rounded items-center justify-center transition-colors ${
-                markedForReview[currentQuestion.id]
-                  ? "bg-orange-500 border-orange-500"
-                  : "border-gray-400 hover:border-gray-600"
-              }`}
+              className={`inline-flex w-5 h-5 border-2 rounded items-center justify-center transition-colors ${markedForReview[currentQuestion.id]
+                ? "bg-orange-500 border-orange-500"
+                : "border-gray-400 hover:border-gray-600"
+                }`}
             >
               {markedForReview[currentQuestion.id] && (
                 <svg
@@ -41,11 +41,10 @@ export default function ExamQuestionPanel({
               )}
             </span>
             <span
-              className={`font-medium ${
-                markedForReview[currentQuestion.id]
-                  ? "text-orange-700"
-                  : "text-gray-600 hover:text-gray-800"
-              }`}
+              className={`font-medium ${markedForReview[currentQuestion.id]
+                ? "text-orange-700"
+                : "text-gray-600 hover:text-gray-800"
+                }`}
             >
               {markedForReview[currentQuestion.id]
                 ? "Marked for review"
@@ -55,72 +54,128 @@ export default function ExamQuestionPanel({
         </div>
         <div className="flex items-center gap-3 text-sm font-semibold">
           <div className="px-3 py-1.5 bg-green-50 border-2 border-green-400 text-green-700 rounded-lg shadow-sm">
-            +1
+            +{currentQuestion.marks || 1}
           </div>
           <div className="px-3 py-1.5 bg-red-50 border-2 border-red-400 text-red-700 rounded-lg shadow-sm">
             0
           </div>
         </div>
       </div>
-      <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-8">
-        <p className="text-sm font-semibold text-gray-500 mb-3">
-          Question {currentQuestion.id} of {questions.length}
-        </p>
-        <p className="text-lg text-gray-900 leading-relaxed font-medium mb-6">
-          {currentQuestion.text}
-        </p>
-        <hr className="my-6 border-gray-200" />
-        <div className="space-y-3">
-          {currentQuestion.options.map((opt, index) => {
-            const selected = answers[currentQuestion.id] === index;
-            return (
-              <button
-                key={opt}
-                onClick={() => selectAnswer(currentQuestion.id, index)}
-                className={`w-full text-left px-5 py-4 border-2 rounded-xl text-base flex items-center gap-4 transition-all duration-200 ${
-                  selected
+      {currentQuestion.type === "coding" ? (
+        <div className="space-y-6">
+          <div className="mb-4">
+            <p className="text-sm font-semibold text-gray-500 mb-2">
+              Question {currentIndex + 1} of {questions.length}
+            </p>
+            <h2
+              className="text-xl text-gray-900 font-bold leading-relaxed select-none"
+              onCopy={(e) => e.preventDefault()}
+            >
+              {currentQuestion.text}
+            </h2>
+            {currentQuestion.example && (
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mt-4">
+                <h3 className="text-sm font-bold text-gray-700 mb-2">Example:</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-xs font-semibold text-gray-500 uppercase">Input</div>
+                    <div className="text-sm font-mono bg-white border border-gray-300 rounded p-2 mt-1">
+                      {currentQuestion.example.input}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold text-gray-500 uppercase">Output</div>
+                    <div className="text-sm font-mono bg-white border border-gray-300 rounded p-2 mt-1">
+                      {currentQuestion.example.output}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="h-[600px] border border-gray-700 rounded-xl overflow-hidden shadow-2xl">
+            <ExamCompiler
+              key={currentQuestion.id}
+              initialCode={
+                (() => {
+                  const ans = answers[currentQuestion.id];
+                  if (ans && typeof ans === 'object') return ans.code;
+                  return ans || currentQuestion.initialCode;
+                })()
+              }
+              testCases={currentQuestion.testCases || []}
+              language={currentQuestion.language || "javascript"}
+              onStatusUpdate={(status) => selectAnswer(currentQuestion.id, status)}
+              initialPassed={
+                answers[currentQuestion.id] && typeof answers[currentQuestion.id] === 'object'
+                  ? answers[currentQuestion.id].passed
+                  : null
+              }
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-8">
+          <p className="text-sm font-semibold text-gray-500 mb-3">
+            Question {currentIndex + 1} of {questions.length}
+          </p>
+          <p
+            className="text-lg text-gray-900 leading-relaxed font-medium mb-6 select-none"
+            onCopy={(e) => e.preventDefault()}
+          >
+            {currentQuestion.text}
+          </p>
+          <hr className="my-6 border-gray-200" />
+          <div className="space-y-3">
+            {currentQuestion.options?.map((opt, index) => {
+              const selected = answers[currentQuestion.id] === index;
+              return (
+                <button
+                  key={opt}
+                  onClick={() => selectAnswer(currentQuestion.id, index)}
+                  className={`w-full text-left px-5 py-4 border-2 rounded-xl text-base flex items-center gap-4 transition-all duration-200 ${selected
                     ? "bg-blue-50 border-blue-500 ring-2 ring-blue-300 shadow-md"
                     : "bg-white hover:bg-gray-50 border-gray-300 hover:border-gray-400 shadow-sm hover:shadow-md"
-                }`}
-              >
-                <span
-                  className={`inline-flex w-5 h-5 border-2 rounded-full items-center justify-center shrink-0 transition-colors ${
-                    selected ? "border-blue-600 bg-blue-100" : "border-gray-400"
-                  }`}
+                    }`}
                 >
-                  {selected && (
-                    <span className="w-2.5 h-2.5 bg-blue-600 rounded-full" />
-                  )}
-                </span>
-                <span
-                  className={`font-medium ${
-                    selected ? "text-gray-900" : "text-gray-700"
-                  }`}
-                >
-                  {opt}
-                </span>
-              </button>
-            );
-          })}
+                  <span
+                    className={`inline-flex w-5 h-5 border-2 rounded-full items-center justify-center shrink-0 transition-colors ${selected
+                      ? "border-blue-600 bg-blue-100"
+                      : "border-gray-400"
+                      }`}
+                  >
+                    {selected && (
+                      <span className="w-2.5 h-2.5 bg-blue-600 rounded-full" />
+                    )}
+                  </span>
+                  <span
+                    className={`font-medium ${selected ? "text-gray-900" : "text-gray-700"
+                      }`}
+                  >
+                    {opt}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <div
+            className="mt-6 flex items-center gap-2 text-sm text-gray-600 cursor-pointer hover:text-gray-800 transition-colors"
+            onClick={() => selectAnswer(currentQuestion.id, undefined)}
+          >
+            <span className="inline-block w-5 h-5 border-2 border-gray-400 rounded hover:border-gray-600 transition-colors" />
+            <span className="font-medium">Clear Response</span>
+          </div>
         </div>
-        <div
-          className="mt-6 flex items-center gap-2 text-sm text-gray-600 cursor-pointer hover:text-gray-800 transition-colors"
-          onClick={() => selectAnswer(currentQuestion.id, undefined)}
-        >
-          <span className="inline-block w-5 h-5 border-2 border-gray-400 rounded hover:border-gray-600 transition-colors" />
-          <span className="font-medium">Clear Response</span>
-        </div>
-      </div>
+      )}
       <div className="flex items-center justify-between pt-6">
         <div>
           <button
             disabled={currentIndex === 0}
             onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
-            className={`px-6 py-3 rounded-lg text-sm font-medium border-2 transition-all ${
-              currentIndex === 0
-                ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                : "bg-white hover:bg-gray-50 text-gray-700 border-gray-300 hover:border-gray-400 shadow-sm hover:shadow-md"
-            }`}
+            className={`px-6 py-3 rounded-lg text-sm font-medium border-2 transition-all ${currentIndex === 0
+              ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+              : "bg-white hover:bg-gray-50 text-gray-700 border-gray-300 hover:border-gray-400 shadow-sm hover:shadow-md"
+              }`}
           >
             Previous
           </button>
@@ -132,11 +187,10 @@ export default function ExamQuestionPanel({
             onClick={() =>
               setCurrentIndex((i) => Math.min(questions.length - 1, i + 1))
             }
-            className={`px-6 py-3 rounded-lg text-sm font-medium border-2 transition-all ${
-              currentIndex === questions.length - 1
-                ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                : "bg-white hover:bg-gray-50 text-gray-700 border-gray-300 hover:border-gray-400 shadow-sm hover:shadow-md"
-            }`}
+            className={`px-6 py-3 rounded-lg text-sm font-medium border-2 transition-all ${currentIndex === questions.length - 1
+              ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+              : "bg-white hover:bg-gray-50 text-gray-700 border-gray-300 hover:border-gray-400 shadow-sm hover:shadow-md"
+              }`}
           >
             Next
           </button>

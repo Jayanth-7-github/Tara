@@ -1,6 +1,14 @@
 import React from "react";
 
-export default function ExamLobby({ lives, showLifeLost, user, questions }) {
+export default function ExamLobby({
+  lives,
+  showLifeLost,
+  user,
+  questions,
+  events,
+  selectedEventId,
+  onSelectEvent,
+}) {
   return (
     <aside className="bg-white/90 backdrop-blur-sm border border-gray-100 rounded-2xl shadow-xl p-6 h-fit transition-all hover:shadow-2xl">
       {showLifeLost && (
@@ -18,6 +26,26 @@ export default function ExamLobby({ lives, showLifeLost, user, questions }) {
       <h2 className="text-xl font-bold mb-6 text-gray-900">
         Take an Assessment
       </h2>
+
+      {events && events.length > 0 && (
+        <div className="mb-6">
+          <label className="block text-xs font-bold text-gray-500 mb-2 uppercase">
+            Select Event
+          </label>
+          <select
+            className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium"
+            value={selectedEventId || ""}
+            onChange={(e) => onSelectEvent && onSelectEvent(e.target.value)}
+          >
+            <option value="">-- General Practice --</option>
+            {events.map((ev) => (
+              <option key={ev._id || ev.id} value={ev._id || ev.id}>
+                {ev.title}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       <div className="space-y-5 text-sm">
         <div className="border border-gray-200 rounded-lg p-4 bg-linear-to-br from-blue-50 to-indigo-50 shadow-sm">
           <div className="grid grid-cols-2 gap-4 text-xs text-gray-700">

@@ -135,11 +135,10 @@ export default function ManageApprovals() {
         <div className="flex gap-2 mb-6 border-b border-gray-700">
           <button
             onClick={() => setFilterStatus("pending")}
-            className={`px-4 py-2 font-semibold transition ${
-              filterStatus === "pending"
+            className={`px-4 py-2 font-semibold transition ${filterStatus === "pending"
                 ? "border-b-2 border-blue-500 text-blue-400"
                 : "text-gray-400 hover:text-gray-200"
-            }`}
+              }`}
           >
             Pending (
             {
@@ -151,21 +150,19 @@ export default function ManageApprovals() {
           </button>
           <button
             onClick={() => setFilterStatus("approved")}
-            className={`px-4 py-2 font-semibold transition ${
-              filterStatus === "approved"
+            className={`px-4 py-2 font-semibold transition ${filterStatus === "approved"
                 ? "border-b-2 border-green-500 text-green-400"
                 : "text-gray-400 hover:text-gray-200"
-            }`}
+              }`}
           >
             Approved ({contacts.filter((c) => c.approved === true).length})
           </button>
           <button
             onClick={() => setFilterStatus("rejected")}
-            className={`px-4 py-2 font-semibold transition ${
-              filterStatus === "rejected"
+            className={`px-4 py-2 font-semibold transition ${filterStatus === "rejected"
                 ? "border-b-2 border-red-500 text-red-400"
                 : "text-gray-400 hover:text-gray-200"
-            }`}
+              }`}
           >
             Rejected (
             {
@@ -237,38 +234,7 @@ export default function ManageApprovals() {
                       {new Date(contact.createdAt).toLocaleString()}
                     </p>
                   </div>
-                  <div className="flex gap-2 ml-4">
-                    {contact.approved ? (
-                      <span className="px-3 py-1 bg-green-700 text-green-100 rounded text-sm font-semibold">
-                        ✓ Approved
-                      </span>
-                    ) : contact.status === "handled" ? (
-                      <span className="px-3 py-1 bg-red-700 text-red-100 rounded text-sm font-semibold">
-                        ✕ Rejected
-                      </span>
-                    ) : (
-                      <>
-                        <button
-                          onClick={() => handleApprove(contact._id)}
-                          disabled={actionInProgress[contact._id]}
-                          className="px-3 py-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:opacity-50 text-white rounded text-sm font-semibold transition"
-                        >
-                          {actionInProgress[contact._id] === "approving"
-                            ? "Approving..."
-                            : "Approve"}
-                        </button>
-                        <button
-                          onClick={() => handleReject(contact._id)}
-                          disabled={actionInProgress[contact._id]}
-                          className="px-3 py-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:opacity-50 text-white rounded text-sm font-semibold transition"
-                        >
-                          {actionInProgress[contact._id] === "rejecting"
-                            ? "Rejecting..."
-                            : "Reject"}
-                        </button>
-                      </>
-                    )}
-                  </div>
+
                   <div className="flex gap-2 ml-4">
                     {contact.approved ? (
                       <span className="px-3 py-1 bg-green-700 text-green-100 rounded text-sm font-semibold">

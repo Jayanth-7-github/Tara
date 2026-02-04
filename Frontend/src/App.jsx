@@ -23,6 +23,8 @@ import StudentDashboard from "./pages/StudentDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import ManageApprovals from "./pages/ManageApprovals";
 import EventRegister from "./pages/EventRegister";
+import StudentResults from "./pages/StudentResults";
+import ManageQuestions from "./pages/ManageQuestions";
 import { ADMIN_TOKEN } from "./services/constants";
 import Hamburger from "./components/hamburger";
 import TestCompiler from "./Exam/pages/testcompailer";
@@ -88,6 +90,8 @@ function App() {
               path="/events/dashboard"
               element={<EventManagerDashboard />}
             />
+            <Route path="/events/questions" element={<ManageQuestions />} />
+            <Route path="/events/results" element={<StudentResults />} />
             <Route
               path="/events/:eventId/register"
               element={<EventRegister />}
@@ -96,7 +100,8 @@ function App() {
             <Route path="/dashboard/student" element={<StudentDashboard />} />
             <Route path="/dashboard/admin" element={<AdminDashboard />} />
             <Route path="/assignments" element={<Assignments />} />
-            <Route path="/test" element={<ExamPage />} />
+            <Route path="/test" element={<ExamPage mode="mcq" />} />
+            <Route path="/test/coding" element={<ExamPage mode="coding" />} />
             <Route path="/realtest" element={<Test />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />

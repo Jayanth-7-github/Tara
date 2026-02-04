@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import ExamLobby from "../components/ExamLobby";
 import ExamEnvironment from "../components/ExamEnvironment";
 import ExamSidebar from "../components/ExamSidebar";
@@ -11,18 +11,22 @@ import {
   getQuestionsForUser,
   getCorrectAnswers,
 } from "../../services/questions";
-import { submitTestResult } from "../../services/api";
+import { submitTestResult, fetchEventById, fetchEvents } from "../../services/api";
 import { checkLogin } from "../../services/auth";
+import { SECURITY_CODE } from "../../services/constants";
 
-export default function ExamPage() {
+export default function ExamPage({ mode = "mcq" }) {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [isCameraOn, setIsCameraOn] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [isTestStarted, setIsTestStarted] = useState(false);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
-  const [questions] = useState(getQuestionsForUser());
+
+  // Initialize with static questions as fallback/loading state, then update if dynamic
+  const [questions, setQuestions] = useState(getQuestionsForUser(mode));
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState({});
   const [markedForReview, setMarkedForReview] = useState({});
@@ -41,6 +45,39 @@ export default function ExamPage() {
   const [lives, setLives] = useState(5);
   const [showLifeLost, setShowLifeLost] = useState(false);
 
+  // Context for Event ID (passed from dashboard or saved)
+  const queryParams = new URLSearchParams(location.search);
+  const [examContext, setExamContext] = useState({
+    eventId: location.state?.eventId || queryParams.get("eventId") || null,
+    eventName: location.state?.eventName || null,
+  });
+
+
+
+  // Load questions dynamically if eventId is present
+  useEffect(() => {
+    const loadDynamicQuestions = async () => {
+      console.log("ExamPage: Checking for Event ID:", examContext.eventId);
+      if (examContext.eventId) {
+        try {
+          const ev = await fetchEventById(examContext.eventId);
+          console.log("ExamPage: Fetched Event:", ev?.title, "Questions:", ev?.questions?.length);
+          if (ev && ev.questions && ev.questions.length > 0) {
+            console.log("ExamPage: Setting dynamic questions", ev.questions);
+            setQuestions(ev.questions);
+          } else {
+            console.log("ExamPage: No dynamic questions found on event, using default.");
+          }
+        } catch (e) {
+          console.error("ExamPage: Failed to load dynamic questions", e);
+        }
+      } else {
+        console.log("ExamPage: No Event ID in context. Using default static questions.");
+      }
+    };
+    loadDynamicQuestions();
+  }, [examContext.eventId]);
+
   const lobbyCameraRef = useRef(null);
   const overlayCameraRef = useRef(null);
   const lobbyScreenRef = useRef(null);
@@ -57,7 +94,10 @@ export default function ExamPage() {
     }
   }, []);
 
+  // ... (toggle functions remain same)
+
   const handleToggleCamera = async () => {
+    // ... same implementation ...
     setError("");
     setInfo("");
     if (isCameraOn) {
@@ -98,6 +138,7 @@ export default function ExamPage() {
   };
 
   const handleToggleScreenShare = async () => {
+    // ... same implementation ...
     setError("");
     setInfo("");
     if (isScreenSharing) {
@@ -158,17 +199,21 @@ export default function ExamPage() {
   };
 
   const handleToggleFullscreen = () => {
-    const elem = containerRef.current || document.documentElement;
+    // ... same implementation ...
+    const container = containerRef.current || document.documentElement;
     if (!document.fullscreenElement) {
-      elem
-        .requestFullscreen?.()
-        .catch(() => setError("Could not enter fullscreen"));
+      if (container.requestFullscreen) {
+        container.requestFullscreen().catch(() => setError("Could not enter fullscreen"));
+      }
     } else {
-      document.exitFullscreen?.();
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
     }
   };
 
   const handleStartTest = () => {
+    // ... same implementation ...
     const compatibilityOk = true;
     const browserOk = true;
     const cameraOk = isCameraOn && !!cameraStreamRef.current;
@@ -180,7 +225,7 @@ export default function ExamPage() {
     );
     const fullscreenOk = !!document.fullscreenElement;
     const codeString = securityCode.join("");
-    const codeOk = codeString === "000000";
+    const codeOk = codeString === SECURITY_CODE;
     if (
       !(
         compatibilityOk &&
@@ -196,7 +241,7 @@ export default function ExamPage() {
         setError("Please enter the correct security code.");
       } else {
         setError(
-          "Please complete all checks (camera, microphone, screen share, fullscreen, and code 000000) before beginning.",
+          "Please complete all checks (camera, microphone, screen share, fullscreen, and security code) before beginning.",
         );
       }
       return;
@@ -261,7 +306,7 @@ export default function ExamPage() {
 
   // Load state from local storage on mount
   useEffect(() => {
-    const savedState = localStorage.getItem("examState");
+    const savedState = localStorage.getItem(`examState_${mode}`);
     console.log("Checking for saved state:", savedState ? "Found" : "Not Found");
     if (savedState) {
       try {
@@ -275,6 +320,12 @@ export default function ExamPage() {
           setLives(parsed.lives ?? 5);
           setTimeRemaining(parsed.timeRemaining ?? 3600);
           setCurrentIndex(parsed.currentIndex || 0);
+
+          // Restore Exam Context if available and not currently set via location
+          if (parsed.examContext && !examContext.eventId) {
+            setExamContext(parsed.examContext);
+          }
+
           // We don't restore camera/screen streams directly effectively, 
           // user needs to re-enable them in the lobby if they were kicked out or if we land them in paused state.
           // However, if we set isTestStarted to true immediately, they might face "Life Lost" if streams aren't ready.
@@ -289,10 +340,10 @@ export default function ExamPage() {
         }
       } catch (e) {
         console.error("Failed to parse saved exam state", e);
-        localStorage.removeItem("examState");
+        localStorage.removeItem(`examState_${mode}`);
       }
     }
-  }, []);
+  }, [mode]);
 
   // Save state to local storage whenever critical data changes
   useEffect(() => {
@@ -306,11 +357,12 @@ export default function ExamPage() {
         timeRemaining,
         currentIndex,
         isTestStarted: isTestStarted || canResume, // Ensure we mark it as started/resumable even if currently in lobby
+        examContext, // Save context
         lastUpdated: Date.now(),
       };
-      localStorage.setItem("examState", JSON.stringify(stateToSave));
+      localStorage.setItem(`examState_${mode}`, JSON.stringify(stateToSave));
     }
-  }, [answers, markedForReview, lives, timeRemaining, currentIndex, isTestStarted, canResume, submitSuccess]);
+  }, [answers, markedForReview, lives, timeRemaining, currentIndex, isTestStarted, canResume, submitSuccess, mode, examContext]);
 
   const handleSubmitTest = async (options = {}) => {
     if (submitting) return;
@@ -335,12 +387,56 @@ export default function ExamPage() {
         ? Math.floor((Date.now() - testStartTime) / 1000)
         : 3600 - timeRemaining;
 
+      const title = mode === "coding"
+        ? "Module Practice Assessment | Coding Round"
+        : "Module Practice Assessment | Polymorphism";
+
+      // Calculate score
+      let calculatedScore = 0;
+
+      // Dynamic correct map based on current questions
+      const correctMap = {};
+      questions.forEach(q => {
+        correctMap[q.id] = q.correctAnswer;
+      });
+
+      console.log("Submitting Answers:", answers);
+
+      Object.entries(answers).forEach(([qid, ans]) => {
+        // loose comparison to match number IDs with string keys
+        const question = questions.find(q => String(q.id) === String(qid));
+
+        if (typeof ans === 'object' && ans !== null) {
+          // Coding question
+          if (question && question.testCases && question.testCases.length > 0) {
+            const passed = Number(ans.passed) || 0;
+            const totalTC = question.testCases.length;
+            const maxMarks = question.marks || 20;
+            const qScore = (passed / totalTC) * maxMarks;
+            calculatedScore += qScore;
+            console.log(`Q${qid} (Coding): Passed ${passed}/${totalTC}, Score: ${qScore.toFixed(2)}/${maxMarks}`);
+          } else {
+            // Fallback
+            calculatedScore += (Number(ans.passed) || 0) * 2;
+          }
+        } else {
+          // MCQ: 1 mark if correct
+          if (correctMap[Number(qid)] === ans || correctMap[String(qid)] === ans) {
+            calculatedScore += (question?.marks || 1);
+          }
+        }
+      });
+
+      console.log("Final Calculated Score:", calculatedScore);
+
       const testData = {
-        testTitle: "Module Practice Assessment | Polymorphism",
+        testTitle: examContext.eventName || title, // Use Event Name if available
+        eventId: examContext.eventId, // Send Event ID
+        eventName: examContext.eventName || title,
         answers,
         markedForReview,
-        correctAnswers: getCorrectAnswers(),
-        score: 0,
+        correctAnswers: correctMap,
+        score: calculatedScore,
         totalQuestions: questions.length,
         timeSpent,
         environment: {
@@ -354,7 +450,8 @@ export default function ExamPage() {
       setSubmitSuccess(true);
 
       // Clear local storage on successful submit
-      localStorage.removeItem("examState");
+      localStorage.removeItem(`examState_${mode}`);
+
 
       if (options.auto) {
         setInfo("Test auto-submitted.");

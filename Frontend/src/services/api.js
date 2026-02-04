@@ -176,11 +176,31 @@ export async function getMyTestStats() {
   return resp.json();
 }
 
+// Event Manager: Get all test results
+export async function getAllTestResults(filters = {}) {
+  const url = new URL(`${API_BASE}/test-results/all`);
+  if (filters.testTitle) url.searchParams.set("testTitle", filters.testTitle);
+
+  const resp = await fetch(url.toString(), {
+    credentials: "include",
+  });
+  if (!resp.ok) throw new Error("Failed to fetch all test results");
+  return resp.json();
+}
+
 // Events API
 export async function fetchEvents() {
   const resp = await fetch(`${API_BASE.replace(/\/$/, "")}/events`);
   if (!resp.ok) throw new Error("Failed to fetch events");
   return resp.json();
+}
+
+export async function fetchEventById(eventId) {
+  const resp = await fetch(`${API_BASE.replace(/\/$/, "")}/events`);
+  if (!resp.ok) throw new Error("Failed to fetch events");
+  const data = await resp.json();
+  const events = data.events || data;
+  return events.find(e => e._id === eventId || e.id === eventId);
 }
 
 export async function createEvent(eventPayload) {
