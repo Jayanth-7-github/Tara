@@ -10,10 +10,12 @@ const {
 } = require("../controllers/authController");
 const { protect } = require("../middleware/auth");
 
-router.post("/signup", signup);
-router.post("/login", login);
-router.post("/logout", logout);
-router.get("/me", protect, getMe);
-router.get("/check-login", protect, checkLogin);
+const { delegate } = require("../engine/router");
+
+router.post("/signup", delegate('signup', signup));
+router.post("/login", delegate('login', login));
+router.post("/logout", delegate('logout', logout));
+router.get("/me", protect, delegate('getMe', getMe));
+router.get("/check-login", protect, delegate('checkLogin', checkLogin));
 
 module.exports = router;

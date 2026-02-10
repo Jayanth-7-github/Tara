@@ -10,22 +10,24 @@ const {
 } = require("../controllers/eventController");
 const { protect } = require("../middleware/auth");
 
+const { delegate } = require("../engine/router");
+
 // POST /api/events -> create a new event (authenticated)
-router.post("/", protect, createEvent);
+router.post("/", protect, delegate('createEvent', createEvent));
 
 // GET /api/events -> list events
-router.get("/", getEvents);
+router.get("/", delegate('getEvents', getEvents));
 
 // GET /api/events/:id/image -> stream image for event
-router.get("/:id/image", getEventImage);
+router.get("/:id/image", delegate('getEventImage', getEventImage));
 
 // POST /api/events/:id/register -> register
-router.post("/:id/register", registerEvent);
+router.post("/:id/register", delegate('registerEvent', registerEvent));
 
 // PUT /api/events/:id -> update event (authenticated)
-router.put("/:id", protect, updateEvent);
+router.put("/:id", protect, delegate('updateEvent', updateEvent));
 
 // DELETE /api/events/:id -> delete event (authenticated)
-router.delete("/:id", protect, deleteEvent);
+router.delete("/:id", protect, delegate('deleteEvent', deleteEvent));
 
 module.exports = router;

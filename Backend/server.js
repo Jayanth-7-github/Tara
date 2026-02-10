@@ -11,10 +11,10 @@ const app = express();
 // will still be emitted so critical failures are visible unless you also
 // redirect stderr when launching the process.
 if (process.env.QUIET === "1") {
-  console.log = () => {};
-  console.info = () => {};
-  console.debug = () => {};
-  console.warn = () => {};
+  console.log = () => { };
+  console.info = () => { };
+  console.debug = () => { };
+  console.warn = () => { };
 }
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
@@ -69,6 +69,10 @@ app.use("/api/roles/secret8181", rolesRoutes);
 
 // Health
 app.get("/api/tara", (req, res) =>
+  res.json({ status: "ok", timestamp: Date.now() })
+);
+
+app.get("/health", (req, res) =>
   res.json({ status: "ok", timestamp: Date.now() })
 );
 
