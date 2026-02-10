@@ -1,0 +1,24 @@
+/* Custom slim dark scrollbar for exam areas */
+.scrollbar-thin-dark {
+    scrollbar-width: thin;
+    scrollbar-color: #4b5563 #111827;
+    /* thumb, track */
+}
+
+.scrollbar-thin-dark::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.scrollbar-thin-dark::-webkit-scrollbar-track {
+    background: #111827;
+}
+
+.scrollbar-thin-dark::-webkit-scrollbar-thumb {
+    background-color: #4b5563;
+    border-radius: 9999px;
+}
+
+.scrollbar-thin-dark::-webkit-scrollbar-thumb:hover {
+    background-color: #9ca3af;
+}
