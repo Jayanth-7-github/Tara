@@ -15,6 +15,8 @@ import { submitTestResult, fetchEventById, fetchEvents } from "../../services/ap
 import { checkLogin } from "../../services/auth";
 import { SECURITY_CODE } from "../../services/constants";
 
+
+
 export default function ExamPage({ mode = "mcq" }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -510,41 +512,107 @@ export default function ExamPage({ mode = "mcq" }) {
     isTestStartedRef.current = isTestStarted;
   }, [isTestStarted]);
 
+
+  // --- Security & Violation Handling ---
+
+  const triggerViolation = useCallback((reason) => {
+    if (!isTestStarted) return;
+
+    // Force exit fullscreen if valid
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => { });
+    }
+
+    setLives((prevLives) => {
+      const newLives = prevLives - 1;
+
+      // Handle Side Effects outside the reducer to be safe and immediate
+      setTimeout(() => {
+        if (newLives <= 0) {
+          const answeredCount = Object.values(answers).filter(
+            (val) => val !== undefined,
+          ).length;
+          setInfo(
+            `No lives remaining. Violation: ${reason}. Auto-submitting immediately...`,
+          );
+          // Immediate submit without delay
+          handleSubmitTest({ auto: true });
+        } else {
+          setShowLifeLost(true);
+          setTimeout(() => setShowLifeLost(false), 3000);
+          setIsTestStarted(false);
+          setCanResume(true);
+          setInfo(
+            `Violation: ${reason}! ${newLives} ${newLives === 1 ? "life" : "lives"
+            } remaining. Test paused.`,
+          );
+        }
+      }, 0);
+
+      return newLives < 0 ? 0 : newLives;
+    });
+  }, [isTestStarted, answers, handleSubmitTest]);
+
+  // Use a ref to hold the latest violation handler to avoid stale closures in event listeners
+  const violationHandlerRef = useRef(triggerViolation);
   useEffect(() => {
+    violationHandlerRef.current = triggerViolation;
+  }, [triggerViolation]);
+
+  useEffect(() => {
+    // 1. Disable Right Click
+    const handleContextMenu = (e) => e.preventDefault();
+
+    // 2. Disable DevTools shortcuts
+    const handleKeyDown = (e) => {
+      if (
+        e.key === "F12" ||
+        (e.ctrlKey && e.shiftKey && (e.key === "I" || e.key === "J" || e.key === "C")) ||
+        (e.ctrlKey && e.key === "U")
+      ) {
+        e.preventDefault();
+      }
+    };
+
+    // 3. Tab Switching / Minimize Detection
+    const handleVisibilityChange = () => {
+      if (document.hidden && isTestStartedRef.current) {
+        violationHandlerRef.current("Tab switch or minimization detected");
+      }
+    };
+
+    // 4. Focus Loss (Alt+Tab, clicking outside, switching desktop)
+    const handleBlur = () => {
+      if (isTestStartedRef.current) {
+        violationHandlerRef.current("Window focus lost");
+      }
+    };
+
+    // 5. Fullscreen Logic
     const onFsChange = () => {
       const fs = !!document.fullscreenElement;
       setIsFullscreen(fs);
-      if (isTestStartedRef.current && !fs) {
-        setLives((prevLives) => {
-          const newLives = prevLives - 1;
-          if (newLives <= 0) {
-            const answeredCount = Object.values(answers).filter(
-              (val) => val !== undefined,
-            ).length;
-            setInfo(
-              `No lives remaining. Auto-submitting test with ${answeredCount} of ${questions.length} questions answered...`,
-            );
-            setTimeout(() => {
-              handleSubmitTest({ auto: true });
-            }, 2000);
-            return 0;
-          } else {
-            setShowLifeLost(true);
-            setTimeout(() => setShowLifeLost(false), 3000);
-            setIsTestStarted(false);
-            setCanResume(true);
-            setInfo(
-              `Life lost! ${newLives} ${newLives === 1 ? "life" : "lives"
-              } remaining. Fullscreen exited. Returning to lobby. Enter fullscreen to resume.`,
-            );
-            return newLives;
-          }
-        });
+      if (!fs && isTestStartedRef.current) {
+        violationHandlerRef.current("Fullscreen exited");
       }
     };
-    document.addEventListener("fullscreenchange", onFsChange);
+
+    document.addEventListener("contextmenu", handleContextMenu, true);
+    document.addEventListener("keydown", handleKeyDown, true);
+    document.addEventListener("visibilitychange", handleVisibilityChange, true);
+    window.addEventListener("blur", handleBlur, true);
+    document.addEventListener("fullscreenchange", onFsChange, true);
+
+    // Initial Sync
     setIsFullscreen(!!document.fullscreenElement);
-    return () => document.removeEventListener("fullscreenchange", onFsChange);
+
+    return () => {
+      document.removeEventListener("contextmenu", handleContextMenu, true);
+      document.removeEventListener("keydown", handleKeyDown, true);
+      document.removeEventListener("visibilitychange", handleVisibilityChange, true);
+      window.removeEventListener("blur", handleBlur, true);
+      document.removeEventListener("fullscreenchange", onFsChange, true);
+    };
   }, []);
 
   // Re-attach streams after re-renders (e.g., switching to test view)

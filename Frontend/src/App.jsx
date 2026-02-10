@@ -1,5 +1,5 @@
 import "./App.css";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import AttendancePage from "./secret/pages/AttendancePage";
 import AttendanceSummary from "./secret/pages/AttendanceSummary";
 import Secret from "./secret/pages/Secret";
@@ -29,21 +29,32 @@ import { ADMIN_TOKEN } from "./services/constants";
 import Hamburger from "./components/hamburger";
 import TestCompiler from "./Exam/pages/testcompailer";
 
+function Navbar() {
+  const location = useLocation();
+  const isExamPage = location.pathname === "/test" || location.pathname === "/test/coding";
+
+  if (isExamPage) return null;
+
+  return (
+    <header className="bg-linear-to-r from-gray-950 via-gray-900 to-gray-950 text-white shadow-lg border-b border-gray-800">
+      <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+
+        <h2 className="text-xl sm:text-2xl font-bold tracking-wide bg-linear-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">
+          Tara
+        </h2>
+
+
+        <Hamburger />
+      </div>
+    </header>
+  );
+}
+
 function App() {
   return (
     <BrowserRouter>
       <div>
-        <header className="bg-linear-to-r from-gray-950 via-gray-900 to-gray-950 text-white shadow-lg border-b border-gray-800">
-          <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-
-            <h2 className="text-xl sm:text-2xl font-bold tracking-wide bg-linear-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">
-              Tara
-            </h2>
-
-
-            <Hamburger />
-          </div>
-        </header>
+        <Navbar />
 
         <main>
           <Routes>
