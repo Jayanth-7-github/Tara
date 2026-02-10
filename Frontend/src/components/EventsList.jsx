@@ -30,6 +30,8 @@ export default function EventsList({
   const [userRegno, setUserRegno] = useState("");
   const [userName, setUserName] = useState("");
   const [userEmail, setUserEmail] = useState("");
+  const [userBranch, setUserBranch] = useState("");
+  const [userCollege, setUserCollege] = useState("");
   const [rolesMap, setRolesMap] = useState(null);
   const [localEvents, setLocalEvents] = useState(events || []);
   const [expressedInterest, setExpressedInterest] = useState({});
@@ -54,7 +56,8 @@ export default function EventsList({
   // Load current user's registration state (if logged in) so registration persists across reload/login
   useEffect(() => {
     let mounted = true;
-    (async () => {
+
+    const fetchUserData = async () => {
       try {
         const me = await getMe();
         // auth.getMe returns { user: { ... } } — accept both shapes for robustness
@@ -72,6 +75,12 @@ export default function EventsList({
         }
         if (!regno) return;
         const student = await fetchStudent(regno);
+        if (mounted && student) {
+          if (student.name) setUserName(student.name);
+          if (student.email) setUserEmail(student.email);
+          if (student.branch) setUserBranch(student.branch);
+          if (student.college) setUserCollege(student.college);
+        }
         const regs = student.registrations || [];
         const regMap = {};
         regs.forEach((r) => {
@@ -83,8 +92,14 @@ export default function EventsList({
       } catch (err) {
         // ignore - user not logged in or no student record
       }
-    })();
-    return () => (mounted = false);
+    };
+
+    fetchUserData();
+    const interval = setInterval(fetchUserData, 60000);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
   }, []);
 
   // Load user's contacts to check approval status
@@ -512,7 +527,7 @@ export default function EventsList({
             <ContactForm
               event={events.find((e) => (e._id || e.id) === showContactFor)}
               fallbackEmail={contactEmail}
-              initial={{ name: userName, regno: userRegno, email: userEmail }}
+              initial={{ name: userName, regno: userRegno, email: userEmail, branch: userBranch, college: userCollege }}
               onClose={() => setShowContactFor(null)}
               onSent={() => {
                 // Mark interest as expressed
@@ -541,20 +556,20 @@ export default function EventsList({
       {/* Edit modal */}
       {showEditFor && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-2 sm:p-4"
           onClick={() => setShowEditFor(null)}
         >
           <div
-            className="bg-gray-800 border border-gray-700 rounded-2xl p-6 shadow-2xl max-w-3xl w-full mx-4"
+            className="bg-gray-800 border border-gray-700 rounded-2xl p-4 sm:p-6 shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex justify-between items-center mb-4 sticky top-0 bg-gray-800 z-10 pb-2">
               <h3 className="text-xl font-semibold text-blue-400">
                 Edit Event
               </h3>
               <button
                 onClick={() => setShowEditFor(null)}
-                className="text-gray-400 hover:text-white transition-colors"
+                className="text-gray-400 hover:text-white transition-colors p-1"
               >
                 ✕
               </button>

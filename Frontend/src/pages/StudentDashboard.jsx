@@ -49,6 +49,8 @@ export default function StudentDashboard() {
   useEffect(() => {
     if (user) {
       loadData();
+      const interval = setInterval(loadData, 60000);
+      return () => clearInterval(interval);
     }
   }, [user]);
 

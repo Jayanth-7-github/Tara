@@ -19,7 +19,7 @@ export default function Main() {
       localStorage.removeItem("token");
       try {
         window.dispatchEvent(new Event("auth-changed"));
-      } catch (e) {}
+      } catch (e) { }
       navigate("/login");
     } catch (error) {
       console.error("Logout failed:", error);
@@ -27,7 +27,7 @@ export default function Main() {
       localStorage.removeItem("token");
       try {
         window.dispatchEvent(new Event("auth-changed"));
-      } catch (e) {}
+      } catch (e) { }
       navigate("/login");
     }
   };
@@ -85,6 +85,11 @@ export default function Main() {
 
     // load events regardless of user (we may hide them from non-students/admins in the UI)
     loadEvents();
+    const interval = setInterval(() => {
+      loadEvents();
+    }, 60000);
+
+    return () => clearInterval(interval);
   }, [user]);
 
   if (loading) {
@@ -92,7 +97,7 @@ export default function Main() {
       <div className="min-h-screen bg-linear-to-br from-gray-950 via-black to-gray-900 text-white flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-400">Verifying authentication...</p>
+          <p className="text-gray-400">Verifying...</p>
         </div>
       </div>
     );
@@ -152,76 +157,6 @@ export default function Main() {
             )}
           </div>
 
-          {/* Assignments preview (commented out)
-          <section className="bg-gray-900/70 border border-gray-800 rounded-2xl p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold">Assignments</h2>
-              <Link
-                to="/assignments"
-                className="text-sm text-blue-400 hover:text-cyan-300"
-              >
-                View all →
-              </Link>
-            </div>
-            <ul className="space-y-3">
-              {[
-                { id: 1, title: "Maths Worksheet 3", due: "Nov 18, 2025" },
-                { id: 2, title: "Physics Lab Report", due: "Nov 22, 2025" },
-                { id: 3, title: "CS Mini Project", due: "Dec 02, 2025" },
-              ].map((a) => (
-                <li
-                  key={a.id}
-                  className="flex items-center justify-between bg-gray-800/60 border border-gray-800 rounded-lg px-4 py-3"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-emerald-600/20 text-emerald-300">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.8"
-                        className="w-4 h-4"
-                      >
-                        <path d="M6 2h9l5 5v15a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2" />
-                        <path d="M14 2v6h6" />
-                      </svg>
-                    </span>
-                    <div>
-                      <p className="font-medium text-gray-100">{a.title}</p>
-                      <p className="text-xs text-gray-400">Due {a.due}</p>
-                    </div>
-                  </div>
-                  <Link
-                    to="/assignments"
-                    className="text-sm text-gray-300 hover:text-white"
-                  >
-                    Open
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </section>
-            */}
-          <button
-            onClick={handleLogout}
-            aria-label="Logout"
-            className="fixed bottom-6 right-6 z-50 px-4 py-2 text-sm rounded-lg bg-red-600 hover:bg-red-700 transition shadow flex items-center gap-2"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              className="w-4 h-4"
-            >
-              <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
-              <polyline points="16 17 21 12 16 7" />
-              <line x1="21" y1="12" x2="9" y2="12" />
-            </svg>
-            Logout
-          </button>
         </div>
       </div>
     </div>

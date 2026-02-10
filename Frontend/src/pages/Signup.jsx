@@ -66,7 +66,7 @@ export default function Signup() {
       setSuccess("Account created successfully");
       try {
         await getMe();
-      } catch {}
+      } catch { }
       // Redirect to login or member area; choose member secret for now
       setTimeout(() => navigate("/login"), 800);
     } catch (err) {
@@ -77,184 +77,140 @@ export default function Signup() {
   }
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-gray-950 via-black to-gray-900 text-white flex items-center justify-center px-6 py-16 font-sans">
-      <div className="w-full max-w-md bg-gray-900/70 backdrop-blur-lg border border-gray-800 shadow-2xl rounded-2xl p-8">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold bg-linear-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">
-            Create your account
+    <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center px-4 font-sans py-12">
+      <div className="w-full max-w-lg bg-gray-900 border border-gray-800 rounded-2xl p-8 sm:p-10 shadow-xl">
+        <div className="mb-8 text-center sm:text-left">
+          <h1 className="text-3xl font-bold text-white">
+            Create Account
           </h1>
-          <p className="mt-1 text-sm text-gray-400">
+          <p className="mt-2 text-gray-400">
             Join Tara and start managing attendance effortlessly.
           </p>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-5" noValidate>
-          <div>
-            <label className="text-sm text-gray-300" htmlFor="name">
-              Name (optional)
-            </label>
-            <input
-              id="name"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="mt-1 w-full p-3 rounded bg-gray-800 border border-gray-700 text-white text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/40 transition"
-              placeholder="Your name"
-              autoComplete="off"
-            />
+
+        <form onSubmit={handleSubmit} className="space-y-6" noValidate>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-300" htmlFor="name">
+                Full Name (optional)
+              </label>
+              <input
+                id="name"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                placeholder="John Doe"
+                autoComplete="name"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-300" htmlFor="regno">
+                Registration Number
+              </label>
+              <input
+                id="regno"
+                type="text"
+                value={regno}
+                onChange={(e) => setRegno(e.target.value.toUpperCase())}
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all uppercase"
+                placeholder="Regno"
+                autoComplete="off"
+              />
+            </div>
           </div>
-          <div>
-            <label className="text-sm text-gray-300" htmlFor="email">
-              Email
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-300" htmlFor="email">
+              Email Address
             </label>
             <input
               id="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 w-full p-3 rounded bg-gray-800 border border-gray-700 text-white text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/40 transition"
-              placeholder="you@example.com"
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+              placeholder="regno@klu.ac.in"
               autoComplete="email"
             />
           </div>
-          <div>
-            <label className="text-sm text-gray-300" htmlFor="regno">
-              Registration Number
-            </label>
-            <input
-              id="regno"
-              type="text"
-              value={regno}
-              onChange={(e) => setRegno(e.target.value.toUpperCase())}
-              className="mt-1 w-full p-3 rounded bg-gray-800 border border-gray-700 text-white text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/40 transition uppercase"
-              placeholder="e.g., 21BCE1234"
-              autoComplete="off"
-            />
-          </div>
-          <div>
-            <label className="text-sm text-gray-300" htmlFor="password">
-              Password
-            </label>
-            <div className="relative">
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-300" htmlFor="password">
+                Password
+              </label>
               <input
                 id="password"
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 w-full p-3 pr-12 rounded bg-gray-800 border border-gray-700 text-white text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/40 transition"
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
                 placeholder="••••••••"
                 autoComplete="new-password"
               />
-              <button
-                type="button"
-                onClick={() => setShowPassword((s) => !s)}
-                className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50"
-                aria-label={showPassword ? "Hide password" : "Show password"}
-                aria-pressed={showPassword}
-              >
-                {showPassword ? (
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    className="w-5 h-5"
-                  >
-                    <path
-                      d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6-10-6-10-6z"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <circle cx="12" cy="12" r="3" />
-                    <path d="M3 3l18 18" strokeLinecap="round" />
-                  </svg>
-                ) : (
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    className="w-5 h-5"
-                  >
-                    <path
-                      d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6-10-6-10-6z"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <circle cx="12" cy="12" r="3" />
-                  </svg>
-                )}
-                <span className="sr-only">Toggle password visibility</span>
-              </button>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-300" htmlFor="confirm">
+                Confirm Password
+              </label>
+              <input
+                id="confirm"
+                type={showPassword ? "text" : "password"}
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                placeholder="••••••••"
+                autoComplete="new-password"
+              />
             </div>
           </div>
-          <div>
-            <label className="text-sm text-gray-300" htmlFor="confirm">
-              Confirm Password
-            </label>
-            <input
-              id="confirm"
-              type={showPassword ? "text" : "password"}
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              className="mt-1 w-full p-3 rounded bg-gray-800 border border-gray-700 text-white text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/40 transition"
-              placeholder="Repeat password"
-              autoComplete="new-password"
-            />
-          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowPassword((s) => !s)}
+            className="text-xs font-bold text-gray-500 hover:text-gray-300 transition-colors uppercase tracking-widest flex items-center gap-2"
+          >
+            {showPassword ? "Hide Passwords" : "Show Passwords"}
+          </button>
+
           {error && (
-            <div
-              className="text-sm text-red-300"
-              role="alert"
-              aria-live="polite"
-            >
+            <div className="bg-red-900/20 border border-red-900/50 text-red-400 px-4 py-3 rounded-lg text-sm">
               {error}
             </div>
           )}
+
           {success && (
-            <div
-              className="text-sm text-green-300"
-              role="status"
-              aria-live="polite"
-            >
+            <div className="bg-green-900/20 border border-green-900/50 text-green-400 px-4 py-3 rounded-lg text-sm">
               {success}
             </div>
           )}
+
           <button
             type="submit"
             disabled={loading}
-            className="w-full px-6 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold shadow-md transition-all flex items-center justify-center gap-2"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-            {loading && (
-              <svg
-                className="animate-spin h-4 w-4 text-white"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                ></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-                ></path>
-              </svg>
+            {loading ? (
+              <>
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <span>Creating...</span>
+              </>
+            ) : (
+              <span>Create Account</span>
             )}
-            <span>{loading ? "Creating..." : "Create Account"}</span>
           </button>
         </form>
-        <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-between text-sm">
-          <Link to="/login" className="text-gray-400 hover:text-gray-200">
+
+        <div className="mt-8 pt-6 border-t border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
+          <Link to="/login" className="text-gray-500 hover:text-gray-300 flex items-center gap-2">
             ← Back to Login
           </Link>
+          <p className="text-gray-500">
+            Agree to <span className="text-gray-400 hover:underline cursor-pointer">Terms</span>
+          </p>
         </div>
       </div>
     </div>

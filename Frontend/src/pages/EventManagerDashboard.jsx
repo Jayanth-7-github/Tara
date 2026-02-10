@@ -20,11 +20,11 @@ export default function EventManagerDashboard() {
     pastEvents: 0,
   });
 
-  // Auto-refresh every 30 seconds
+  // Auto-refresh every 1 minute
   useEffect(() => {
     const interval = setInterval(() => {
       loadData();
-    }, 30000);
+    }, 60000);
     return () => clearInterval(interval);
   }, [authorized]);
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { registerForEvent } from "../services/api";
+import { registerForEvent, fetchStudent } from "../services/api";
 import { getMe } from "../services/auth";
 
 // Reusable registration form. When fullPage=true it renders a full-screen
@@ -30,20 +30,42 @@ export default function RegisterForm({
       window.history.back();
   };
 
-  // Pre-fill regno from logged-in user and prevent changing to something else
+  // Pre-fill fields from logged-in user
   useEffect(() => {
     let mounted = true;
     (async () => {
       try {
         const me = await getMe();
-        const r = me?.user?.regno || me?.regno || "";
-        if (mounted && r) {
-          const upper = String(r).trim().toUpperCase();
-          setMyRegno(upper);
-          setRegno(upper);
+        const user = me?.user || me;
+        if (mounted && user) {
+          const r = user.regno;
+          if (r) {
+            const upper = String(r).trim().toUpperCase();
+            setMyRegno(upper);
+            setRegno(upper);
+
+            // Fetch the full student profile for deeper auto-fill
+            try {
+              const profile = await fetchStudent(upper);
+              if (mounted && profile) {
+                if (profile.name) setName(profile.name);
+                if (profile.email) setEmail(profile.email);
+                if (profile.branch) setBranch(profile.branch);
+                if (profile.college) setCollege(profile.college);
+                if (profile.year) setYear(profile.year);
+              }
+            } catch (err) {
+              // profile maybe doesn't exist yet, fallback to what's in 'user'
+              if (user.name) setName(user.name);
+              if (user.email) setEmail(user.email);
+            }
+          } else {
+            if (user.name) setName(user.name);
+            if (user.email) setEmail(user.email);
+          }
         }
       } catch {
-        // not logged in; leave regno empty
+        // not logged in
       }
     })();
     return () => {
@@ -118,9 +140,8 @@ export default function RegisterForm({
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className={`w-full px-3 py-2 rounded bg-gray-800 text-sm text-white border ${
-              fieldErrors.name ? "border-red-500" : "border-gray-700"
-            } focus:outline-none focus:ring-2 focus:ring-blue-500`}
+            className={`w-full px-3 py-2 rounded bg-gray-800 text-sm text-white border ${fieldErrors.name ? "border-red-500" : "border-gray-700"
+              } focus:outline-none focus:ring-2 focus:ring-blue-500`}
           />
           {fieldErrors.name && (
             <p className="text-xs text-red-400 mt-1">{fieldErrors.name}</p>
@@ -135,9 +156,8 @@ export default function RegisterForm({
             type="text"
             value={regno}
             onChange={(e) => setRegno(e.target.value.toUpperCase())}
-            className={`w-full px-3 py-2 rounded bg-gray-800 text-sm text-white border ${
-              fieldErrors.regno ? "border-red-500" : "border-gray-700"
-            } focus:outline-none focus:ring-2 focus:ring-blue-500`}
+            className={`w-full px-3 py-2 rounded bg-gray-800 text-sm text-white border ${fieldErrors.regno ? "border-red-500" : "border-gray-700"
+              } focus:outline-none focus:ring-2 focus:ring-blue-500`}
           />
           {fieldErrors.regno && (
             <p className="text-xs text-red-400 mt-1">{fieldErrors.regno}</p>
@@ -152,9 +172,8 @@ export default function RegisterForm({
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className={`w-full px-3 py-2 rounded bg-gray-800 text-sm text-white border ${
-              fieldErrors.email ? "border-red-500" : "border-gray-700"
-            } focus:outline-none focus:ring-2 focus:ring-blue-500`}
+            className={`w-full px-3 py-2 rounded bg-gray-800 text-sm text-white border ${fieldErrors.email ? "border-red-500" : "border-gray-700"
+              } focus:outline-none focus:ring-2 focus:ring-blue-500`}
           />
           {fieldErrors.email && (
             <p className="text-xs text-red-400 mt-1">{fieldErrors.email}</p>
@@ -192,9 +211,8 @@ export default function RegisterForm({
           <select
             value={year}
             onChange={(e) => setYear(e.target.value)}
-            className={`w-full px-3 py-2 rounded bg-gray-800 text-sm text-white border ${
-              fieldErrors.year ? "border-red-500" : "border-gray-700"
-            } focus:outline-none focus:ring-2 focus:ring-blue-500`}
+            className={`w-full px-3 py-2 rounded bg-gray-800 text-sm text-white border ${fieldErrors.year ? "border-red-500" : "border-gray-700"
+              } focus:outline-none focus:ring-2 focus:ring-blue-500`}
           >
             <option value="">Select year</option>
             <option value="1st">1st</option>
@@ -217,9 +235,8 @@ export default function RegisterForm({
               type="text"
               value={yearOther}
               onChange={(e) => setYearOther(e.target.value)}
-              className={`w-full px-3 py-2 rounded bg-gray-800 text-sm text-white border ${
-                fieldErrors.yearOther ? "border-red-500" : "border-gray-700"
-              } focus:outline-none focus:ring-2 focus:ring-blue-500`}
+              className={`w-full px-3 py-2 rounded bg-gray-800 text-sm text-white border ${fieldErrors.yearOther ? "border-red-500" : "border-gray-700"
+                } focus:outline-none focus:ring-2 focus:ring-blue-500`}
             />
             {fieldErrors.yearOther && (
               <p className="text-xs text-red-400 mt-1">

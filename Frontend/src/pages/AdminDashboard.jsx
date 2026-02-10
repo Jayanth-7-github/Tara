@@ -28,11 +28,11 @@ export default function AdminDashboard() {
     activeManagers: 0,
   });
 
-  // Auto-refresh every 30 seconds
+  // Auto-refresh every 1 minute
   useEffect(() => {
     const interval = setInterval(() => {
       loadData();
-    }, 30000);
+    }, 60000);
     return () => clearInterval(interval);
   }, []);
 
@@ -412,11 +412,10 @@ export default function AdminDashboard() {
               <div className="flex items-center justify-between">
                 <span className="text-gray-300 text-sm">Unread Contacts</span>
                 <span
-                  className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    stats.unreadContacts > 0
-                      ? "bg-red-500/10 text-red-400"
-                      : "bg-green-500/10 text-green-400"
-                  }`}
+                  className={`px-3 py-1 rounded-full text-sm font-medium ${stats.unreadContacts > 0
+                    ? "bg-red-500/10 text-red-400"
+                    : "bg-green-500/10 text-green-400"
+                    }`}
                 >
                   {stats.unreadContacts}
                 </span>
@@ -752,11 +751,10 @@ export default function AdminDashboard() {
                             </div>
                           </div>
                           <span
-                            className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              isUpcoming
-                                ? "bg-green-500/10 text-green-400"
-                                : "bg-gray-500/10 text-gray-400"
-                            }`}
+                            className={`px-2 py-1 rounded-full text-xs font-medium ${isUpcoming
+                              ? "bg-green-500/10 text-green-400"
+                              : "bg-gray-500/10 text-gray-400"
+                              }`}
                           >
                             {isUpcoming ? "Upcoming" : "Completed"}
                           </span>

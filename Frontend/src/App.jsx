@@ -4,7 +4,6 @@ import AttendancePage from "./secret/pages/AttendancePage";
 import AttendanceSummary from "./secret/pages/AttendanceSummary";
 import Secret from "./secret/pages/Secret";
 import PublicHome from "./pages/PublicHome";
-import About from "./pages/About";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Main from "./pages/Main";
@@ -91,7 +90,6 @@ function App() {
               path={`/admin/mark-absent/${ADMIN_TOKEN}`}
               element={<MarkAbsent />}
             />
-            <Route path="/about" element={<About />} />
             <Route path="/main" element={<Main />} />
 
             <Route path="/events/create" element={<CreateEvent />} />
