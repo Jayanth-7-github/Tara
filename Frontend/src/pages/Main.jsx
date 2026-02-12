@@ -140,9 +140,9 @@ export default function Main() {
                 duration: 0.8,
                 ease: "easeInOut",
               }}
-              className="text-center"
+              className="text-center px-4 sm:px-6"
             >
-              <h1 className="bg-gradient-to-br from-slate-100 to-slate-400 py-4 bg-clip-text text-center text-4xl font-bold tracking-tight text-transparent md:text-7xl">
+              <h1 className="bg-gradient-to-br from-slate-100 to-slate-400 pt-1 pb-4 bg-clip-text text-center text-3xl sm:text-4xl md:text-6xl font-bold tracking-tight text-transparent">
                 {user
                   ? `Welcome back, ${user.name || "Student"}`
                   : "Tara Dashboard"}
@@ -153,9 +153,9 @@ export default function Main() {
                 initial={{ opacity: 0, scale: 0.9 }}
                 whileInView={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.5, duration: 0.8 }}
-                className="mt-12"
+                className="mt-8 md:mt-12"
               >
-                <h2 className="bg-clip-text text-transparent text-center bg-gradient-to-b from-neutral-200 to-neutral-500 text-2xl md:text-5xl font-bold tracking-tight leading-tight">
+                <h2 className="bg-clip-text text-transparent text-center bg-gradient-to-b from-neutral-200 to-neutral-500 text-xl sm:text-3xl md:text-5xl font-bold tracking-tight leading-tight">
                   See everything in one place.
                   <br />
                   Exams, events, results and more.
@@ -190,7 +190,7 @@ export default function Main() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 1, duration: 2, repeat: Infinity }}
-                className="mt-20 flex flex-col items-center gap-2 text-slate-500"
+                className="mt-10 md:mt-20 hidden md:flex flex-col items-center gap-2 text-slate-500"
               >
                 <span className="text-sm uppercase tracking-widest">
                   Scroll for Events
@@ -204,7 +204,7 @@ export default function Main() {
         {/* Events Section */}
         <section
           id="events-section"
-          className="relative w-full px-4 pt-20 flex justify-center flex-1"
+          className="relative w-full px-3 sm:px-4 pt-12 md:pt-20 flex justify-center flex-1"
         >
           <div className="max-w-6xl w-full">
             <motion.div
@@ -213,21 +213,21 @@ export default function Main() {
               transition={{ duration: 0.8 }}
               className="mb-12 text-center"
             >
-              <h1 className="text-4xl md:text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-b from-blue-400 to-cyan-200">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-b from-blue-400 to-cyan-200">
                 Upcoming Events
               </h1>
-              <p className="mt-4 text-neutral-400 text-lg max-w-2xl mx-auto font-medium">
+              <p className="mt-4 text-neutral-400 text-base sm:text-lg max-w-2xl mx-auto font-medium">
                 Jump into events and assignments. Quick overview of what's new.
               </p>
             </motion.div>
 
             <div className="grid grid-cols-1 gap-6">
               {eventsLoading ? (
-                <div className="flex justify-center py-20">
+                <div className="flex justify-center py-12 sm:py-20">
                   <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                 </div>
               ) : !events || events.length === 0 ? (
-                <div className="text-center py-20 bg-slate-900/50 rounded-3xl border border-slate-800 backdrop-blur-sm">
+                <div className="text-center py-12 sm:py-20 bg-slate-900/50 rounded-3xl border border-slate-800 backdrop-blur-sm">
                   <p className="text-slate-500 text-xl font-medium">
                     Events coming soon — check back later.
                   </p>

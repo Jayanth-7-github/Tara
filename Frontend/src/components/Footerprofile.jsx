@@ -50,9 +50,9 @@ const people = [
 
 export default function FooterProfile() {
   return (
-    <footer className="py-3 border-t border-slate-900 bg-black/40 backdrop-blur-lg">
-      <div className="max-w-6xl mx-auto px-6 flex flex-col gap-1">
-        <div className="flex flex-col md:flex-row items-center gap-2 w-full">
+    <footer className="py-4 border-t border-slate-900 bg-black/40 backdrop-blur-lg">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col gap-2">
+        <div className="flex flex-col md:flex-row items-center md:items-center gap-3 w-full">
           <div className="flex-1 flex justify-center md:justify-start">
             <span className="text-lg font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
               Tara
@@ -63,8 +63,8 @@ export default function FooterProfile() {
             <AnimatedTooltip items={people} />
           </div>
 
-          <div className="flex-1 flex justify-end">
-            <div className="text-[10px] text-slate-400 text-left leading-tight">
+          <div className="flex-1 flex justify-center md:justify-end">
+            <div className="text-[10px] text-slate-400 text-center md:text-left leading-tight">
               <h6 className="font-semibold mb-0.5">
                 Contact: kolleparajayanth@gmail.com
               </h6>

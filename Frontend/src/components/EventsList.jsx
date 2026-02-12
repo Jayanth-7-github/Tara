@@ -448,15 +448,15 @@ export default function EventsList({
 
           return (
             <div
-              className="fixed inset-0 z-40 flex items-center justify-center bg-black/80 backdrop-blur-md"
+              className="fixed inset-0 z-40 flex items-center justify-center bg-black/80 backdrop-blur-md px-3 sm:px-0"
               onClick={() => setShowDetailsFor(null)}
             >
               <div
-                className="w-[80vw] h-[80vh] bg-gray-900 border border-gray-700 rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row"
+                className="w-full max-w-md sm:max-w-3xl h-[85vh] sm:h-[80vh] bg-gray-900 border border-gray-700 rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row"
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Left Side: Image */}
-                <div className="w-full md:w-1/2 h-64 md:h-full bg-black relative">
+                <div className="w-full md:w-1/2 h-52 sm:h-64 md:h-full bg-black relative">
                   {imageSrc && !imageError[id] ? (
                     <img
                       src={imageSrc}
@@ -481,8 +481,8 @@ export default function EventsList({
 
                 {/* Right Side: Details */}
                 <div className="w-full md:w-1/2 h-full flex flex-col bg-gray-900 border-l border-gray-800">
-                  <div className="flex-1 p-8 overflow-y-auto">
-                    <div className="flex justify-between items-start mb-6">
+                  <div className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto">
+                    <div className="flex justify-between items-start mb-4 sm:mb-6">
                       <div>
                         <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">
                           {new Date(ev.date).toLocaleDateString("en-GB", {
@@ -491,7 +491,7 @@ export default function EventsList({
                             year: "2-digit",
                           })}
                         </span>
-                        <h2 className="text-3xl font-bold text-white mt-2 leading-tight">
+                        <h2 className="text-2xl sm:text-3xl font-bold text-white mt-2 leading-tight">
                           {ev.title}
                         </h2>
                         <p className="text-gray-400 text-sm mt-1">
@@ -542,7 +542,7 @@ export default function EventsList({
                     </div>
 
                     <div className="prose prose-invert max-w-none">
-                      <p className="text-gray-300 leading-relaxed text-lg">
+                      <p className="text-gray-300 leading-relaxed text-base sm:text-lg">
                         {ev.description}
                       </p>
                     </div>
@@ -651,7 +651,7 @@ export default function EventsList({
                   </div>
 
                   {/* Footer Actions */}
-                  <div className="p-6 border-t border-gray-800 bg-gray-900/50 flex flex-wrap gap-4 items-center justify-between">
+                  <div className="p-4 sm:p-6 border-t border-gray-800 bg-gray-900/50 flex flex-wrap gap-4 items-center justify-between">
                     <div>
                       {registered[id] ? (
                         <span className="flex items-center gap-2 text-green-400 font-bold">
