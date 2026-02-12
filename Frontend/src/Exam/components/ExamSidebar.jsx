@@ -12,7 +12,7 @@ export default function ExamSidebar({
   overlayScreenRef,
 }) {
   return (
-    <aside className="w-64 bg-linear-to-b from-gray-50 to-gray-100 border-r border-gray-200 shadow-lg flex flex-col relative">
+    <aside className="w-64 bg-linear-to-b from-gray-50 to-gray-100 border-r border-gray-200 shadow-lg flex flex-col relative min-h-0">
       {/* Monitoring section (camera + screen) */}
       <div className="px-4 py-4 border-b border-gray-200 bg-white/50 backdrop-blur">
         <div className="text-xs font-bold uppercase tracking-wider text-gray-700 mb-3">
@@ -121,7 +121,7 @@ export default function ExamSidebar({
           Question Panel
         </span>
       </div>
-      <div className="flex-1 overflow-y-auto px-4 py-6 grid grid-cols-4 gap-3 content-start">
+      <div className="flex-1 overflow-y-auto px-4 py-6 grid grid-cols-4 gap-3 content-start exam-sidebar-scroll">
         {questions.map((q, idx) => {
           const answered = answers[q.id] !== undefined;
           const isCurrent = idx === currentIndex;
@@ -131,7 +131,8 @@ export default function ExamSidebar({
             <button
               key={q.id}
               onClick={() => setCurrentIndex(idx)}
-              className={`aspect-square rounded-lg border-2 text-sm font-semibold flex items-center justify-center transition-all duration-200 relative group shadow-sm hover:shadow-md ${isCurrent
+              className={`aspect-square rounded-lg border-2 text-sm font-semibold flex items-center justify-center transition-all duration-200 relative group shadow-sm hover:shadow-md ${
+                isCurrent
                   ? "border-blue-500 ring-2 ring-blue-300 bg-blue-50 text-blue-700 scale-105"
                   : isAnsweredAndMarked
                     ? "border-purple-400 bg-purple-50 text-purple-700 hover:border-purple-500"
@@ -140,7 +141,7 @@ export default function ExamSidebar({
                       : answered
                         ? "border-green-400 bg-green-50 text-green-700 hover:border-green-500"
                         : "border-gray-300 bg-white text-gray-600 hover:border-gray-400 hover:bg-gray-50"
-                }`}
+              }`}
               title={q.text}
             >
               {idx + 1}

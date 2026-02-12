@@ -17,3 +17,50 @@
         }
     }
 }
+
+/* Global custom scrollbar styling */
+* {
+    /* Firefox */
+    scrollbar-width: thin;
+    scrollbar-color: #a5b4fc #e5e7eb;
+    /* indigo-300 thumb, gray-200 track */
+}
+
+*::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+    background: #e5e7eb;
+    /* gray-200 */
+}
+
+*::-webkit-scrollbar-thumb {
+    background-color: #a5b4fc;
+    /* indigo-300 */
+    border-radius: 9999px;
+    border: 2px solid #e5e7eb;
+}
+
+/* Custom scrollbar for exam sidebar question list */
+.exam-sidebar-scroll {
+    /* Firefox */
+    scrollbar-width: thin;
+    scrollbar-color: #a5b4fc transparent;
+    /* indigo-300 thumb on transparent track */
+}
+
+.exam-sidebar-scroll::-webkit-scrollbar {
+    width: 6px;
+}
+
+.exam-sidebar-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.exam-sidebar-scroll::-webkit-scrollbar-thumb {
+    background-color: #a5b4fc;
+    /* indigo-300 */
+    border-radius: 9999px;
+}

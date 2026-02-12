@@ -41,6 +41,7 @@ export default function EventsList({
   const [approvalStatus, setApprovalStatus] = useState({}); // Track approval status of expressed interests
   const [userContacts, setUserContacts] = useState({}); // Map eventId to contact object
   const [imageError, setImageError] = useState({});
+  const [isTogglingTest, setIsTogglingTest] = useState(false);
   const navigate = useNavigate();
   const contactEmail =
     import.meta.env.VITE_CONTACT_EMAIL || "99240041378@klu.ac.in";
@@ -571,6 +572,8 @@ export default function EventsList({
                               onClick={async (e) => {
                                 e.stopPropagation();
                                 try {
+                                  if (isTogglingTest) return;
+                                  setIsTogglingTest(true);
                                   const newStatus =
                                     ev.isTestEnabled === false ? true : false;
                                   await updateEvent(id, {
@@ -586,17 +589,24 @@ export default function EventsList({
                                   );
                                 } catch (err) {
                                   console.error("Failed to toggle test", err);
+                                } finally {
+                                  setIsTogglingTest(false);
                                 }
                               }}
-                              className={`px-4 py-2 rounded-lg font-bold text-xs transition-colors ${
+                              disabled={isTogglingTest}
+                              className={`px-4 py-2 rounded-lg font-bold text-xs transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
                                 ev.isTestEnabled !== false
                                   ? "bg-red-500/10 text-red-400 border border-red-500/50 hover:bg-red-500/20"
                                   : "bg-green-500/10 text-green-400 border border-green-500/50 hover:bg-green-500/20"
                               }`}
                             >
-                              {ev.isTestEnabled !== false
-                                ? "Disable Tests"
-                                : "Enable Tests"}
+                              {isTogglingTest
+                                ? ev.isTestEnabled !== false
+                                  ? "Disabling..."
+                                  : "Enabling..."
+                                : ev.isTestEnabled !== false
+                                  ? "Disable Tests"
+                                  : "Enable Tests"}
                             </button>
                           </div>
                         </div>

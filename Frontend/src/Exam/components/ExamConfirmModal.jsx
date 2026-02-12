@@ -38,7 +38,9 @@ export default function ExamConfirmModal({
             </p>
             <div className="flex gap-3">
               <button
-                onClick={onCancel}
+                onClick={() => {
+                  onCancel && onCancel();
+                }}
                 className="flex-1 px-4 py-2.5 rounded-lg border-2 border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-colors"
               >
                 Go Back

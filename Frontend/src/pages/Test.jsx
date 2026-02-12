@@ -29,7 +29,7 @@ export default function Test() {
   const [submitError, setSubmitError] = useState("");
   const [showConfirmSubmit, setShowConfirmSubmit] = useState(false);
   const [unansweredCount, setUnansweredCount] = useState(0);
-  const [lives, setLives] = useState(5);
+  const [lives, setLives] = useState(3);
   const [showLifeLost, setShowLifeLost] = useState(false);
 
   // Refs for media elements & container (fullscreen)
@@ -105,7 +105,7 @@ export default function Test() {
         setIsTestStarted(false);
         setCanResume(true);
         setInfo(
-          "Screen share stopped. Returning to lobby. Re-share to resume."
+          "Screen share stopped. Returning to lobby. Re-share to resume.",
         );
       }
       return;
@@ -180,7 +180,7 @@ export default function Test() {
         setError("Security code must be exactly 000000.");
       } else {
         setError(
-          "Please complete all checks (camera, microphone, screen share, fullscreen, and code 000000) before beginning."
+          "Please complete all checks (camera, microphone, screen share, fullscreen, and code 000000) before beginning.",
         );
       }
       return;
@@ -245,7 +245,7 @@ export default function Test() {
 
     // Count answered questions (only those with actual values, not undefined)
     const answeredCount = Object.values(answers).filter(
-      (val) => val !== undefined
+      (val) => val !== undefined,
     ).length;
     const unanswered = questions.length - answeredCount;
 
@@ -297,7 +297,7 @@ export default function Test() {
     } catch (error) {
       console.error("Submit error:", error);
       setSubmitError(
-        error.message || "Failed to submit test. Please try again."
+        error.message || "Failed to submit test. Please try again.",
       );
       setSubmitting(false);
     }
@@ -356,10 +356,10 @@ export default function Test() {
           if (newLives <= 0) {
             // Auto-submit when lives reach 0
             const answeredCount = Object.values(answers).filter(
-              (val) => val !== undefined
+              (val) => val !== undefined,
             ).length;
             setInfo(
-              `No lives remaining. Auto-submitting test with ${answeredCount} of ${questions.length} questions answered...`
+              `No lives remaining. Auto-submitting test with ${answeredCount} of ${questions.length} questions answered...`,
             );
             setTimeout(() => {
               handleSubmitTest();
@@ -373,7 +373,7 @@ export default function Test() {
             setInfo(
               `Life lost! ${newLives} ${
                 newLives === 1 ? "life" : "lives"
-              } remaining. Fullscreen exited. Returning to lobby. Enter fullscreen to resume.`
+              } remaining. Fullscreen exited. Returning to lobby. Enter fullscreen to resume.`,
             );
             return newLives;
           }
@@ -407,10 +407,10 @@ export default function Test() {
         if (newLives <= 0) {
           // Auto-submit when lives reach 0
           const answeredCount = Object.values(answers).filter(
-            (val) => val !== undefined
+            (val) => val !== undefined,
           ).length;
           setInfo(
-            `No lives remaining. Auto-submitting test with ${answeredCount} of ${questions.length} questions answered...`
+            `No lives remaining. Auto-submitting test with ${answeredCount} of ${questions.length} questions answered...`,
           );
           setTimeout(() => {
             handleSubmitTest();
@@ -424,7 +424,7 @@ export default function Test() {
           setInfo(
             `Life lost! ${newLives} ${
               newLives === 1 ? "life" : "lives"
-            } remaining. A required permission or mode was lost. Fix the issue and resume.`
+            } remaining. A required permission or mode was lost. Fix the issue and resume.`,
           );
           return newLives;
         }
@@ -866,7 +866,7 @@ export default function Test() {
                       onChange={(e) =>
                         handleCodeChange(
                           i,
-                          e.target.value.replace(/\s/g, "").slice(-1)
+                          e.target.value.replace(/\s/g, "").slice(-1),
                         )
                       }
                       onKeyDown={(e) => handleCodeKeyDown(i, e)}
@@ -1061,12 +1061,12 @@ export default function Test() {
                       isCurrent
                         ? "border-blue-500 ring-2 ring-blue-300 bg-blue-50 text-blue-700 scale-105"
                         : isAnsweredAndMarked
-                        ? "border-purple-400 bg-purple-50 text-purple-700 hover:border-purple-500"
-                        : isMarked
-                        ? "border-orange-400 bg-orange-50 text-orange-700 hover:border-orange-500"
-                        : answered
-                        ? "border-green-400 bg-green-50 text-green-700 hover:border-green-500"
-                        : "border-gray-300 bg-white text-gray-600 hover:border-gray-400 hover:bg-gray-50"
+                          ? "border-purple-400 bg-purple-50 text-purple-700 hover:border-purple-500"
+                          : isMarked
+                            ? "border-orange-400 bg-orange-50 text-orange-700 hover:border-orange-500"
+                            : answered
+                              ? "border-green-400 bg-green-50 text-green-700 hover:border-green-500"
+                              : "border-gray-300 bg-white text-gray-600 hover:border-gray-400 hover:bg-gray-50"
                     }`}
                     title={q.text}
                   >
@@ -1249,8 +1249,8 @@ export default function Test() {
                     lives <= 2
                       ? "bg-red-50 border-red-200 text-red-700"
                       : lives <= 3
-                      ? "bg-orange-50 border-orange-200 text-orange-700"
-                      : "bg-green-50 border-green-200 text-green-700"
+                        ? "bg-orange-50 border-orange-200 text-orange-700"
+                        : "bg-green-50 border-green-200 text-green-700"
                   }`}
                 >
                   <svg
@@ -1418,7 +1418,7 @@ export default function Test() {
                     disabled={currentIndex === questions.length - 1}
                     onClick={() =>
                       setCurrentIndex((i) =>
-                        Math.min(questions.length - 1, i + 1)
+                        Math.min(questions.length - 1, i + 1),
                       )
                     }
                     className={`px-6 py-3 rounded-lg text-sm font-medium border-2 transition-all ${

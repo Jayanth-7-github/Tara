@@ -12,13 +12,16 @@ export default function ExamLobby({
   return (
     <aside className="bg-white/90 backdrop-blur-sm border border-gray-100 rounded-2xl shadow-xl p-6 h-fit transition-all hover:shadow-2xl">
       {showLifeLost && (
-        <div className="mb-6 bg-linear-to-r from-red-500 to-rose-600 text-white px-5 py-4 rounded-xl shadow-lg transform transition-all animate-pulse flex items-center gap-4 border border-red-400">
-          <div className="text-3xl bg-white/20 p-2 rounded-full">💔</div>
+        <div className="mb-6 flex items-center gap-3 rounded-lg bg-red-50 border border-red-100 px-4 py-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100 text-lg">
+            <span aria-hidden="true">💔</span>
+          </div>
           <div className="flex-1">
-            <div className="font-bold text-lg tracking-tight">Life Lost!</div>
-            <div className="text-sm font-medium opacity-90">
-              {lives} {lives === 1 ? "life" : "lives"} remaining
-            </div>
+            <p className="text-sm font-semibold text-gray-900">Life lost</p>
+            <p className="text-xs text-gray-700">
+              {lives} {lives === 1 ? "life" : "lives"} remaining. Please stay in
+              fullscreen and avoid switching tabs or windows.
+            </p>
           </div>
         </div>
       )}
@@ -85,17 +88,25 @@ export default function ExamLobby({
           </div>
         </div>
 
-        <div className="border-t border-gray-200 pt-5 mt-5">
-          <div className="text-gray-900 font-bold mb-3">Important Notes</div>
-          <ul className="list-disc list-inside space-y-2 text-gray-700 text-sm">
-            <li>
-              You must share your <span className="font-bold">entire screen</span>{" "}
-              when prompted. Sharing a window or tab is not allowed.
-            </li>
-            <li>Ensure you have a stable internet connection.</li>
-            <li>Do not switch tabs or exit fullscreen mode.</li>
-            <li>Keep your camera and microphone on at all times.</li>
-          </ul>
+        <div className="border-t border-transparent pt-5 mt-5">
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+            <div className="text-gray-900 font-semibold mb-2 text-sm flex items-center gap-2">
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-100 text-[11px] font-bold text-amber-800">
+                !
+              </span>
+              <span>Important Notes</span>
+            </div>
+            <ul className="list-disc list-inside space-y-1.5 text-gray-700 text-xs sm:text-sm">
+              <li>
+                You must share your{" "}
+                <span className="font-bold">entire screen</span> when prompted.
+                Sharing a window or tab is not allowed.
+              </li>
+              <li>Ensure you have a stable internet connection.</li>
+              <li>Do not switch tabs or exit fullscreen mode.</li>
+              <li>Keep your camera and microphone on at all times.</li>
+            </ul>
+          </div>
         </div>
 
         {user && (

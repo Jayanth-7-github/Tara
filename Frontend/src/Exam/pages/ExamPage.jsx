@@ -11,11 +11,13 @@ import {
   getQuestionsForUser,
   getCorrectAnswers,
 } from "../../services/questions";
-import { submitTestResult, fetchEventById, fetchEvents } from "../../services/api";
+import {
+  submitTestResult,
+  fetchEventById,
+  fetchEvents,
+} from "../../services/api";
 import { checkLogin } from "../../services/auth";
 import { SECURITY_CODE } from "../../services/constants";
-
-
 
 export default function ExamPage({ mode = "mcq" }) {
   const navigate = useNavigate();
@@ -44,8 +46,9 @@ export default function ExamPage({ mode = "mcq" }) {
   const [submitError, setSubmitError] = useState("");
   const [showConfirmSubmit, setShowConfirmSubmit] = useState(false);
   const [unansweredCount, setUnansweredCount] = useState(0);
-  const [lives, setLives] = useState(5);
+  const [lives, setLives] = useState(3);
   const [showLifeLost, setShowLifeLost] = useState(false);
+  const [isFinishing, setIsFinishing] = useState(false);
 
   // Context for Event ID (passed from dashboard or saved)
   const queryParams = new URLSearchParams(location.search);
@@ -54,8 +57,6 @@ export default function ExamPage({ mode = "mcq" }) {
     eventName: location.state?.eventName || null,
   });
 
-
-
   // Load questions dynamically if eventId is present
   useEffect(() => {
     const loadDynamicQuestions = async () => {
@@ -63,22 +64,47 @@ export default function ExamPage({ mode = "mcq" }) {
       if (examContext.eventId) {
         try {
           const ev = await fetchEventById(examContext.eventId);
-          console.log("ExamPage: Fetched Event:", ev?.title, "Questions:", ev?.questions?.length);
+          console.log(
+            "ExamPage: Fetched Event:",
+            ev?.title,
+            "Questions:",
+            ev?.questions?.length,
+          );
           if (ev && ev.questions && ev.questions.length > 0) {
-            console.log("ExamPage: Setting dynamic questions", ev.questions);
-            setQuestions(ev.questions);
+            // Filter questions based on mode: MCQ-only for test 1, coding-only for test 2
+            const filtered = ev.questions.filter((q) =>
+              mode === "coding" ? q.type === "coding" : q.type !== "coding",
+            );
+
+            console.log(
+              "ExamPage: Setting dynamic questions (filtered)",
+              filtered,
+            );
+            if (filtered.length > 0) {
+              setQuestions(filtered);
+            } else {
+              console.log(
+                "ExamPage: No questions match mode, falling back to static bank.",
+              );
+              setQuestions(getQuestionsForUser(mode));
+            }
           } else {
-            console.log("ExamPage: No dynamic questions found on event, using default.");
+            console.log(
+              "ExamPage: No dynamic questions found on event, using default.",
+            );
+            setQuestions(getQuestionsForUser(mode));
           }
         } catch (e) {
           console.error("ExamPage: Failed to load dynamic questions", e);
         }
       } else {
-        console.log("ExamPage: No Event ID in context. Using default static questions.");
+        console.log(
+          "ExamPage: No Event ID in context. Using default static questions.",
+        );
       }
     };
     loadDynamicQuestions();
-  }, [examContext.eventId]);
+  }, [examContext.eventId, mode]);
 
   const lobbyCameraRef = useRef(null);
   const overlayCameraRef = useRef(null);
@@ -88,6 +114,12 @@ export default function ExamPage({ mode = "mcq" }) {
   const isTestStartedRef = useRef(false);
   const cameraStreamRef = useRef(null);
   const screenStreamRef = useRef(null);
+  const submittingRef = useRef(false);
+  const submitSuccessRef = useRef(false);
+  const isFinishingRef = useRef(false);
+  const lastViolationRef = useRef(0);
+  const blurTimeoutRef = useRef(null);
+  const isFilePickerOpenRef = useRef(false);
 
   const stopTracks = useCallback((streamRef) => {
     if (streamRef.current) {
@@ -176,7 +208,9 @@ export default function ExamPage({ mode = "mcq" }) {
       // Enforce entire screen selection if supported by browser
       if (settings.displaySurface && settings.displaySurface !== "monitor") {
         stream.getTracks().forEach((t) => t.stop());
-        setError("You must share your ENTIRE screen. Application windows or tabs are not allowed.");
+        setError(
+          "You must share your ENTIRE screen. Application windows or tabs are not allowed.",
+        );
         setInfo("");
         return;
       }
@@ -205,7 +239,9 @@ export default function ExamPage({ mode = "mcq" }) {
     const container = containerRef.current || document.documentElement;
     if (!document.fullscreenElement) {
       if (container.requestFullscreen) {
-        container.requestFullscreen().catch(() => setError("Could not enter fullscreen"));
+        container
+          .requestFullscreen()
+          .catch(() => setError("Could not enter fullscreen"));
       }
     } else {
       if (document.exitFullscreen) {
@@ -303,23 +339,28 @@ export default function ExamPage({ mode = "mcq" }) {
     setTimeout(() => document.getElementById(`sec-${last}`)?.focus(), 0);
   };
 
-
   // --- Persistence Logic ---
 
   // Load state from local storage on mount
   useEffect(() => {
     const savedState = localStorage.getItem(`examState_${mode}`);
-    console.log("Checking for saved state:", savedState ? "Found" : "Not Found");
+    console.log(
+      "Checking for saved state:",
+      savedState ? "Found" : "Not Found",
+    );
     if (savedState) {
       try {
         const parsed = JSON.parse(savedState);
         // Validate if saved state belongs to current user if needed, or just restore
         // For now, restoring mostly everything
-        if (parsed.isTestStarted || (parsed.answers && Object.keys(parsed.answers).length > 0)) {
+        if (
+          parsed.isTestStarted ||
+          (parsed.answers && Object.keys(parsed.answers).length > 0)
+        ) {
           console.log("Restoring exam state...");
           setAnswers(parsed.answers || {});
           setMarkedForReview(parsed.markedForReview || {});
-          setLives(parsed.lives ?? 5);
+          setLives(parsed.lives ?? 3);
           setTimeRemaining(parsed.timeRemaining ?? 3600);
           setCurrentIndex(parsed.currentIndex || 0);
 
@@ -328,17 +369,12 @@ export default function ExamPage({ mode = "mcq" }) {
             setExamContext(parsed.examContext);
           }
 
-          // We don't restore camera/screen streams directly effectively, 
-          // user needs to re-enable them in the lobby if they were kicked out or if we land them in paused state.
-          // However, if we set isTestStarted to true immediately, they might face "Life Lost" if streams aren't ready.
-          // SAFER APPROACH: Restore data but keep user in Lobby (isTestStarted = false) with canResume = true
-          // AND let them click "Resume Assessment" to re-initialize streams.
-
-          // Actually, let's keep isTestStarted = false so they go through validity checks again.
           setIsTestStarted(false);
           setCanResume(true);
 
-          setInfo("Previous session restored. Please enable devices and resume.");
+          setInfo(
+            "Previous session restored. Please enable devices and resume.",
+          );
         }
       } catch (e) {
         console.error("Failed to parse saved exam state", e);
@@ -364,10 +400,27 @@ export default function ExamPage({ mode = "mcq" }) {
       };
       localStorage.setItem(`examState_${mode}`, JSON.stringify(stateToSave));
     }
-  }, [answers, markedForReview, lives, timeRemaining, currentIndex, isTestStarted, canResume, submitSuccess, mode, examContext]);
+  }, [
+    answers,
+    markedForReview,
+    lives,
+    timeRemaining,
+    currentIndex,
+    isTestStarted,
+    canResume,
+    submitSuccess,
+    mode,
+    examContext,
+  ]);
 
   const handleSubmitTest = async (options = {}) => {
-    if (submitting) return;
+    // For manual submissions (user-initiated finish), mark a finishing flow
+    if (!options.auto && !isFinishingRef.current) {
+      setIsFinishing(true);
+      isFinishingRef.current = true; // update ref immediately to guard against blur/fs events
+    }
+
+    if (submitting && !options.auto) return;
     const answeredCount = Object.values(answers).filter(
       (val) => val !== undefined,
     ).length;
@@ -389,16 +442,17 @@ export default function ExamPage({ mode = "mcq" }) {
         ? Math.floor((Date.now() - testStartTime) / 1000)
         : 3600 - timeRemaining;
 
-      const title = mode === "coding"
-        ? "Module Practice Assessment | Coding Round"
-        : "Module Practice Assessment | Polymorphism";
+      const title =
+        mode === "coding"
+          ? "Module Practice Assessment | Coding Round"
+          : "Module Practice Assessment | Polymorphism";
 
       // Calculate score
       let calculatedScore = 0;
 
       // Dynamic correct map based on current questions
       const correctMap = {};
-      questions.forEach(q => {
+      questions.forEach((q) => {
         correctMap[q.id] = q.correctAnswer;
       });
 
@@ -406,9 +460,9 @@ export default function ExamPage({ mode = "mcq" }) {
 
       Object.entries(answers).forEach(([qid, ans]) => {
         // loose comparison to match number IDs with string keys
-        const question = questions.find(q => String(q.id) === String(qid));
+        const question = questions.find((q) => String(q.id) === String(qid));
 
-        if (typeof ans === 'object' && ans !== null) {
+        if (typeof ans === "object" && ans !== null) {
           // Coding question
           if (question && question.testCases && question.testCases.length > 0) {
             const passed = Number(ans.passed) || 0;
@@ -416,15 +470,20 @@ export default function ExamPage({ mode = "mcq" }) {
             const maxMarks = question.marks || 20;
             const qScore = (passed / totalTC) * maxMarks;
             calculatedScore += qScore;
-            console.log(`Q${qid} (Coding): Passed ${passed}/${totalTC}, Score: ${qScore.toFixed(2)}/${maxMarks}`);
+            console.log(
+              `Q${qid} (Coding): Passed ${passed}/${totalTC}, Score: ${qScore.toFixed(2)}/${maxMarks}`,
+            );
           } else {
             // Fallback
             calculatedScore += (Number(ans.passed) || 0) * 2;
           }
         } else {
           // MCQ: 1 mark if correct
-          if (correctMap[Number(qid)] === ans || correctMap[String(qid)] === ans) {
-            calculatedScore += (question?.marks || 1);
+          if (
+            correctMap[Number(qid)] === ans ||
+            correctMap[String(qid)] === ans
+          ) {
+            calculatedScore += question?.marks || 1;
           }
         }
       });
@@ -451,9 +510,14 @@ export default function ExamPage({ mode = "mcq" }) {
       await submitTestResult(testData);
       setSubmitSuccess(true);
 
+      // Mark test as finished so no further violations/life deductions occur
+      setIsTestStarted(false);
+      setCanResume(false);
+      setIsFinishing(false);
+      isFinishingRef.current = false;
+
       // Clear local storage on successful submit
       localStorage.removeItem(`examState_${mode}`);
-
 
       if (options.auto) {
         setInfo("Test auto-submitted.");
@@ -473,6 +537,8 @@ export default function ExamPage({ mode = "mcq" }) {
         error.message || "Failed to submit test. Please try again.",
       );
       setSubmitting(false);
+      setIsFinishing(false);
+      isFinishingRef.current = false;
     }
   };
 
@@ -512,46 +578,68 @@ export default function ExamPage({ mode = "mcq" }) {
     isTestStartedRef.current = isTestStarted;
   }, [isTestStarted]);
 
+  useEffect(() => {
+    submittingRef.current = submitting;
+  }, [submitting]);
+
+  useEffect(() => {
+    submitSuccessRef.current = submitSuccess;
+  }, [submitSuccess]);
+
+  useEffect(() => {
+    isFinishingRef.current = isFinishing;
+  }, [isFinishing]);
 
   // --- Security & Violation Handling ---
 
-  const triggerViolation = useCallback((reason) => {
-    if (!isTestStarted) return;
+  const triggerViolation = useCallback(
+    (reason) => {
+      const now = Date.now();
+      // Throttle: only allow one violation every 2 seconds
+      if (now - lastViolationRef.current < 2000) return;
 
-    // Force exit fullscreen if valid
-    if (document.fullscreenElement) {
-      document.exitFullscreen().catch(() => { });
-    }
+      // Ignore violations while not actively in an exam OR while submitting
+      if (!isTestStarted || submitting || isFinishingRef.current) return;
 
-    setLives((prevLives) => {
-      const newLives = prevLives - 1;
+      lastViolationRef.current = now;
 
-      // Handle Side Effects outside the reducer to be safe and immediate
-      setTimeout(() => {
-        if (newLives <= 0) {
-          const answeredCount = Object.values(answers).filter(
-            (val) => val !== undefined,
-          ).length;
-          setInfo(
-            `No lives remaining. Violation: ${reason}. Auto-submitting immediately...`,
-          );
-          // Immediate submit without delay
-          handleSubmitTest({ auto: true });
-        } else {
-          setShowLifeLost(true);
-          setTimeout(() => setShowLifeLost(false), 3000);
-          setIsTestStarted(false);
-          setCanResume(true);
-          setInfo(
-            `Violation: ${reason}! ${newLives} ${newLives === 1 ? "life" : "lives"
-            } remaining. Test paused.`,
-          );
-        }
-      }, 0);
+      // Force exit fullscreen if valid
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
 
-      return newLives < 0 ? 0 : newLives;
-    });
-  }, [isTestStarted, answers, handleSubmitTest]);
+      setLives((prevLives) => {
+        const newLives = prevLives - 1;
+
+        // Handle Side Effects outside the reducer to be safe and immediate
+        setTimeout(() => {
+          if (newLives <= 0) {
+            const answeredCount = Object.values(answers).filter(
+              (val) => val !== undefined,
+            ).length;
+            setInfo(
+              `No lives remaining. Violation: ${reason}. Auto-submitting immediately...`,
+            );
+            // Immediate submit without delay
+            handleSubmitTest({ auto: true });
+          } else {
+            setShowLifeLost(true);
+            setTimeout(() => setShowLifeLost(false), 3000);
+            setIsTestStarted(false);
+            setCanResume(true);
+            setInfo(
+              `Violation: ${reason}! ${newLives} ${
+                newLives === 1 ? "life" : "lives"
+              } remaining. Test paused.`,
+            );
+          }
+        }, 0);
+
+        return newLives < 0 ? 0 : newLives;
+      });
+    },
+    [isTestStarted, submitting, answers, handleSubmitTest],
+  );
 
   // Use a ref to hold the latest violation handler to avoid stale closures in event listeners
   const violationHandlerRef = useRef(triggerViolation);
@@ -567,32 +655,84 @@ export default function ExamPage({ mode = "mcq" }) {
     const handleKeyDown = (e) => {
       if (
         e.key === "F12" ||
-        (e.ctrlKey && e.shiftKey && (e.key === "I" || e.key === "J" || e.key === "C")) ||
+        (e.ctrlKey &&
+          e.shiftKey &&
+          (e.key === "I" || e.key === "J" || e.key === "C")) ||
         (e.ctrlKey && e.key === "U")
       ) {
         e.preventDefault();
       }
     };
 
+    // Shared helpers for blur/visibility
+    const scheduleBlurViolation = (reason) => {
+      if (blurTimeoutRef.current) return; // already waiting
+
+      // Give the user a short grace period before counting this as a violation
+      blurTimeoutRef.current = setTimeout(() => {
+        blurTimeoutRef.current = null;
+        if (
+          isTestStartedRef.current &&
+          !submittingRef.current &&
+          !submitSuccessRef.current &&
+          !isFinishingRef.current &&
+          !isFilePickerOpenRef.current &&
+          !document.hasFocus()
+        ) {
+          violationHandlerRef.current(reason);
+        }
+      }, 5000);
+    };
+
+    const clearBlurViolation = () => {
+      if (blurTimeoutRef.current) {
+        clearTimeout(blurTimeoutRef.current);
+        blurTimeoutRef.current = null;
+      }
+      // reset any transient file-picker flag shortly after regaining focus
+      setTimeout(() => {
+        isFilePickerOpenRef.current = false;
+      }, 1000);
+    };
+
     // 3. Tab Switching / Minimize Detection
     const handleVisibilityChange = () => {
-      if (document.hidden && isTestStartedRef.current) {
-        violationHandlerRef.current("Tab switch or minimization detected");
+      if (document.hidden) {
+        scheduleBlurViolation("Tab switch or minimization detected");
+      } else {
+        clearBlurViolation();
       }
     };
 
     // 4. Focus Loss (Alt+Tab, clicking outside, switching desktop)
     const handleBlur = () => {
-      if (isTestStartedRef.current) {
-        violationHandlerRef.current("Window focus lost");
+      // ignore if we're submitting or finishing, or already submitted
+      if (
+        !isTestStartedRef.current ||
+        submittingRef.current ||
+        submitSuccessRef.current ||
+        isFinishingRef.current
+      ) {
+        return;
       }
+      scheduleBlurViolation("Window focus lost");
+    };
+
+    const handleFocus = () => {
+      clearBlurViolation();
     };
 
     // 5. Fullscreen Logic
     const onFsChange = () => {
       const fs = !!document.fullscreenElement;
       setIsFullscreen(fs);
-      if (!fs && isTestStartedRef.current) {
+      if (
+        !fs &&
+        isTestStartedRef.current &&
+        !submittingRef.current &&
+        !submitSuccessRef.current &&
+        !isFinishingRef.current
+      ) {
         violationHandlerRef.current("Fullscreen exited");
       }
     };
@@ -601,6 +741,7 @@ export default function ExamPage({ mode = "mcq" }) {
     document.addEventListener("keydown", handleKeyDown, true);
     document.addEventListener("visibilitychange", handleVisibilityChange, true);
     window.addEventListener("blur", handleBlur, true);
+    window.addEventListener("focus", handleFocus, true);
     document.addEventListener("fullscreenchange", onFsChange, true);
 
     // Initial Sync
@@ -609,8 +750,13 @@ export default function ExamPage({ mode = "mcq" }) {
     return () => {
       document.removeEventListener("contextmenu", handleContextMenu, true);
       document.removeEventListener("keydown", handleKeyDown, true);
-      document.removeEventListener("visibilitychange", handleVisibilityChange, true);
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibilityChange,
+        true,
+      );
       window.removeEventListener("blur", handleBlur, true);
+      window.removeEventListener("focus", handleFocus, true);
       document.removeEventListener("fullscreenchange", onFsChange, true);
     };
   }, []);
@@ -651,46 +797,9 @@ export default function ExamPage({ mode = "mcq" }) {
   }, [isScreenSharing, isTestStarted]);
 
   useEffect(() => {
-    if (!isTestStarted) return;
-    const micOk = !!(
-      cameraStreamRef.current &&
-      cameraStreamRef.current.getAudioTracks &&
-      cameraStreamRef.current.getAudioTracks().length > 0
-    );
-    const videoOk = !!(
-      cameraStreamRef.current &&
-      cameraStreamRef.current.getVideoTracks &&
-      cameraStreamRef.current.getVideoTracks().length > 0
-    );
-    const screenOk = !!(isScreenSharing && screenStreamRef.current);
-    if (!(videoOk && micOk && screenOk)) {
-      setLives((prevLives) => {
-        const newLives = prevLives - 1;
-        if (newLives <= 0) {
-          const answeredCount = Object.values(answers).filter(
-            (val) => val !== undefined,
-          ).length;
-          setInfo(
-            `No lives remaining. Auto-submitting test with ${answeredCount} of ${questions.length} questions answered...`,
-          );
-          setTimeout(() => {
-            handleSubmitTest({ auto: true });
-          }, 2000);
-          return 0;
-        } else {
-          setShowLifeLost(true);
-          setTimeout(() => setShowLifeLost(false), 3000);
-          setIsTestStarted(false);
-          setCanResume(true);
-          setInfo(
-            `Life lost! ${newLives} ${newLives === 1 ? "life" : "lives"
-            } remaining. A required permission or mode was lost. Fix the issue and resume.`,
-          );
-          return newLives;
-        }
-      });
-    }
-  }, [isCameraOn, isScreenSharing, isTestStarted]);
+    // Device-based automatic life deductions are disabled for now
+    // to prevent false positives while interacting with the exam UI.
+  }, [isCameraOn, isScreenSharing, isTestStarted, submitting]);
 
   useEffect(() => {
     let timer;
@@ -778,7 +887,11 @@ export default function ExamPage({ mode = "mcq" }) {
             <ExamConfirmModal
               show={showConfirmSubmit}
               unansweredCount={unansweredCount}
-              onCancel={() => setShowConfirmSubmit(false)}
+              onCancel={() => {
+                setShowConfirmSubmit(false);
+                setIsFinishing(false);
+                isFinishingRef.current = false;
+              }}
               onConfirm={handleSubmitTest}
             />
             {submitSuccess && <ExamSuccessToast />}
