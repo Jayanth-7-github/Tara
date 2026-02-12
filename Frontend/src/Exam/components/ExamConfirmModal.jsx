@@ -3,10 +3,25 @@ import React from "react";
 export default function ExamConfirmModal({
   show,
   unansweredCount,
+  totalQuestions,
+  answeredCount,
   onCancel,
   onConfirm,
 }) {
   if (!show) return null;
+
+  const total = typeof totalQuestions === "number" ? totalQuestions : 0;
+  const answered =
+    typeof answeredCount === "number"
+      ? answeredCount
+      : total > 0
+        ? total - unansweredCount
+        : 0;
+  const safeTotal = total > 0 ? total : 1;
+  const progressPercent = Math.min(
+    100,
+    Math.max(0, Math.round((answered / safeTotal) * 100)),
+  );
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
@@ -27,15 +42,35 @@ export default function ExamConfirmModal({
           </div>
           <div className="flex-1">
             <h3 className="text-lg font-bold text-gray-900 mb-2">
-              Incomplete Test
+              {unansweredCount > 0 ? "Incomplete Test" : "Submit Test"}
             </h3>
-            <p className="text-sm text-gray-600 mb-4">
-              You have{" "}
-              <span className="font-bold text-orange-600">
-                {unansweredCount}
-              </span>{" "}
-              unanswered question(s). Do you still want to submit your test?
-            </p>
+            <div className="mb-3">
+              <div className="flex justify-between text-xs font-medium text-gray-600 mb-1">
+                <span>
+                  {answered}/{total || 0} questions answered
+                </span>
+                <span>{progressPercent}%</span>
+              </div>
+              <div className="w-full h-2 rounded-full bg-gray-200 overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-green-400 to-emerald-600 transition-all"
+                  style={{ width: `${progressPercent}%` }}
+                ></div>
+              </div>
+            </div>
+            {unansweredCount > 0 ? (
+              <p className="text-sm text-gray-600 mb-4">
+                You have{" "}
+                <span className="font-bold text-orange-600">
+                  {unansweredCount}
+                </span>{" "}
+                unanswered question(s). Do you still want to submit your test?
+              </p>
+            ) : (
+              <p className="text-sm text-gray-600 mb-4">
+                All questions are answered. Do you want to submit your test now?
+              </p>
+            )}
             <div className="flex gap-3">
               <button
                 onClick={() => {

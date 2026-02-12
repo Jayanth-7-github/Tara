@@ -46,6 +46,8 @@ export default function ExamPage({ mode = "mcq" }) {
   const [submitError, setSubmitError] = useState("");
   const [showConfirmSubmit, setShowConfirmSubmit] = useState(false);
   const [unansweredCount, setUnansweredCount] = useState(0);
+  const [answeredSummary, setAnsweredSummary] = useState(0);
+  const [unansweredSummary, setUnansweredSummary] = useState(0);
   const [lives, setLives] = useState(3);
   const [showLifeLost, setShowLifeLost] = useState(false);
   const [isFinishing, setIsFinishing] = useState(false);
@@ -426,8 +428,12 @@ export default function ExamPage({ mode = "mcq" }) {
     ).length;
     const unanswered = questions.length - answeredCount;
 
-    // Only show confirmation if this is a manual submit
-    if (!options.auto && unanswered > 0 && !showConfirmSubmit) {
+    // Store summary counts for post-submit display
+    setAnsweredSummary(answeredCount);
+    setUnansweredSummary(unanswered);
+
+    // Always show confirmation for manual submit (even if all answered)
+    if (!options.auto && !showConfirmSubmit) {
       setUnansweredCount(unanswered);
       setShowConfirmSubmit(true);
       return;
@@ -840,6 +846,17 @@ export default function ExamPage({ mode = "mcq" }) {
       ref={containerRef}
       className="w-full h-full min-h-screen bg-gray-50 text-gray-900 flex flex-col overflow-y-auto"
     >
+      {submitSuccess && (
+        <ExamSuccessToast
+          totalQuestions={questions.length}
+          answeredCount={answeredSummary}
+          unansweredCount={unansweredSummary}
+        />
+      )}
+      <ExamErrorToast
+        message={submitError}
+        onClose={() => setSubmitError("")}
+      />
       {!isTestStarted && (
         <div className="p-8 max-w-7xl mx-auto w-full grid grid-cols-1 md:grid-cols-[340px_1fr] gap-8 relative">
           <ExamLobby
@@ -887,17 +904,14 @@ export default function ExamPage({ mode = "mcq" }) {
             <ExamConfirmModal
               show={showConfirmSubmit}
               unansweredCount={unansweredCount}
+              totalQuestions={questions.length}
+              answeredCount={answeredSummary}
               onCancel={() => {
                 setShowConfirmSubmit(false);
                 setIsFinishing(false);
                 isFinishingRef.current = false;
               }}
               onConfirm={handleSubmitTest}
-            />
-            {submitSuccess && <ExamSuccessToast />}
-            <ExamErrorToast
-              message={submitError}
-              onClose={() => setSubmitError("")}
             />
             <ExamHeader
               currentIndex={currentIndex}

@@ -1,8 +1,12 @@
 import React from "react";
 
-export function ExamSuccessToast() {
+export function ExamSuccessToast({
+  totalQuestions,
+  answeredCount,
+  unansweredCount,
+}) {
   return (
-    <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50 bg-green-500 text-white px-6 py-4 rounded-lg shadow-2xl flex items-center gap-3">
+    <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50 bg-green-500 text-white px-6 py-4 rounded-lg shadow-2xl flex items-center gap-3 max-w-lg">
       <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
         <path
           fillRule="evenodd"
@@ -12,7 +16,14 @@ export function ExamSuccessToast() {
       </svg>
       <div>
         <div className="font-bold text-lg">Test Submitted Successfully!</div>
-        <div className="text-sm">Redirecting to dashboard...</div>
+        <div className="text-sm mt-0.5">
+          Answered <span className="font-semibold">{answeredCount}</span> out of{" "}
+          <span className="font-semibold">{totalQuestions}</span> questions (
+          <span className="font-semibold">{unansweredCount}</span> unanswered).
+        </div>
+        <div className="text-xs opacity-90 mt-1">
+          Redirecting to dashboard...
+        </div>
       </div>
     </div>
   );
