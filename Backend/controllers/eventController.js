@@ -14,6 +14,7 @@ async function createEvent(req, res) {
       description,
       venue,
       date,
+      price,
       imageUrl,
       imageBase64,
       imageType,
@@ -30,6 +31,15 @@ async function createEvent(req, res) {
     const parsedDate = new Date(date);
     if (Number.isNaN(parsedDate.getTime())) {
       return res.status(400).json({ error: "Invalid date format" });
+    }
+
+    // Normalize price: optional, non-negative number; 0 or missing means free.
+    let normalizedPrice = 0;
+    if (price !== undefined && price !== null && price !== "") {
+      const parsedPrice = Number(price);
+      if (!Number.isNaN(parsedPrice) && parsedPrice >= 0) {
+        normalizedPrice = parsedPrice;
+      }
     }
 
     // basic email validation
@@ -92,6 +102,7 @@ async function createEvent(req, res) {
       description,
       venue,
       date: parsedDate,
+      price: normalizedPrice,
       managerEmail: String(managerEmail).toLowerCase().trim(),
       isTestEnabled: isTestEnabled !== undefined ? isTestEnabled : false,
     });
@@ -141,7 +152,7 @@ async function createEvent(req, res) {
           if (typeof rc.eventManagersByEvent.get === "function") {
             const existing = rc.eventManagersByEvent.get(evKey) || [];
             const merged = Array.from(
-              new Set((existing || []).concat([managerEmailNormalized]))
+              new Set((existing || []).concat([managerEmailNormalized])),
             );
             rc.eventManagersByEvent.set(evKey, merged);
           } else {
@@ -149,7 +160,7 @@ async function createEvent(req, res) {
               ? rc.eventManagersByEvent[evKey]
               : [];
             const merged = Array.from(
-              new Set(existing.concat([managerEmailNormalized]))
+              new Set(existing.concat([managerEmailNormalized])),
             );
             rc.eventManagersByEvent = rc.eventManagersByEvent || {};
             rc.eventManagersByEvent[evKey] = merged;
@@ -213,7 +224,7 @@ async function getEventImage(req, res) {
 
       res.set(
         "Content-Type",
-        ev.image.contentType || "application/octet-stream"
+        ev.image.contentType || "application/octet-stream",
       );
       res.set("Content-Length", buf.length);
       return res.send(buf);
@@ -292,7 +303,7 @@ async function registerEvent(req, res) {
     // Check whether the student is already registered for this event
     student.registrations = student.registrations || [];
     const alreadyRegistered = student.registrations.some(
-      (r) => r.event && r.event.toString() === ev._id.toString()
+      (r) => r.event && r.event.toString() === ev._id.toString(),
     );
     if (alreadyRegistered)
       return res.status(400).json({ error: "Already registered" });
@@ -314,7 +325,7 @@ async function registerEvent(req, res) {
       console.error(
         "Failed to increment registeredCount for event",
         ev._id,
-        incErr
+        incErr,
       );
     }
 
@@ -338,6 +349,7 @@ async function updateEvent(req, res) {
       venue,
       date,
       managerEmail,
+      price,
       imageBase64,
       imageType,
       imageUrl,
@@ -425,6 +437,18 @@ async function updateEvent(req, res) {
       if (ev.image && ev.image.data) ev.image = undefined;
     }
 
+    // price handling: optional non-negative number; 0 or missing means free
+    if (price !== undefined) {
+      let normalizedPrice = 0;
+      if (price !== null && price !== "") {
+        const parsedPrice = Number(price);
+        if (!Number.isNaN(parsedPrice) && parsedPrice >= 0) {
+          normalizedPrice = parsedPrice;
+        }
+      }
+      ev.price = normalizedPrice;
+    }
+
     await ev.save();
     return res.json({ success: true, event: ev });
   } catch (err) {
@@ -475,7 +499,7 @@ async function deleteEvent(req, res) {
     try {
       await Student.updateMany(
         {},
-        { $pull: { registrations: { event: ev._id } } }
+        { $pull: { registrations: { event: ev._id } } },
       );
     } catch (pullErr) {
       console.error("Failed to remove registrations from students:", pullErr);

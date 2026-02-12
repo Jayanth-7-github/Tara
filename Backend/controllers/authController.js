@@ -1,5 +1,6 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const passport = require("passport");
 const User = require("../models/User");
 const path = require("path");
 const RoleConfig = require("../models/RoleConfig");
@@ -270,6 +271,83 @@ exports.checkLogin = async (req, res) => {
     console.error("checkLogin error", err);
     return res.status(401).json({ authenticated: false });
   }
+};
+
+exports.googleAuthCallback = async (req, res) => {
+  try {
+    let user = req.user;
+
+    if (!user) {
+      return res.status(401).send("Google authentication failed");
+    }
+
+    if (typeof user.toSafeJSON !== "function") {
+      const id = user.id || user._id;
+      if (id) {
+        user = await User.findById(id);
+      }
+    }
+
+    if (!user) {
+      return res.status(401).send("Google authentication failed");
+    }
+
+    try {
+      await reconcileRoleIfNeeded(user);
+    } catch (err) {
+      console.warn("Failed to reconcile user role in googleAuthCallback:", err);
+    }
+
+    const safeUser =
+      typeof user.toSafeJSON === "function"
+        ? user.toSafeJSON()
+        : {
+            id: user._id || user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+          };
+
+    const token = signToken(user._id);
+    res.cookie("token", token, cookieOptions());
+
+    const configuredBase = (
+      process.env.FRONTEND_URL ||
+      process.env.FRONTEND_URL_DEV ||
+      ""
+    ).trim();
+
+    if (configuredBase) {
+      const redirectBase = configuredBase.replace(/\/$/, "");
+      const redirectUrl = `${redirectBase}/main?token=${encodeURIComponent(
+        token,
+      )}&name=${encodeURIComponent(safeUser.name || "")}`;
+      return res.redirect(redirectUrl);
+    }
+
+    // Fallback: if FRONTEND_URL isn't configured, just send JSON
+    // so a client hitting this endpoint directly can still get the token.
+    return res.json({ token, user: safeUser });
+  } catch (err) {
+    console.error("googleAuthCallback error", err);
+    return res.status(500).send("Google authentication failed");
+  }
+};
+
+exports.startGoogleAuth = passport.authenticate("google", {
+  scope: ["profile", "email"],
+});
+
+exports.handleGoogleCallback = (req, res, next) => {
+  passport.authenticate("google", { session: false }, (err, user, info) => {
+    if (err || !user) {
+      console.error("Google OAuth failed:", err || info);
+      return res.status(401).send("Google authentication failed");
+    }
+
+    req.user = user;
+    return exports.googleAuthCallback(req, res, next);
+  })(req, res, next);
 };
 
 // Expose determineRole for other modules (middleware) to consult the roles mapping.

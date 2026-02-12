@@ -89,3 +89,11 @@ export async function checkLogin() {
   }
   return body;
 }
+
+// Build the Google OAuth entry URL for browser redirects.
+// Strips the trailing `/api` from API_BASE so we hit the
+// non-API `/user/google` endpoint configured on the backend.
+export function getGoogleAuthUrl() {
+  const base = API_BASE.replace(/\/?api\/?$/, "");
+  return `${base}/user/google`;
+}

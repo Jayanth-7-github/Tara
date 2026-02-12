@@ -108,7 +108,7 @@ export default function Assignments() {
                   </button>
                 ) : (
                   <Link
-                    to="/test"
+                    to="/realtest"
                     className="px-4 py-2 text-sm rounded-lg bg-emerald-600 hover:bg-emerald-700 transition shadow"
                   >
                     Take Test

@@ -21,6 +21,9 @@ export default function EventsList({
   hasTestResults = false,
 }) {
   const apiBase = API_BASE.replace(/\/$/, "");
+  const comicFont = {
+    fontFamily: '"Comic Sans MS", "Comic Sans", cursive',
+  };
   const [showContactFor, setShowContactFor] = useState(null);
   const [showDetailsFor, setShowDetailsFor] = useState(null);
   const [showEditFor, setShowEditFor] = useState(null);
@@ -37,6 +40,7 @@ export default function EventsList({
   const [expressedInterest, setExpressedInterest] = useState({});
   const [approvalStatus, setApprovalStatus] = useState({}); // Track approval status of expressed interests
   const [userContacts, setUserContacts] = useState({}); // Map eventId to contact object
+  const [imageError, setImageError] = useState({});
   const navigate = useNavigate();
   const contactEmail =
     import.meta.env.VITE_CONTACT_EMAIL || "99240041378@klu.ac.in";
@@ -177,23 +181,26 @@ export default function EventsList({
         // But to keep structure ready for event-specific checks, let's keep the loop or mapping.
         // Assuming for now the tests are linked to these specific titles regardless of event.
 
-        const mcqResp = await checkTestTaken(mcqTitle).catch(() => ({ taken: false }));
-        const codingResp = await checkTestTaken(codingTitle).catch(() => ({ taken: false }));
+        const mcqResp = await checkTestTaken(mcqTitle).catch(() => ({
+          taken: false,
+        }));
+        const codingResp = await checkTestTaken(codingTitle).catch(() => ({
+          taken: false,
+        }));
 
         if (!mounted) return;
 
         const status = {
           mcq: Boolean(mcqResp?.taken),
-          coding: Boolean(codingResp?.taken)
+          coding: Boolean(codingResp?.taken),
         };
 
         const newTestTaken = {};
-        entries.forEach(id => {
+        entries.forEach((id) => {
           newTestTaken[id] = status;
         });
 
         setTestTaken(newTestTaken);
-
       } catch (err) {
         // no-op
       }
@@ -224,47 +231,128 @@ export default function EventsList({
 
   return (
     <>
-      <div className="flex flex-wrap gap-5 items-start">
+      <div className="flex flex-wrap gap-6 items-start justify-center">
         {localEvents.map((ev) => {
           const id = ev._id || ev.id;
-          const imageSrc = ev.imageUrl || `${apiBase}/events/${id}/image`;
+          const cacheBustSource = ev.updatedAt || ev.createdAt;
+          const cacheBust = cacheBustSource
+            ? `?v=${new Date(cacheBustSource).getTime()}`
+            : "";
+          const imageSrc =
+            ev.imageUrl || `${apiBase}/events/${id}/image${cacheBust}`;
+          const tests = testTaken[id];
+          const rawPrice =
+            ev.price !== undefined && ev.price !== null ? ev.price : ev.fee;
+          let priceLabel = null;
+          let isFree = false;
+          if (rawPrice === undefined || rawPrice === null || rawPrice === "") {
+            isFree = true;
+          } else if (
+            typeof rawPrice === "string" &&
+            rawPrice.toLowerCase() === "free"
+          ) {
+            isFree = true;
+          } else {
+            const n = Number(rawPrice);
+            if (!Number.isNaN(n) && n > 0) priceLabel = `₹${n}`;
+            else isFree = true;
+          }
+          const eventDate = new Date(ev.date);
+          const dateLabel = eventDate.toLocaleDateString("en-GB", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "2-digit",
+          });
+          const timeLabel = eventDate.toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          });
 
           return (
             <article
               key={id}
+              className="relative w-full max-w-md cursor-pointer rounded-[30px] overflow-hidden border border-slate-800 bg-slate-950/90 shadow-[0_18px_40px_rgba(0,0,0,0.7)] backdrop-blur group"
+              style={comicFont}
               onClick={() => setShowDetailsFor(id)}
-              className="rounded-2xl overflow-hidden border border-gray-800 shadow-sm bg-transparent w-full sm:w-80 cursor-pointer hover:border-blue-500 transition-colors group"
             >
-              {imageSrc && (
-                <img
-                  src={imageSrc}
-                  alt={ev.title}
-                  className="w-full h-44 object-contain bg-white group-hover:scale-105 transition-transform duration-300"
-                  style={{ objectFit: "contain" }}
-                />
-              )}
+              {/* Top image */}
+              <div className="relative h-52 w-full bg-black">
+                {imageSrc && !imageError[id] ? (
+                  <img
+                    src={imageSrc}
+                    alt={ev.title}
+                    className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    onError={() =>
+                      setImageError((prev) => ({ ...prev, [id]: true }))
+                    }
+                  />
+                ) : (
+                  <div className="h-full w-full flex items-center justify-center text-slate-600 text-sm">
+                    No image
+                  </div>
+                )}
 
-              <div className="p-4 bg-gray-900 relative">
-                <div className="flex items-start justify-between">
+                {registered[id] && (
+                  <span className="absolute bottom-4 left-4 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] bg-green-900/70 text-green-300 rounded-full border border-green-500/60 shadow-lg">
+                    Registered
+                  </span>
+                )}
+              </div>
+
+              {/* Bottom content */}
+              <div
+                className="relative px-5 pt-5 pb-4 bg-slate-950/95 border-t border-slate-800"
+                style={comicFont}
+              >
+                <div className="flex items-start justify-between gap-3">
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-100 mb-1">
+                    <h3 className="text-lg font-semibold text-slate-50 tracking-wide">
                       {ev.title}
                     </h3>
-                    <p className="text-xs text-gray-400">
-                      {new Date(ev.date).toLocaleString()}
-                    </p>
                   </div>
-                  {/* Status Badge */}
-                  {registered[id] && (
-                    <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-green-900/50 text-green-400 rounded-full border border-green-800">
-                      Registered
-                    </span>
-                  )}
+                  <span className="text-sm font-semibold text-slate-100">
+                    {priceLabel || "Free"}
+                  </span>
                 </div>
 
-                <p className="mt-2 text-xs text-gray-400 line-clamp-2">
+                <p className="mt-3 text-sm text-slate-300 leading-relaxed line-clamp-3">
                   {ev.description}
                 </p>
+
+                <div className="mt-4 text-xs text-slate-400 space-y-1">
+                  {(ev.venue || ev.location) && (
+                    <p className="font-medium">{ev.venue || ev.location}</p>
+                  )}
+                  <p>
+                    {dateLabel} • {timeLabel}
+                  </p>
+                </div>
+
+                {registered[id] && ev.isTestEnabled !== false && (
+                  <div className="mt-3 text-[11px] text-slate-300 flex items-center justify-between">
+                    <span className="uppercase tracking-[0.18em] text-slate-400">
+                      Tests
+                    </span>
+                    <span className="font-semibold">
+                      {tests?.coding
+                        ? "All tests completed"
+                        : tests?.mcq
+                          ? "Test 1 done • Test 2 left"
+                          : "Not started yet"}
+                    </span>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowDetailsFor(id);
+                  }}
+                  className="mt-5 w-full rounded-2xl bg-slate-900/80 hover:bg-slate-800 text-slate-50 font-semibold text-sm py-2.5 border border-slate-700 shadow-[0_0_0_1px_rgba(148,163,184,0.4)] transition-colors"
+                >
+                  View Details
+                </button>
               </div>
             </article>
           );
@@ -272,247 +360,410 @@ export default function EventsList({
       </div>
 
       {/* Event Details Modal */}
-      {showDetailsFor && (() => {
-        const id = showDetailsFor;
-        const ev = localEvents.find(e => (e._id || e.id) === id);
-        if (!ev) return null;
+      {showDetailsFor &&
+        (() => {
+          const id = showDetailsFor;
+          const ev = localEvents.find((e) => (e._id || e.id) === id);
+          if (!ev) return null;
 
-        const imageSrc = ev.imageUrl || `${apiBase}/events/${id}/image`;
+          const cacheBustSource = ev.updatedAt || ev.createdAt;
+          const cacheBust = cacheBustSource
+            ? `?v=${new Date(cacheBustSource).getTime()}`
+            : "";
+          const imageSrc =
+            ev.imageUrl || `${apiBase}/events/${id}/image${cacheBust}`;
 
-        // Re-calculate permissions logic for the modal context
-        const eventNameKey = String(ev.title || ev.name || id).trim();
-        let perEventStudents = null;
-        if (rolesMap && rolesMap.studentsByEvent) {
-          if (rolesMap.studentsByEvent[eventNameKey])
-            perEventStudents = rolesMap.studentsByEvent[eventNameKey];
-          else if (typeof rolesMap.studentsByEvent.get === "function")
-            perEventStudents = rolesMap.studentsByEvent.get(eventNameKey);
-        }
-        const globalStudents = rolesMap && Array.isArray(rolesMap.students) ? rolesMap.students : [];
-        const regUpper = (userRegno || "").toUpperCase();
-        const globalAdmins = rolesMap && Array.isArray(rolesMap.admins) ? rolesMap.admins : [];
-        const isAdminByRoles = regUpper && globalAdmins.map((s) => String(s).toUpperCase()).includes(regUpper);
-        const inPerEvent = perEventStudents && Array.isArray(perEventStudents) && perEventStudents.map((s) => String(s).toUpperCase()).includes(regUpper);
-        const inGlobal = Array.isArray(globalStudents) && globalStudents.map((s) => String(s).toUpperCase()).includes(regUpper);
-
-        const eventApprovalStatus = approvalStatus[id];
-        const isApproved = eventApprovalStatus && eventApprovalStatus.approved;
-
-        let allowedToRegister = userRole === "admin" || isAdminByRoles || (regUpper && (inPerEvent || inGlobal)) || isApproved;
-
-        const userEmailLower = (userEmail || "").toLowerCase().trim();
-        let isEventManager = false;
-        if (userEmailLower && ev.managerEmail && String(ev.managerEmail).toLowerCase().trim() === userEmailLower) {
-          isEventManager = true;
-        }
-        if (!isEventManager && rolesMap && rolesMap.eventManagersByEvent) {
-          const em = rolesMap.eventManagersByEvent;
-          const eventKey = eventNameKey;
-          let list = [];
-          if (em) {
-            if (typeof em.get === "function") list = em.get(eventKey) || [];
-            else list = em[eventKey] || [];
+          // Re-calculate permissions logic for the modal context
+          const eventNameKey = String(ev.title || ev.name || id).trim();
+          let perEventStudents = null;
+          if (rolesMap && rolesMap.studentsByEvent) {
+            if (rolesMap.studentsByEvent[eventNameKey])
+              perEventStudents = rolesMap.studentsByEvent[eventNameKey];
+            else if (typeof rolesMap.studentsByEvent.get === "function")
+              perEventStudents = rolesMap.studentsByEvent.get(eventNameKey);
           }
-          if (Array.isArray(list) && list.length) {
-            const lowered = list.map(s => String(s || "").toLowerCase());
-            const uppered = list.map(s => String(s || "").toUpperCase());
-            if (userEmailLower && lowered.includes(userEmailLower)) isEventManager = true;
-            if (!isEventManager && userRegno && uppered.includes(userRegno)) isEventManager = true;
+          const globalStudents =
+            rolesMap && Array.isArray(rolesMap.students)
+              ? rolesMap.students
+              : [];
+          const regUpper = (userRegno || "").toUpperCase();
+          const globalAdmins =
+            rolesMap && Array.isArray(rolesMap.admins) ? rolesMap.admins : [];
+          const isAdminByRoles =
+            regUpper &&
+            globalAdmins.map((s) => String(s).toUpperCase()).includes(regUpper);
+          const inPerEvent =
+            perEventStudents &&
+            Array.isArray(perEventStudents) &&
+            perEventStudents
+              .map((s) => String(s).toUpperCase())
+              .includes(regUpper);
+          const inGlobal =
+            Array.isArray(globalStudents) &&
+            globalStudents
+              .map((s) => String(s).toUpperCase())
+              .includes(regUpper);
+
+          const eventApprovalStatus = approvalStatus[id];
+          const isApproved =
+            eventApprovalStatus && eventApprovalStatus.approved;
+
+          let allowedToRegister =
+            userRole === "admin" ||
+            isAdminByRoles ||
+            (regUpper && (inPerEvent || inGlobal)) ||
+            isApproved;
+
+          const userEmailLower = (userEmail || "").toLowerCase().trim();
+          let isEventManager = false;
+          if (
+            userEmailLower &&
+            ev.managerEmail &&
+            String(ev.managerEmail).toLowerCase().trim() === userEmailLower
+          ) {
+            isEventManager = true;
           }
-        }
-        if (isEventManager) allowedToRegister = true;
+          if (!isEventManager && rolesMap && rolesMap.eventManagersByEvent) {
+            const em = rolesMap.eventManagersByEvent;
+            const eventKey = eventNameKey;
+            let list = [];
+            if (em) {
+              if (typeof em.get === "function") list = em.get(eventKey) || [];
+              else list = em[eventKey] || [];
+            }
+            if (Array.isArray(list) && list.length) {
+              const lowered = list.map((s) => String(s || "").toLowerCase());
+              const uppered = list.map((s) => String(s || "").toUpperCase());
+              if (userEmailLower && lowered.includes(userEmailLower))
+                isEventManager = true;
+              if (!isEventManager && userRegno && uppered.includes(userRegno))
+                isEventManager = true;
+            }
+          }
+          if (isEventManager) allowedToRegister = true;
 
-        return (
-          <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/80 backdrop-blur-md" onClick={() => setShowDetailsFor(null)}>
-            <div className="w-[80vw] h-[80vh] bg-gray-900 border border-gray-700 rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row" onClick={e => e.stopPropagation()}>
+          const canManageTests =
+            isEventManager || userRole === "admin" || isAdminByRoles;
 
-              {/* Left Side: Image */}
-              <div className="w-full md:w-1/2 h-64 md:h-full bg-black relative">
-                {imageSrc ? (
-                  <img
-                    src={imageSrc}
-                    alt={ev.title}
-                    className="w-full h-full object-contain p-4"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-gray-700">No Image</div>
-                )}
-                <button
-                  onClick={() => setShowDetailsFor(null)}
-                  className="absolute top-4 left-4 md:hidden bg-black/50 p-2 rounded-full text-white"
-                >
-                  ✕
-                </button>
-              </div>
-
-              {/* Right Side: Details */}
-              <div className="w-full md:w-1/2 h-full flex flex-col bg-gray-900 border-l border-gray-800">
-                <div className="flex-1 p-8 overflow-y-auto">
-                  <div className="flex justify-between items-start mb-6">
-                    <div>
-                      <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">{new Date(ev.date).toLocaleDateString()}</span>
-                      <h2 className="text-3xl font-bold text-white mt-2 leading-tight">{ev.title}</h2>
-                      <p className="text-gray-400 text-sm mt-1">{ev.venue || ev.location} • {new Date(ev.date).toLocaleTimeString()}</p>
+          return (
+            <div
+              className="fixed inset-0 z-40 flex items-center justify-center bg-black/80 backdrop-blur-md"
+              onClick={() => setShowDetailsFor(null)}
+            >
+              <div
+                className="w-[80vw] h-[80vh] bg-gray-900 border border-gray-700 rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Left Side: Image */}
+                <div className="w-full md:w-1/2 h-64 md:h-full bg-black relative">
+                  {imageSrc && !imageError[id] ? (
+                    <img
+                      src={imageSrc}
+                      alt={ev.title}
+                      className="w-full h-full object-contain p-4"
+                      onError={() =>
+                        setImageError((prev) => ({ ...prev, [id]: true }))
+                      }
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-700">
+                      No Image
                     </div>
-                    <button
-                      onClick={() => setShowDetailsFor(null)}
-                      className="hidden md:block text-gray-500 hover:text-white transition-colors"
-                    >
-                      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-
-                  <div className="prose prose-invert max-w-none">
-                    <p className="text-gray-300 leading-relaxed text-lg">{ev.description}</p>
-                  </div>
-
-                  {/* Metadata */}
-                  <div className="mt-8 space-y-4 border-t border-gray-800 pt-6">
-                    {isEventManager && (
-                      <div className="flex flex-col gap-4 mb-6">
-                        <div className="flex items-center gap-2">
-                          <span className="bg-yellow-900/30 text-yellow-500 px-3 py-1 rounded text-xs font-bold uppercase">You manage this event</span>
-                        </div>
-
-                        <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 flex items-center justify-between">
-                          <div>
-                            <h4 className="text-white font-semibold text-sm">Test Availability</h4>
-                            <p className="text-gray-400 text-xs mt-1">
-                              {ev.isTestEnabled !== false ? "Tests are visible to students." : "Tests are hidden from students."}
-                            </p>
-                          </div>
-                          <button
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              try {
-                                const newStatus = ev.isTestEnabled === false ? true : false;
-                                await updateEvent(id, { isTestEnabled: newStatus });
-                                // Update local state immediately for UI response
-                                setLocalEvents(prev => prev.map(item =>
-                                  (item._id || item.id) === id ? { ...item, isTestEnabled: newStatus } : item
-                                ));
-                              } catch (err) {
-                                console.error("Failed to toggle test", err);
-                              }
-                            }}
-                            className={`px-4 py-2 rounded-lg font-bold text-xs transition-colors ${ev.isTestEnabled !== false
-                              ? "bg-red-500/10 text-red-400 border border-red-500/50 hover:bg-red-500/20"
-                              : "bg-green-500/10 text-green-400 border border-green-500/50 hover:bg-green-500/20"
-                              }`}
-                          >
-                            {ev.isTestEnabled !== false ? "Disable Tests" : "Enable Tests"}
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                    {/* Show managers */}
-                    {rolesMap && rolesMap.eventManagersByEvent && (() => {
-                      const em = rolesMap.eventManagersByEvent;
-                      const key = eventNameKey;
-                      let list = [];
-                      if (em) {
-                        if (typeof em.get === "function") list = em.get(key) || [];
-                        else list = em[key] || [];
-                      }
-                      if (Array.isArray(list) && list.length) {
-                        return (
-                          <div>
-                            <h4 className="text-sm font-bold text-gray-500 uppercase">Managers</h4>
-                            <p className="text-gray-300 text-sm">{list.join(", ")}</p>
-                          </div>
-                        );
-                      }
-                    })()}
-                  </div>
+                  )}
+                  <button
+                    onClick={() => setShowDetailsFor(null)}
+                    className="absolute top-4 left-4 md:hidden bg-black/50 p-2 rounded-full text-white"
+                  >
+                    ✕
+                  </button>
                 </div>
 
-                {/* Footer Actions */}
-                <div className="p-6 border-t border-gray-800 bg-gray-900/50 flex flex-wrap gap-4 items-center justify-between">
-                  <div>
-                    {registered[id] ? (
-                      <span className="flex items-center gap-2 text-green-400 font-bold">
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                {/* Right Side: Details */}
+                <div className="w-full md:w-1/2 h-full flex flex-col bg-gray-900 border-l border-gray-800">
+                  <div className="flex-1 p-8 overflow-y-auto">
+                    <div className="flex justify-between items-start mb-6">
+                      <div>
+                        <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">
+                          {new Date(ev.date).toLocaleDateString("en-GB", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "2-digit",
+                          })}
+                        </span>
+                        <h2 className="text-3xl font-bold text-white mt-2 leading-tight">
+                          {ev.title}
+                        </h2>
+                        <p className="text-gray-400 text-sm mt-1">
+                          {ev.venue || ev.location} •{" "}
+                          {new Date(ev.date).toLocaleTimeString()}
+                        </p>
+                        <p className="text-gray-200 text-sm mt-2 font-semibold">
+                          {(() => {
+                            const rawPrice =
+                              ev.price !== undefined && ev.price !== null
+                                ? ev.price
+                                : ev.fee;
+                            if (
+                              rawPrice === undefined ||
+                              rawPrice === null ||
+                              rawPrice === ""
+                            )
+                              return "Free";
+                            if (
+                              typeof rawPrice === "string" &&
+                              rawPrice.toLowerCase() === "free"
+                            )
+                              return "Free";
+                            const n = Number(rawPrice);
+                            if (!Number.isNaN(n) && n > 0) return `₹${n}`;
+                            return "Free";
+                          })()}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setShowDetailsFor(null)}
+                        className="hidden md:block text-gray-500 hover:text-white transition-colors"
+                      >
+                        <svg
+                          className="w-6 h-6"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M6 18L18 6M6 6l12 12"
+                          />
                         </svg>
-                        You are registered
-                      </span>
-                    ) : (
-                      <span className="text-gray-500 text-sm">Join this event to get started.</span>
-                    )}
+                      </button>
+                    </div>
+
+                    <div className="prose prose-invert max-w-none">
+                      <p className="text-gray-300 leading-relaxed text-lg">
+                        {ev.description}
+                      </p>
+                    </div>
+
+                    {/* Metadata */}
+                    <div className="mt-8 space-y-4 border-t border-gray-800 pt-6">
+                      {canManageTests && (
+                        <div className="flex flex-col gap-4 mb-6">
+                          <div className="flex items-center gap-2">
+                            <span className="bg-yellow-900/30 text-yellow-500 px-3 py-1 rounded text-xs font-bold uppercase">
+                              You can manage tests for this event
+                            </span>
+                          </div>
+
+                          <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 flex items-center justify-between">
+                            <div>
+                              <h4 className="text-white font-semibold text-sm">
+                                Test Availability
+                              </h4>
+                              <p className="text-gray-400 text-xs mt-1">
+                                {ev.isTestEnabled !== false
+                                  ? "Tests are visible to students."
+                                  : "Tests are hidden from students."}
+                              </p>
+                            </div>
+                            <button
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                try {
+                                  const newStatus =
+                                    ev.isTestEnabled === false ? true : false;
+                                  await updateEvent(id, {
+                                    isTestEnabled: newStatus,
+                                  });
+                                  // Update local state immediately for UI response
+                                  setLocalEvents((prev) =>
+                                    prev.map((item) =>
+                                      (item._id || item.id) === id
+                                        ? { ...item, isTestEnabled: newStatus }
+                                        : item,
+                                    ),
+                                  );
+                                } catch (err) {
+                                  console.error("Failed to toggle test", err);
+                                }
+                              }}
+                              className={`px-4 py-2 rounded-lg font-bold text-xs transition-colors ${
+                                ev.isTestEnabled !== false
+                                  ? "bg-red-500/10 text-red-400 border border-red-500/50 hover:bg-red-500/20"
+                                  : "bg-green-500/10 text-green-400 border border-green-500/50 hover:bg-green-500/20"
+                              }`}
+                            >
+                              {ev.isTestEnabled !== false
+                                ? "Disable Tests"
+                                : "Enable Tests"}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      {/* Organizer & managers info */}
+                      {(() => {
+                        const em = rolesMap && rolesMap.eventManagersByEvent;
+                        const key = eventNameKey;
+                        let list = [];
+                        if (em) {
+                          if (typeof em.get === "function")
+                            list = em.get(key) || [];
+                          else list = em[key] || [];
+                        }
+                        const hasManagers = Array.isArray(list) && list.length;
+                        const organizerEmail = ev.managerEmail;
+
+                        if (!organizerEmail && !hasManagers) return null;
+
+                        return (
+                          <div className="space-y-1">
+                            <h4 className="text-sm font-bold text-gray-500 uppercase">
+                              Organizer & Managers
+                            </h4>
+                            {organizerEmail && (
+                              <p className="text-gray-300 text-sm">
+                                Created by:{" "}
+                                <span className="font-semibold">
+                                  {organizerEmail}
+                                </span>
+                              </p>
+                            )}
+                            {hasManagers && (
+                              <p className="text-gray-300 text-sm">
+                                Event manager(s): {list.join(", ")}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </div>
                   </div>
 
-                  <div className="flex gap-3">
-                    {registered[id] ? (
-                      <>
-                        {ev.isTestEnabled !== false ? (
-                          <>
-                            {testTaken[id]?.coding ? (
-                              <button disabled className="px-6 py-3 rounded-xl bg-gray-800 text-gray-500 font-bold cursor-not-allowed">
-                                All Tests Completed
-                              </button>
-                            ) : testTaken[id]?.mcq ? (
-                              <button
-                                onClick={() => window.open(`/test/coding?eventId=${id}&eventName=${encodeURIComponent(ev.title)}`, '_blank')}
-                                className="px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold shadow-lg shadow-purple-900/20 transition-all hover:scale-105"
-                              >
-                                Take Test 2 (Coding)
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => window.open(`/test?eventId=${id}&eventName=${encodeURIComponent(ev.title)}`, '_blank')}
-                                className="px-6 py-3 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold shadow-lg shadow-green-900/20 transition-all hover:scale-105"
-                              >
-                                Take Test 1 (MCQ)
-                              </button>
-                            )}
-                          </>
-                        ) : null}
-                      </>
-                    ) : (
-                      <>
-                        {eventApprovalStatus ? (
-                          <button disabled className="px-6 py-3 rounded-xl bg-gray-700 text-gray-400 font-bold cursor-not-allowed">
-                            Request Pending...
-                          </button>
-                        ) : !userEmail?.toLowerCase().trim().endsWith("@klu.ac.in") && !allowedToRegister && !isApproved ? (
-                          <button
-                            onClick={() => setShowContactFor(id)}
-                            className="px-6 py-3 rounded-xl bg-yellow-600 hover:bg-yellow-700 text-white font-bold shadow-lg shadow-yellow-900/20 transition-all hover:scale-105"
+                  {/* Footer Actions */}
+                  <div className="p-6 border-t border-gray-800 bg-gray-900/50 flex flex-wrap gap-4 items-center justify-between">
+                    <div>
+                      {registered[id] ? (
+                        <span className="flex items-center gap-2 text-green-400 font-bold">
+                          <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
                           >
-                            Express Interest
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => navigate(`/event-registration/${id}`, { state: { eventTitle: ev.title } })}
-                            className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-900/20 transition-all hover:scale-105"
-                          >
-                            Register Now
-                          </button>
-                        )}
-                      </>
-                    )}
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M5 13l4 4L19 7"
+                            />
+                          </svg>
+                          You are registered
+                        </span>
+                      ) : (
+                        <span className="text-gray-500 text-sm">
+                          Join this event to get started.
+                        </span>
+                      )}
+                    </div>
 
-                    {/* Edit Action for Managers/Admins */}
-                    {(userRole === "admin" || isAdminByRoles || isEventManager) && (
-                      <button
-                        onClick={() => {
-                          setShowDetailsFor(null);
-                          setShowEditFor(id);
-                        }}
-                        className="px-4 py-3 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium transition-colors"
-                      >
-                        Edit
-                      </button>
-                    )}
+                    <div className="flex gap-3">
+                      {registered[id] ? (
+                        <>
+                          {ev.isTestEnabled !== false ? (
+                            <>
+                              {testTaken[id]?.coding ? (
+                                <button
+                                  disabled
+                                  className="px-6 py-3 rounded-xl bg-gray-800 text-gray-500 font-bold cursor-not-allowed"
+                                >
+                                  All Tests Completed
+                                </button>
+                              ) : testTaken[id]?.mcq ? (
+                                <button
+                                  onClick={() =>
+                                    window.open(
+                                      `/test/coding?eventId=${id}&eventName=${encodeURIComponent(ev.title)}`,
+                                      "_blank",
+                                    )
+                                  }
+                                  className="px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold shadow-lg shadow-purple-900/20 transition-all hover:scale-105"
+                                >
+                                  Take Test 2 (Coding)
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() =>
+                                    window.open(
+                                      `/test?eventId=${id}&eventName=${encodeURIComponent(ev.title)}`,
+                                      "_blank",
+                                    )
+                                  }
+                                  className="px-6 py-3 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold shadow-lg shadow-green-900/20 transition-all hover:scale-105"
+                                >
+                                  Take Test 1 (MCQ)
+                                </button>
+                              )}
+                            </>
+                          ) : null}
+                        </>
+                      ) : (
+                        <>
+                          {eventApprovalStatus ? (
+                            <button
+                              disabled
+                              className="px-6 py-3 rounded-xl bg-gray-700 text-gray-400 font-bold cursor-not-allowed"
+                            >
+                              Request Pending...
+                            </button>
+                          ) : !userEmail
+                              ?.toLowerCase()
+                              .trim()
+                              .endsWith("@klu.ac.in") &&
+                            !allowedToRegister &&
+                            !isApproved ? (
+                            <button
+                              onClick={() => setShowContactFor(id)}
+                              className="px-6 py-3 rounded-xl bg-yellow-600 hover:bg-yellow-700 text-white font-bold shadow-lg shadow-yellow-900/20 transition-all hover:scale-105"
+                            >
+                              Express Interest
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() =>
+                                navigate(`/event-registration/${id}`, {
+                                  state: { eventTitle: ev.title },
+                                })
+                              }
+                              className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-900/20 transition-all hover:scale-105"
+                            >
+                              Register Now
+                            </button>
+                          )}
+                        </>
+                      )}
+
+                      {/* Edit Action for Managers/Admins */}
+                      {(userRole === "admin" ||
+                        isAdminByRoles ||
+                        isEventManager) && (
+                        <button
+                          onClick={() => {
+                            setShowDetailsFor(null);
+                            setShowEditFor(id);
+                          }}
+                          className="px-4 py-3 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium transition-colors"
+                        >
+                          Edit
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        );
-      })()}
+          );
+        })()}
 
       {/* Contact modal */}
       {showContactFor && (
@@ -527,7 +778,13 @@ export default function EventsList({
             <ContactForm
               event={events.find((e) => (e._id || e.id) === showContactFor)}
               fallbackEmail={contactEmail}
-              initial={{ name: userName, regno: userRegno, email: userEmail, branch: userBranch, college: userCollege }}
+              initial={{
+                name: userName,
+                regno: userRegno,
+                email: userEmail,
+                branch: userBranch,
+                college: userCollege,
+              }}
               onClose={() => setShowContactFor(null)}
               onSent={() => {
                 // Mark interest as expressed

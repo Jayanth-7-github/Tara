@@ -74,8 +74,8 @@ export default function CreateEvent() {
   if (loading) return <div className="p-6">Checking permissions...</div>;
   if (!authorizedCreate)
     return (
-      <div className="min-h-screen bg-linear-to-br from-gray-950 via-black to-gray-900 text-white px-6 py-10">
-        <div className="max-w-3xl mx-auto text-center">
+      <div className="min-h-screen bg-linear-to-br from-gray-950 via-black to-gray-900 text-white px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
+        <div className="max-w-xl sm:max-w-2xl mx-auto text-center">
           <h2 className="text-xl font-semibold mb-4">Unauthorized</h2>
           <p className="text-gray-400">
             You must be a member or admin to create events.
@@ -85,21 +85,21 @@ export default function CreateEvent() {
     );
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-gray-950 via-black to-gray-900 text-white px-6 py-10">
-      <div className="max-w-3xl mx-auto">
-        <header className="mb-6">
-          <h1 className="text-2xl font-bold">Create Event</h1>
-          <p className="text-sm text-gray-400">
+    <div className="min-h-screen bg-linear-to-br from-gray-950 via-black to-gray-900 text-white px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
+      <div className="max-w-6xl mx-auto">
+        <header className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold">Create Event</h1>
+          <p className="text-sm sm:text-base text-gray-400">
             Add event details and upload an image (optional).
           </p>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10 items-start">
+          <div className="order-1">
             <EventForm mode="create" onSuccess={() => loadEvents()} />
           </div>
 
-          <div>
+          <div className="order-2 lg:order-none lg:max-h-[70vh] lg:overflow-y-auto">
             {/* Show manage list only to admins or event-managers (events they manage) */}
             {isAdmin ? (
               <EventsAdminList
@@ -114,7 +114,7 @@ export default function CreateEvent() {
                 onDelete={async (ev) => {
                   if (
                     !confirm(
-                      `Delete event "${ev.title}"? This cannot be undone.`
+                      `Delete event "${ev.title}"? This cannot be undone.`,
                     )
                   )
                     return;
@@ -172,7 +172,7 @@ export default function CreateEvent() {
                     onDelete={async (ev) => {
                       if (
                         !confirm(
-                          `Delete event "${ev.title}"? This cannot be undone.`
+                          `Delete event "${ev.title}"? This cannot be undone.`,
                         )
                       )
                         return;

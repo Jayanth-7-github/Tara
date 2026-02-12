@@ -1,9 +1,10 @@
 import "./App.css";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import AttendancePage from "./secret/pages/AttendancePage";
 import AttendanceSummary from "./secret/pages/AttendanceSummary";
 import Secret from "./secret/pages/Secret";
 import PublicHome from "./pages/PublicHome";
+import AuthEntry from "./pages/AuthEntry";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Main from "./pages/Main";
@@ -25,35 +26,15 @@ import EventRegister from "./pages/EventRegister";
 import StudentResults from "./pages/StudentResults";
 import ManageQuestions from "./pages/ManageQuestions";
 import { ADMIN_TOKEN } from "./services/constants";
-import Hamburger from "./components/hamburger";
 import TestCompiler from "./Exam/pages/testcompailer";
-
-function Navbar() {
-  const location = useLocation();
-  const isExamPage = location.pathname === "/test" || location.pathname === "/test/coding";
-
-  if (isExamPage) return null;
-
-  return (
-    <header className="bg-linear-to-r from-gray-950 via-gray-900 to-gray-950 text-white shadow-lg border-b border-gray-800">
-      <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-
-        <h2 className="text-xl sm:text-2xl font-bold tracking-wide bg-linear-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">
-          Tara
-        </h2>
-
-
-        <Hamburger />
-      </div>
-    </header>
-  );
-}
+import PublicNavbar from "./components/PublicNavbar";
+import GoogleSuccess from "./components/GoogleSuccess";
 
 function App() {
   return (
     <BrowserRouter>
       <div>
-        <Navbar />
+        <PublicNavbar />
 
         <main>
           <Routes>
@@ -112,9 +93,11 @@ function App() {
             <Route path="/test" element={<ExamPage mode="mcq" />} />
             <Route path="/test/coding" element={<ExamPage mode="coding" />} />
             <Route path="/realtest" element={<Test />} />
-            <Route path="/login" element={<Login />} />
+            <Route path="/login" element={<AuthEntry />} />
+            <Route path="/login/email" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
             <Route path="/testcompiler" element={<TestCompiler />} />
+            <Route path="/google-success" element={<GoogleSuccess />} />
           </Routes>
         </main>
       </div>

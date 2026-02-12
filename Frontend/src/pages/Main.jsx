@@ -3,6 +3,10 @@ import { Link, useNavigate } from "react-router-dom";
 import { checkLogin, logout } from "../services/auth";
 import { checkTestTaken, fetchEvents } from "../services/api";
 import EventsList from "../components/EventsList";
+import FooterProfile from "../components/Footerprofile";
+import { LampContainer } from "../components/ui/lamp";
+import { BackgroundLines } from "../components/ui/background-lines";
+import { motion } from "motion/react";
 
 export default function Main() {
   const navigate = useNavigate();
@@ -13,13 +17,32 @@ export default function Main() {
   const [events, setEvents] = useState([]);
   const [eventsLoading, setEventsLoading] = useState(true);
 
+  // Capture token (and optional name) from Google OAuth redirect
+  // and store token for debugging/auxiliary use. Core auth uses cookies.
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get("token");
+
+      if (token) {
+        localStorage.setItem("token", token);
+
+        // Clean up URL so token isn't left in the address bar
+        const newUrl = window.location.pathname + window.location.hash;
+        window.history.replaceState({}, document.title, newUrl);
+      }
+    } catch (e) {
+      // ignore parsing errors
+    }
+  }, []);
+
   const handleLogout = async () => {
     try {
       await logout();
       localStorage.removeItem("token");
       try {
         window.dispatchEvent(new Event("auth-changed"));
-      } catch (e) { }
+      } catch (e) {}
       navigate("/login");
     } catch (error) {
       console.error("Logout failed:", error);
@@ -27,7 +50,7 @@ export default function Main() {
       localStorage.removeItem("token");
       try {
         window.dispatchEvent(new Event("auth-changed"));
-      } catch (e) { }
+      } catch (e) {}
       navigate("/login");
     }
   };
@@ -104,61 +127,127 @@ export default function Main() {
   }
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-gray-950 via-black to-gray-900 text-white px-6 py-10">
-      <div className="max-w-6xl mx-auto">
-        <header className="mb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-          <div className="flex items-start gap-4">
-            <div>
-              <h1 className="text-3xl sm:text-4xl font-bold bg-linear-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">
-                Dashboard
-              </h1>
-              <p className="mt-2 text-gray-400 text-sm sm:text-base">
+    <BackgroundLines className="bg-slate-950 text-white font-sans overflow-x-hidden">
+      <div className="min-h-screen flex flex-col">
+        {/* Hero Section with Lamp Effect */}
+        <section className="relative">
+          <LampContainer>
+            <motion.div
+              initial={{ opacity: 0, y: 100 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{
+                delay: 0.3,
+                duration: 0.8,
+                ease: "easeInOut",
+              }}
+              className="text-center"
+            >
+              <h1 className="bg-gradient-to-br from-slate-100 to-slate-400 py-4 bg-clip-text text-center text-4xl font-bold tracking-tight text-transparent md:text-7xl">
                 {user
-                  ? `Welcome back, ${user.name || user.email}!`
-                  : "Quick overview of what's new. Jump into events and assignments."}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            {/* header actions intentionally left blank */}
-          </div>
-        </header>
+                  ? `Welcome back, ${user.name || "Student"}`
+                  : "Tara Dashboard"}
+              </h1>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Upcoming Events — individual cards (no outer container) */}
-          <div className="col-span-full">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold">Upcoming Events</h2>
-            </div>
+              {/* Professional Matter Section */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.5, duration: 0.8 }}
+                className="mt-12"
+              >
+                <h2 className="bg-clip-text text-transparent text-center bg-gradient-to-b from-neutral-200 to-neutral-500 text-2xl md:text-5xl font-bold tracking-tight leading-tight">
+                  See everything in one place.
+                  <br />
+                  Exams, events, results and more.
+                </h2>
+                <p className="mt-4 max-w-xl mx-auto text-sm md:text-lg text-neutral-400 text-center">
+                  Quickly check upcoming events, know if you have tests left to
+                  write, and jump straight to results or attendance without
+                  searching around.
+                </p>
+              </motion.div>
 
-            {eventsLoading ? (
-              <div className="py-6">
+              <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
                 <button
-                  disabled
-                  className="px-4 py-2 text-sm rounded-lg bg-gray-700 text-gray-400 cursor-not-allowed transition shadow"
+                  onClick={() =>
+                    document
+                      .getElementById("events-section")
+                      ?.scrollIntoView({ behavior: "smooth" })
+                  }
+                  className="px-8 py-3 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-semibold transition-all duration-200 shadow-[0_0_20px_rgba(37,99,235,0.4)]"
                 >
-                  Loading events...
+                  View Upcoming Events
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="px-8 py-3 rounded-full border border-slate-700 hover:bg-slate-800 text-slate-300 transition-all font-medium"
+                >
+                  Logout
                 </button>
               </div>
-            ) : !events || events.length === 0 ? (
-              <div className="py-12 text-center">
-                <p className="text-gray-400">
-                  Events coming soon — check back later.
-                </p>
-              </div>
-            ) : (
-              <div>
-                <EventsList
-                  events={events}
-                  loading={eventsLoading}
-                  hasTestResults={hasTestResults}
-                />
-              </div>
-            )}
-          </div>
 
-        </div>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 1, duration: 2, repeat: Infinity }}
+                className="mt-20 flex flex-col items-center gap-2 text-slate-500"
+              >
+                <span className="text-sm uppercase tracking-widest">
+                  Scroll for Events
+                </span>
+                <div className="w-1 h-8 bg-gradient-to-b from-blue-500 to-transparent rounded-full animate-bounce" />
+              </motion.div>
+            </motion.div>
+          </LampContainer>
+        </section>
+
+        {/* Events Section */}
+        <section
+          id="events-section"
+          className="relative w-full px-4 pt-20 flex justify-center flex-1"
+        >
+          <div className="max-w-6xl w-full">
+            <motion.div
+              initial={{ opacity: 0, y: 50 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8 }}
+              className="mb-12 text-center"
+            >
+              <h1 className="text-4xl md:text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-b from-blue-400 to-cyan-200">
+                Upcoming Events
+              </h1>
+              <p className="mt-4 text-neutral-400 text-lg max-w-2xl mx-auto font-medium">
+                Jump into events and assignments. Quick overview of what's new.
+              </p>
+            </motion.div>
+
+            <div className="grid grid-cols-1 gap-6">
+              {eventsLoading ? (
+                <div className="flex justify-center py-20">
+                  <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              ) : !events || events.length === 0 ? (
+                <div className="text-center py-20 bg-slate-900/50 rounded-3xl border border-slate-800 backdrop-blur-sm">
+                  <p className="text-slate-500 text-xl font-medium">
+                    Events coming soon — check back later.
+                  </p>
+                </div>
+              ) : (
+                <div className="pb-20">
+                  <EventsList
+                    events={events}
+                    loading={eventsLoading}
+                    hasTestResults={hasTestResults}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* Footer */}
+        <FooterProfile />
       </div>
-    </div>
+    </BackgroundLines>
   );
 }

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { checkLogin } from "../services/auth";
@@ -11,6 +10,7 @@ export default function EventManagerDashboard() {
   const [authorized, setAuthorized] = useState(false);
   const [user, setUser] = useState(null);
   const [events, setEvents] = useState([]);
+  const [imageError, setImageError] = useState({});
 
   const [stats, setStats] = useState({
     totalEvents: 0,
@@ -97,7 +97,6 @@ export default function EventManagerDashboard() {
         upcomingEvents,
         pastEvents,
       });
-
     } catch (err) {
       console.error("Failed to load data:", err);
     }
@@ -282,9 +281,8 @@ export default function EventManagerDashboard() {
             <p className="text-xs text-gray-500 mt-1">
               {stats.totalRegistrations > 0
                 ? `${Math.round(
-                  (stats.totalAttendance / stats.totalRegistrations) * 100,
-                )
-                }% attendance rate`
+                    (stats.totalAttendance / stats.totalRegistrations) * 100,
+                  )}% attendance rate`
                 : "No data"}
             </p>
           </div>
@@ -638,9 +636,13 @@ export default function EventManagerDashboard() {
                 const eventDate = new Date(event.date);
                 const isUpcoming = eventDate > new Date();
                 const apiBase = API_BASE.replace(/\/$/, "");
+                const id = event._id || event.id;
+                const cacheBustSource = event.updatedAt || event.createdAt;
+                const cacheBust = cacheBustSource
+                  ? `?v=${new Date(cacheBustSource).getTime()}`
+                  : "";
                 const imageSrc =
-                  event.imageUrl ||
-                  `${apiBase}/events/${event._id || event.id}/image`;
+                  event.imageUrl || `${apiBase}/events/${id}/image${cacheBust}`;
 
                 return (
                   <div
@@ -650,12 +652,19 @@ export default function EventManagerDashboard() {
                     <div className="flex items-start gap-4">
                       {/* Event Image */}
                       <div className="w-24 h-24 rounded-lg overflow-hidden bg-gray-700 shrink-0">
-                        {imageSrc && (
+                        {imageSrc && !imageError[id] ? (
                           <img
                             src={imageSrc}
                             alt={event.title}
                             className="w-full h-full object-cover"
+                            onError={() =>
+                              setImageError((prev) => ({ ...prev, [id]: true }))
+                            }
                           />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs">
+                            No image
+                          </div>
                         )}
                       </div>
 
@@ -681,7 +690,11 @@ export default function EventManagerDashboard() {
                                     d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
                                   />
                                 </svg>
-                                {eventDate.toLocaleDateString()}
+                                {eventDate.toLocaleDateString("en-GB", {
+                                  day: "2-digit",
+                                  month: "2-digit",
+                                  year: "2-digit",
+                                })}
                               </span>
                               <span className="flex items-center gap-1">
                                 <svg
@@ -727,10 +740,11 @@ export default function EventManagerDashboard() {
                             </div>
                           </div>
                           <span
-                            className={`px-3 py-1 rounded-full text-xs font-medium ${isUpcoming
-                              ? "bg-green-500/10 text-green-400"
-                              : "bg-gray-500/10 text-gray-400"
-                              }`}
+                            className={`px-3 py-1 rounded-full text-xs font-medium ${
+                              isUpcoming
+                                ? "bg-green-500/10 text-green-400"
+                                : "bg-gray-500/10 text-gray-400"
+                            }`}
                           >
                             {isUpcoming ? "Upcoming" : "Completed"}
                           </span>
@@ -812,10 +826,10 @@ export default function EventManagerDashboard() {
                               <p className="text-sm font-semibold text-white">
                                 {event.registeredCount > 0
                                   ? `${Math.round(
-                                    ((event.attendedCount || 0) /
-                                      event.registeredCount) *
-                                    100,
-                                  )}%`
+                                      ((event.attendedCount || 0) /
+                                        event.registeredCount) *
+                                        100,
+                                    )}%`
                                   : "N/A"}
                               </p>
                               <p className="text-xs text-gray-500">
@@ -832,7 +846,7 @@ export default function EventManagerDashboard() {
             </div>
           )}
         </div>
-      </div >
-    </div >
+      </div>
+    </div>
   );
 }

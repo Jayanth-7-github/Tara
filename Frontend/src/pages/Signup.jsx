@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { signup, getMe, checkLogin } from "../services/auth";
+import { BackgroundRippleEffect } from "../components/ui/background-ripple-effect";
+import { CardSpotlight } from "../components/ui/card-spotlight";
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -66,7 +68,7 @@ export default function Signup() {
       setSuccess("Account created successfully");
       try {
         await getMe();
-      } catch { }
+      } catch {}
       // Redirect to login or member area; choose member secret for now
       setTimeout(() => navigate("/login"), 800);
     } catch (err) {
@@ -77,12 +79,12 @@ export default function Signup() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center px-4 font-sans py-12">
-      <div className="w-full max-w-lg bg-gray-900 border border-gray-800 rounded-2xl p-8 sm:p-10 shadow-xl">
+    <div className="relative min-h-screen bg-linear-to-br from-gray-950 via-black to-gray-900 text-white flex items-center justify-center px-4 py-12 font-sans overflow-hidden">
+      <BackgroundRippleEffect rows={8} cols={24} cellSize={52} />
+
+      <CardSpotlight className="relative z-10 w-full max-w-lg shadow-2xl">
         <div className="mb-8 text-center sm:text-left">
-          <h1 className="text-3xl font-bold text-white">
-            Create Account
-          </h1>
+          <h1 className="text-3xl font-bold text-white">Create Account</h1>
           <p className="mt-2 text-gray-400">
             Join Tara and start managing attendance effortlessly.
           </p>
@@ -91,7 +93,10 @@ export default function Signup() {
         <form onSubmit={handleSubmit} className="space-y-6" noValidate>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-300" htmlFor="name">
+              <label
+                className="text-sm font-medium text-gray-300"
+                htmlFor="name"
+              >
                 Full Name (optional)
               </label>
               <input
@@ -106,7 +111,10 @@ export default function Signup() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-300" htmlFor="regno">
+              <label
+                className="text-sm font-medium text-gray-300"
+                htmlFor="regno"
+              >
                 Registration Number
               </label>
               <input
@@ -122,7 +130,10 @@ export default function Signup() {
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-300" htmlFor="email">
+            <label
+              className="text-sm font-medium text-gray-300"
+              htmlFor="email"
+            >
               Email Address
             </label>
             <input
@@ -138,7 +149,10 @@ export default function Signup() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-300" htmlFor="password">
+              <label
+                className="text-sm font-medium text-gray-300"
+                htmlFor="password"
+              >
                 Password
               </label>
               <input
@@ -153,7 +167,10 @@ export default function Signup() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-300" htmlFor="confirm">
+              <label
+                className="text-sm font-medium text-gray-300"
+                htmlFor="confirm"
+              >
                 Confirm Password
               </label>
               <input
@@ -205,14 +222,20 @@ export default function Signup() {
         </form>
 
         <div className="mt-8 pt-6 border-t border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
-          <Link to="/login" className="text-gray-500 hover:text-gray-300 flex items-center gap-2">
+          <Link
+            to="/login/email"
+            className="text-gray-500 hover:text-gray-300 flex items-center gap-2"
+          >
             ← Back to Login
           </Link>
           <p className="text-gray-500">
-            Agree to <span className="text-gray-400 hover:underline cursor-pointer">Terms</span>
+            Agree to{" "}
+            <span className="text-gray-400 hover:underline cursor-pointer">
+              Terms
+            </span>
           </p>
         </div>
-      </div>
+      </CardSpotlight>
     </div>
   );
 }

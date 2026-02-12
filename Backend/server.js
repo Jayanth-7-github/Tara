@@ -3,6 +3,7 @@ const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const path = require("path");
+const passport = require("passport");
 
 const app = express();
 
@@ -11,10 +12,10 @@ const app = express();
 // will still be emitted so critical failures are visible unless you also
 // redirect stderr when launching the process.
 if (process.env.QUIET === "1") {
-  console.log = () => { };
-  console.info = () => { };
-  console.debug = () => { };
-  console.warn = () => { };
+  console.log = () => {};
+  console.info = () => {};
+  console.debug = () => {};
+  console.warn = () => {};
 }
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
@@ -29,6 +30,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(cookieParser());
+app.use(passport.initialize());
 
 // Simple logger: disabled by default to keep the backend terminal quiet.
 // To enable request logging set the environment variable SHOW_REQUEST_LOGS=1
@@ -39,23 +41,22 @@ app.use((req, res, next) => {
   next();
 });
 
+// Passport configuration (Google OAuth strategy, etc.)
+require(path.join(__dirname, "config", "passport"));
+
 // Routes
 const studentRoutes = require(path.join(__dirname, "routes", "studentRoutes"));
-const attendanceRoutes = require(path.join(
-  __dirname,
-  "routes",
-  "attendanceRoutes"
-));
+const attendanceRoutes = require(
+  path.join(__dirname, "routes", "attendanceRoutes"),
+);
 const authRoutes = require(path.join(__dirname, "routes", "authRoutes"));
-const testResultRoutes = require(path.join(
-  __dirname,
-  "routes",
-  "testResultRoutes"
-));
+const testResultRoutes = require(
+  path.join(__dirname, "routes", "testResultRoutes"),
+);
 const eventRoutes = require(path.join(__dirname, "routes", "eventRoutes"));
 const rolesRoutes = require(path.join(__dirname, "routes", "rolesRoutes"));
 const contactRoutes = require(path.join(__dirname, "routes", "contactRoutes"));
-
+const userRoutes = require(path.join(__dirname, "routes", "userRoutes"));
 
 app.use("/api/students", studentRoutes);
 app.use("/api/attendance", attendanceRoutes);
@@ -63,17 +64,19 @@ app.use("/api/auth", authRoutes);
 app.use("/api/test-results", testResultRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api/contact", contactRoutes);
+// Google OAuth and other user-facing auth flows (non-API)
+app.use("/user", userRoutes);
 // Mount roles routes at an obscure numeric path to make discovery harder.
 // The number used here matches the example identifier in `data/roles.json`.
 app.use("/api/roles/secret8181", rolesRoutes);
 
 // Health
 app.get("/api/tara", (req, res) =>
-  res.json({ status: "ok", timestamp: Date.now() })
+  res.json({ status: "ok", timestamp: Date.now() }),
 );
 
 app.get("/health", (req, res) =>
-  res.json({ status: "ok", timestamp: Date.now() })
+  res.json({ status: "ok", timestamp: Date.now() }),
 );
 
 // Fallback

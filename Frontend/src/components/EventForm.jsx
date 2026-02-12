@@ -32,6 +32,21 @@ async function resizeImage(file, maxWidth = 1200, quality = 0.8) {
   return canvas.toDataURL("image/jpeg", quality);
 }
 
+// Use local time when populating datetime-local inputs so
+// an existing 10:00 AM event still shows as 10:00 AM in edit mode
+// instead of being shifted by the timezone offset.
+function formatDateTimeLocal(value) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const hours = String(d.getHours()).padStart(2, "0");
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
 export default function EventForm({
   initialData = null,
   mode = "create",
@@ -42,15 +57,16 @@ export default function EventForm({
   const [title, setTitle] = useState(initialData?.title || "");
   const [venue, setVenue] = useState(initialData?.venue || "");
   const [managerEmail, setManagerEmail] = useState(
-    initialData?.managerEmail || ""
+    initialData?.managerEmail || "",
   );
-  const [date, setDate] = useState(
-    initialData?.date
-      ? new Date(initialData.date).toISOString().slice(0, 16)
-      : ""
+  const [price, setPrice] = useState(
+    initialData?.price !== undefined && initialData?.price !== null
+      ? String(initialData.price)
+      : "",
   );
+  const [date, setDate] = useState(formatDateTimeLocal(initialData?.date));
   const [description, setDescription] = useState(
-    initialData?.description || ""
+    initialData?.description || "",
   );
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(initialData?.imageUrl || null);
@@ -61,12 +77,13 @@ export default function EventForm({
     setTitle(initialData?.title || "");
     setVenue(initialData?.venue || "");
     setManagerEmail(initialData?.managerEmail || "");
-    setDate(
-      initialData?.date
-        ? new Date(initialData.date).toISOString().slice(0, 16)
-        : ""
-    );
+    setDate(formatDateTimeLocal(initialData?.date));
     setDescription(initialData?.description || "");
+    setPrice(
+      initialData?.price !== undefined && initialData?.price !== null
+        ? String(initialData.price)
+        : "",
+    );
     setPreview(initialData?.imageUrl || null);
   }, [initialData]);
 
@@ -103,12 +120,20 @@ export default function EventForm({
         imageType = "image/jpeg";
       }
 
+      // Normalize price: empty or invalid -> 0 (free)
+      let numericPrice = 0;
+      if (price !== "") {
+        const parsed = Number(price);
+        if (!Number.isNaN(parsed) && parsed >= 0) numericPrice = parsed;
+      }
+
       const payload = {
         title,
         description,
         venue,
         managerEmail,
         date,
+        price: numericPrice,
         imageBase64,
         imageType,
       };
@@ -140,8 +165,18 @@ export default function EventForm({
 
       {error && (
         <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-xl flex items-center gap-2">
-          <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          <svg
+            className="w-5 h-5 shrink-0"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+            />
           </svg>
           <span className="text-sm font-medium">{error}</span>
         </div>
@@ -149,7 +184,9 @@ export default function EventForm({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <label className="block group/input">
-          <span className="text-sm font-medium text-gray-300 mb-1.5 block group-focus-within/input:text-blue-400 transition-colors">Event Title</span>
+          <span className="text-sm font-medium text-gray-300 mb-1.5 block group-focus-within/input:text-blue-400 transition-colors">
+            Event Title
+          </span>
           <div className="relative">
             <input
               type="text"
@@ -163,7 +200,9 @@ export default function EventForm({
         </label>
 
         <label className="block group/input">
-          <span className="text-sm font-medium text-gray-300 mb-1.5 block group-focus-within/input:text-blue-400 transition-colors">Venue</span>
+          <span className="text-sm font-medium text-gray-300 mb-1.5 block group-focus-within/input:text-blue-400 transition-colors">
+            Venue
+          </span>
           <div className="relative">
             <input
               type="text"
@@ -174,11 +213,30 @@ export default function EventForm({
             />
           </div>
         </label>
+
+        <label className="block group/input">
+          <span className="text-sm font-medium text-gray-300 mb-1.5 block group-focus-within/input:text-blue-400 transition-colors">
+            Price (₹)
+          </span>
+          <div className="relative">
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all"
+              placeholder="0 for Free"
+            />
+          </div>
+        </label>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <label className="block group/input">
-          <span className="text-sm font-medium text-gray-300 mb-1.5 block group-focus-within/input:text-blue-400 transition-colors">Manager Email</span>
+          <span className="text-sm font-medium text-gray-300 mb-1.5 block group-focus-within/input:text-blue-400 transition-colors">
+            Manager Email
+          </span>
           <div className="relative">
             <input
               type="email"
@@ -192,7 +250,9 @@ export default function EventForm({
         </label>
 
         <label className="block group/input">
-          <span className="text-sm font-medium text-gray-300 mb-1.5 block group-focus-within/input:text-blue-400 transition-colors">Date & Time</span>
+          <span className="text-sm font-medium text-gray-300 mb-1.5 block group-focus-within/input:text-blue-400 transition-colors">
+            Date & Time
+          </span>
           <div className="relative">
             <input
               type="datetime-local"
@@ -205,7 +265,9 @@ export default function EventForm({
       </div>
 
       <label className="block group/input">
-        <span className="text-sm font-medium text-gray-300 mb-1.5 block group-focus-within/input:text-blue-400 transition-colors">Description</span>
+        <span className="text-sm font-medium text-gray-300 mb-1.5 block group-focus-within/input:text-blue-400 transition-colors">
+          Description
+        </span>
         <div className="relative">
           <textarea
             value={description}
@@ -218,7 +280,9 @@ export default function EventForm({
       </label>
 
       <label className="block">
-        <span className="text-sm font-medium text-gray-300 mb-1.5 block">Event Image (Optional)</span>
+        <span className="text-sm font-medium text-gray-300 mb-1.5 block">
+          Event Image (Optional)
+        </span>
         <div className="relative group/image">
           <input
             type="file"
@@ -258,30 +322,53 @@ export default function EventForm({
           className={`
             w-full py-3.5 rounded-xl font-bold text-white shadow-lg transition-all duration-300
             flex items-center justify-center gap-2
-            ${loading
-              ? 'bg-gray-700 cursor-not-allowed'
-              : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 hover:shadow-blue-500/25 active:scale-[0.98]'
+            ${
+              loading
+                ? "bg-gray-700 cursor-not-allowed"
+                : "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 hover:shadow-blue-500/25 active:scale-[0.98]"
             }
           `}
         >
           {loading ? (
             <>
               <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              <span>{mode === "create" ? "Creating Event..." : "Updating Event..."}</span>
+              <span>
+                {mode === "create" ? "Creating Event..." : "Updating Event..."}
+              </span>
             </>
           ) : (
             <>
               {mode === "create" ? (
                 <>
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 4v16m8-8H4"
+                    />
                   </svg>
                   <span>Create Event</span>
                 </>
               ) : (
                 <>
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                    />
                   </svg>
                   <span>Update Event</span>
                 </>

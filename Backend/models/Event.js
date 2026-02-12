@@ -28,6 +28,8 @@ const EventSchema = new Schema(
     description: { type: String, trim: true },
     venue: { type: String, trim: true },
     date: { type: Date, required: true },
+    // Optional price in rupees. 0 or missing means free.
+    price: { type: Number, default: 0, min: 0 },
     imageUrl: { type: String, trim: true },
     // Email of the event manager/organizer. Required so each event has a contact.
     managerEmail: {
@@ -48,7 +50,7 @@ const EventSchema = new Schema(
     isTestEnabled: { type: Boolean, default: false },
     questions: [QuestionSchema],
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 module.exports = model("Event", EventSchema);

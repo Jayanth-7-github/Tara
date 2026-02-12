@@ -27,6 +27,7 @@ export default function AdminDashboard() {
     unreadContacts: 0,
     activeManagers: 0,
   });
+  const [imageError, setImageError] = useState({});
 
   // Auto-refresh every 1 minute
   useEffect(() => {
@@ -80,30 +81,30 @@ export default function AdminDashboard() {
 
       const now = new Date();
       const upcomingEvents = allEvents.filter(
-        (ev) => new Date(ev.date) > now
+        (ev) => new Date(ev.date) > now,
       ).length;
       const pastEvents = allEvents.filter(
-        (ev) => new Date(ev.date) <= now
+        (ev) => new Date(ev.date) <= now,
       ).length;
 
       // Get recent events (last 5)
       const sortedEvents = [...allEvents].sort(
-        (a, b) => new Date(b.date) - new Date(a.date)
+        (a, b) => new Date(b.date) - new Date(a.date),
       );
       setRecentEvents(sortedEvents.slice(0, 5));
 
       const totalRegistrations = allEvents.reduce(
         (sum, ev) => sum + (ev.registeredCount || 0),
-        0
+        0,
       );
       const totalAttendance = allEvents.reduce(
         (sum, ev) => sum + (ev.attendedCount || 0),
-        0
+        0,
       );
 
       // Count unique event managers
       const uniqueManagers = new Set(
-        allEvents.map((ev) => ev.managerEmail).filter(Boolean)
+        allEvents.map((ev) => ev.managerEmail).filter(Boolean),
       );
 
       // Fetch contacts
@@ -412,10 +413,11 @@ export default function AdminDashboard() {
               <div className="flex items-center justify-between">
                 <span className="text-gray-300 text-sm">Unread Contacts</span>
                 <span
-                  className={`px-3 py-1 rounded-full text-sm font-medium ${stats.unreadContacts > 0
-                    ? "bg-red-500/10 text-red-400"
-                    : "bg-green-500/10 text-green-400"
-                    }`}
+                  className={`px-3 py-1 rounded-full text-sm font-medium ${
+                    stats.unreadContacts > 0
+                      ? "bg-red-500/10 text-red-400"
+                      : "bg-green-500/10 text-green-400"
+                  }`}
                 >
                   {stats.unreadContacts}
                 </span>
@@ -679,9 +681,13 @@ export default function AdminDashboard() {
                 const eventDate = new Date(event.date);
                 const isUpcoming = eventDate > new Date();
                 const apiBase = API_BASE.replace(/\/$/, "");
+                const id = event._id || event.id;
+                const cacheBustSource = event.updatedAt || event.createdAt;
+                const cacheBust = cacheBustSource
+                  ? `?v=${new Date(cacheBustSource).getTime()}`
+                  : "";
                 const imageSrc =
-                  event.imageUrl ||
-                  `${apiBase}/events/${event._id || event.id}/image`;
+                  event.imageUrl || `${apiBase}/events/${id}/image${cacheBust}`;
 
                 return (
                   <div
@@ -691,12 +697,19 @@ export default function AdminDashboard() {
                   >
                     <div className="flex items-start gap-4">
                       <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-700 flex-shrink-0">
-                        {imageSrc && (
+                        {imageSrc && !imageError[id] ? (
                           <img
                             src={imageSrc}
                             alt={event.title}
                             className="w-full h-full object-cover"
+                            onError={() =>
+                              setImageError((prev) => ({ ...prev, [id]: true }))
+                            }
                           />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs">
+                            No image
+                          </div>
                         )}
                       </div>
 
@@ -721,7 +734,11 @@ export default function AdminDashboard() {
                                     d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
                                   />
                                 </svg>
-                                {eventDate.toLocaleDateString()}
+                                {eventDate.toLocaleDateString("en-GB", {
+                                  day: "2-digit",
+                                  month: "2-digit",
+                                  year: "2-digit",
+                                })}
                               </span>
                               <span className="flex items-center gap-1">
                                 <svg
@@ -751,10 +768,11 @@ export default function AdminDashboard() {
                             </div>
                           </div>
                           <span
-                            className={`px-2 py-1 rounded-full text-xs font-medium ${isUpcoming
-                              ? "bg-green-500/10 text-green-400"
-                              : "bg-gray-500/10 text-gray-400"
-                              }`}
+                            className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              isUpcoming
+                                ? "bg-green-500/10 text-green-400"
+                                : "bg-gray-500/10 text-gray-400"
+                            }`}
                           >
                             {isUpcoming ? "Upcoming" : "Completed"}
                           </span>
