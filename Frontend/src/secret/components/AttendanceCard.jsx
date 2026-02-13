@@ -27,8 +27,6 @@ export default function AttendanceCard({
     ? "border-red-700/60 bg-red-900/10"
     : "border-green-700/60 bg-green-900/10";
 
-  const activeSessions = selectedEvent?.sessions?.filter((s) => s.isActive) || [];
-
   return (
     <div
       className={`max-w-[520px] w-full rounded-2xl border shadow-lg p-6 text-white ${cardAccent}`}
@@ -64,7 +62,12 @@ export default function AttendanceCard({
 
         {/* Show ALL sessions, but disable inactive ones */}
         <div className="flex flex-col gap-3">
-          {selectedEvent?.sessions?.length === 0 ? (
+          {!selectedEvent ? (
+            <div className="text-gray-500 italic text-sm text-center">
+              No event selected. Please select an event.
+            </div>
+          ) : !Array.isArray(selectedEvent.sessions) ||
+            selectedEvent.sessions.length === 0 ? (
             <div className="text-gray-500 italic text-sm text-center">
               No sessions configured by admin.
             </div>
@@ -72,7 +75,7 @@ export default function AttendanceCard({
             selectedEvent.sessions.map((session) => {
               const isActive = session.isActive;
               const isMarked = attendanceRecords.some(
-                (r) => r.sessionName === session.name && r.isPresent
+                (r) => r.sessionName === session.name && r.isPresent,
               );
 
               return (
@@ -86,11 +89,12 @@ export default function AttendanceCard({
                     }}
                     disabled={!isActive || isMarked}
                     className={`flex-1 px-4 py-3 rounded-lg font-medium transition-all duration-200 border flex items-center justify-between
-                      ${!isActive
-                        ? "bg-gray-800/50 border-gray-700 text-gray-500 cursor-not-allowed opacity-70"
-                        : isMarked
-                          ? "bg-green-600/20 border-green-500/50 text-green-400 cursor-default"
-                          : "bg-blue-600 hover:bg-blue-700 border-transparent text-white shadow-md hover:shadow-lg hover:-translate-y-0.5"
+                      ${
+                        !isActive
+                          ? "bg-gray-800/50 border-gray-700 text-gray-500 cursor-not-allowed opacity-70"
+                          : isMarked
+                            ? "bg-green-600/20 border-green-500/50 text-green-400 cursor-default"
+                            : "bg-blue-600 hover:bg-blue-700 border-transparent text-white shadow-md hover:shadow-lg hover:-translate-y-0.5"
                       }`}
                   >
                     <div className="flex items-center gap-2">
