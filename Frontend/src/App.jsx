@@ -13,6 +13,7 @@ import Assignments from "./pages/Assignments";
 import ExamPage from "./Exam/pages/ExamPage";
 import Test from "./pages/Test";
 import ManageAttendance from "./secret/pages/ManageAttendance";
+import ManageSessions from "./secret/pages/ManageSessions";
 import UpdateAttendance from "./secret/pages/UpdateAttendance";
 import MarkAbsent from "./secret/pages/MarkAbsent";
 import AdminSecret from "./secret/pages/AdminSecret";
@@ -58,6 +59,10 @@ function App() {
             <Route
               path={`/admin/manage-attendance/${ADMIN_TOKEN}`}
               element={<ManageAttendance />}
+            />
+            <Route
+              path={`/admin/manage-sessions/${ADMIN_TOKEN}`}
+              element={<ManageSessions />}
             />
             <Route
               path={`/admin/update-attendance/${ADMIN_TOKEN}`}

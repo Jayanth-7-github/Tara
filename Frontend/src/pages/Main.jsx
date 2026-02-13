@@ -42,7 +42,7 @@ export default function Main() {
       localStorage.removeItem("token");
       try {
         window.dispatchEvent(new Event("auth-changed"));
-      } catch (e) {}
+      } catch (e) { }
       navigate("/login");
     } catch (error) {
       console.error("Logout failed:", error);
@@ -50,7 +50,7 @@ export default function Main() {
       localStorage.removeItem("token");
       try {
         window.dispatchEvent(new Event("auth-changed"));
-      } catch (e) {}
+      } catch (e) { }
       navigate("/login");
     }
   };
@@ -115,12 +115,40 @@ export default function Main() {
     return () => clearInterval(interval);
   }, [user]);
 
+
+  // Loading animation on mainpage
   if (loading) {
     return (
-      <div className="min-h-screen bg-linear-to-br from-gray-950 via-black to-gray-900 text-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-400">Verifying...</p>
+      <div className="min-h-screen bg-gradient-to-br from-gray-950 via-black to-gray-900 text-white flex items-center justify-center relative overflow-hidden">
+        {/* Animated background gradient orbs */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-cyan-600/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+        </div>
+
+        {/* Main loading container */}
+        <div className="relative z-10 text-center">
+          {/* Loading text with animated dots */}
+          <div className="space-y-3">
+            <h3 className="text-xl font-semibold bg-gradient-to-r from-blue-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent animate-pulse">
+              Getting things ready
+            </h3>
+
+            {/* Animated dots */}
+            <div className="flex items-center justify-center gap-1.5">
+              <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+              <div className="w-2 h-2 bg-cyan-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+              <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+            </div>
+
+            {/* Subtle message */}
+            <p className="text-sm text-gray-500 mt-4">Please wait a moment...</p>
+          </div>
+
+          {/* Progress bar */}
+          <div className="mt-8 w-64 h-1 mx-auto bg-gray-800 rounded-full overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full animate-pulse shadow-lg shadow-blue-500/50"></div>
+          </div>
         </div>
       </div>
     );

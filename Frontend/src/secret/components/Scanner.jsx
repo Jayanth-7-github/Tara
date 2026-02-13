@@ -26,7 +26,7 @@ export default function Scanner({ onScan, onMark, studentFound = null }) {
         url.searchParams.get("id") ||
         url.searchParams.get("q");
       if (p) return p.trim();
-    } catch (_) {}
+    } catch (_) { }
 
     // Look for 10–15 digit student IDs
     const numMatch = raw.match(/\b\d{8,15}\b/);
@@ -120,7 +120,7 @@ export default function Scanner({ onScan, onMark, studentFound = null }) {
             candidateMap.clear();
           }
         },
-        (err) => {}
+        (err) => { }
       );
 
       setScanning(true);
@@ -138,7 +138,7 @@ export default function Scanner({ onScan, onMark, studentFound = null }) {
       try {
         await html5QrcodeRef.current.stop();
         html5QrcodeRef.current.clear();
-      } catch (_) {}
+      } catch (_) { }
       html5QrcodeRef.current = null;
     }
     setScanning(false);
@@ -186,20 +186,18 @@ export default function Scanner({ onScan, onMark, studentFound = null }) {
       <div className="relative cursor-pointer" onClick={handleScannerClick}>
         <div
           id={qrRegionId.current}
-          className={`w-[320px] h-[250px] border border-gray-700 rounded-md overflow-hidden shadow-md transition-all ${
-            regno
-              ? "bg-gray-900/60 opacity-30 pointer-events-none"
-              : scanning
+          className={`w-[320px] h-[250px] border border-gray-700 rounded-md overflow-hidden shadow-md transition-all ${regno
+            ? "bg-gray-900/60 opacity-30 pointer-events-none"
+            : scanning
               ? "bg-gray-900/60"
               : "bg-gray-800/80"
-          } mx-auto`}
+            } mx-auto`}
         />
 
         {/* Professional Scanner Overlay */}
         <div
-          className={`absolute inset-0 rounded-md pointer-events-none transition-opacity duration-300 ${
-            regno ? "opacity-30" : "opacity-100"
-          }`}
+          className={`absolute inset-0 rounded-md pointer-events-none transition-opacity duration-300 ${regno ? "opacity-30" : "opacity-100"
+            }`}
         >
           {/* Active scanning indicator */}
           {scanning && (
@@ -248,34 +246,6 @@ export default function Scanner({ onScan, onMark, studentFound = null }) {
         </div>
       </div>
 
-      {decodedText && (
-        <div className="mt-2 text-gray-200 text-sm bg-gray-800 border border-gray-700 px-3 py-2 rounded-md w-full">
-          <strong>Captured:</strong> {decodedText}
-        </div>
-      )}
-
-      {regno && (
-        <div
-          className={`mt-2 w-full p-3 rounded-lg shadow-sm ${
-            studentFound === false
-              ? "bg-red-900 border border-red-700 text-red-200"
-              : "bg-green-900 border border-green-700 text-green-200"
-          }`}
-        >
-          <div className="font-semibold mb-2">
-            {studentFound === false ? "❌" : "✅"} Registration Number: {regno}
-          </div>
-          {studentFound === false && (
-            <div className="text-sm text-red-300 mt-1">Not Registered</div>
-          )}
-        </div>
-      )}
-
-      {!regno && (
-        <small className="text-gray-400">
-          Point your camera at an ID back barcode.
-        </small>
-      )}
     </div>
   );
 }

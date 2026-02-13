@@ -595,8 +595,8 @@ export default function EventsList({
                               }}
                               disabled={isTogglingTest}
                               className={`px-4 py-2 rounded-lg font-bold text-xs transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${ev.isTestEnabled !== false
-                                  ? "bg-red-500/10 text-red-400 border border-red-500/50 hover:bg-red-500/20"
-                                  : "bg-green-500/10 text-green-400 border border-green-500/50 hover:bg-green-500/20"
+                                ? "bg-red-500/10 text-red-400 border border-red-500/50 hover:bg-red-500/20"
+                                : "bg-green-500/10 text-green-400 border border-green-500/50 hover:bg-green-500/20"
                                 }`}
                             >
                               {isTogglingTest

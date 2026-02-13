@@ -7,6 +7,8 @@ import {
   createStudentsBulk,
   fetchEvents,
 } from "../../services/api";
+import { useNavigate } from "react-router-dom";
+import { ADMIN_TOKEN } from "../../services/constants";
 
 // Secret page: paste JSON (single object or array) matching Student model:
 // Accepts either:
@@ -49,6 +51,14 @@ function normalizeStudentInput(s) {
 }
 
 export default function ManageAttendance() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (sessionStorage.getItem("adminUnlocked") !== "1") {
+      navigate(`/admin/secret/${ADMIN_TOKEN}`);
+    }
+  }, [navigate]);
+
   const [text, setText] = useState("");
   const [parsed, setParsed] = useState(null);
   const [errors, setErrors] = useState([]);

@@ -49,6 +49,12 @@ const EventSchema = new Schema(
     attendedCount: { type: Number, default: 0 },
     isTestEnabled: { type: Boolean, default: false },
     questions: [QuestionSchema],
+    sessions: [
+      {
+        name: { type: String, required: true },
+        isActive: { type: Boolean, default: false },
+      },
+    ],
   },
   { timestamps: true },
 );

@@ -1,9 +1,19 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import AdminNavbar from "../components/AdminNavbar";
 import { updateAttendance } from "../../services/api";
+import { ADMIN_TOKEN } from "../../services/constants";
 
 export default function MarkAbsent() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (sessionStorage.getItem("adminUnlocked") !== "1") {
+      navigate(`/admin/secret/${ADMIN_TOKEN}`);
+    }
+  }, [navigate]);
+
   const [regno, setRegno] = useState("");
   const [eventName, setEventName] = useState("Vintra");
   const [loading, setLoading] = useState(false);

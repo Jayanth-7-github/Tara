@@ -118,6 +118,12 @@ export default function AdminSecret() {
                     Manage Students
                   </Link>
                   <Link
+                    to={`/admin/manage-sessions/${ADMIN_TOKEN}`}
+                    className="px-4 py-2 rounded bg-teal-600 hover:bg-teal-700 text-white text-sm"
+                  >
+                    Manage Sessions
+                  </Link>
+                  <Link
                     to={`/member/summary/${ADMIN_TOKEN}`}
                     className="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-sm"
                   >

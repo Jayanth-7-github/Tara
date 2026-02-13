@@ -1,4 +1,5 @@
 require("dotenv").config();
+// triggering restart for schema updates
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
@@ -12,10 +13,10 @@ const app = express();
 // will still be emitted so critical failures are visible unless you also
 // redirect stderr when launching the process.
 if (process.env.QUIET === "1") {
-  console.log = () => {};
-  console.info = () => {};
-  console.debug = () => {};
-  console.warn = () => {};
+  console.log = () => { };
+  console.info = () => { };
+  console.debug = () => { };
+  console.warn = () => { };
 }
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;

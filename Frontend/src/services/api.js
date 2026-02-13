@@ -1,7 +1,7 @@
-import { API_BASE } from "./constants";
+import { API_BASE, ADMIN_TOKEN } from "./constants";
 
 // Backward-compatible export: some components import API_BASE from this module.
-export { API_BASE };
+export { API_BASE, ADMIN_TOKEN };
 
 export async function searchStudents(query) {
   const resp = await fetch(
@@ -22,11 +22,11 @@ export async function fetchStudent(regno) {
   return resp.json();
 }
 
-export async function markAttendance(regno, eventName) {
+export async function markAttendance(regno, eventName, sessionName) {
   const resp = await fetch(`${API_BASE}/attendance`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ regno, eventName }),
+    body: JSON.stringify({ regno, eventName, sessionName }),
   });
   const body = await resp.json();
   if (!resp.ok) {
@@ -190,8 +190,9 @@ export async function getAllTestResults(filters = {}) {
 
 // Events API
 export async function fetchEvents() {
-  const resp = await fetch(`${API_BASE.replace(/\/$/, "")}/events`, {
+  const resp = await fetch(`${API_BASE.replace(/\/$/, "")}/events?t=${Date.now()}`, {
     credentials: "include",
+    headers: { "Cache-Control": "no-cache" },
   });
   if (!resp.ok) throw new Error("Failed to fetch events");
   return resp.json();
@@ -228,7 +229,10 @@ export async function updateEvent(eventId, eventPayload) {
     `${API_BASE.replace(/\/$/, "")}/events/${encodeURIComponent(eventId)}`,
     {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-admin-token": ADMIN_TOKEN // Add secret token
+      },
       credentials: "include",
       body: JSON.stringify(eventPayload),
     },

@@ -185,11 +185,10 @@ export default function AddRoles() {
 
             {message && (
               <div
-                className={`p-3 rounded ${
-                  message.type === "error"
-                    ? "bg-red-700 text-white"
-                    : "bg-emerald-700 text-white"
-                }`}
+                className={`p-3 rounded ${message.type === "error"
+                  ? "bg-red-700 text-white"
+                  : "bg-emerald-700 text-white"
+                  }`}
               >
                 {message.text}
               </div>

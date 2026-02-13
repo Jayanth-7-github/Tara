@@ -1,12 +1,10 @@
 export default function AttendanceCard({
   student,
-  onCheckIn,
-  onCheckOut,
-  onOpenSummary,
+  selectedEvent,
+  onCheckIn, // (regno, sessionName) => Promise<boolean>
   onCancel,
   onClose,
-  isMarked = false,
-  attendanceInfo,
+  attendanceRecords = [],
 }) {
   if (!student) return null;
 
@@ -25,17 +23,11 @@ export default function AttendanceCard({
       .toLowerCase()
       .replace(/[^a-z]/g, "") === "dayscholar";
 
-  const currentlyOut = Boolean(attendanceInfo?.currentlyOut);
-  // Break tracking UX:
-  // - Start: can check out
-  // - After checkout: can check in (return)
-  // - After check-in: can check out again
-  const disableCheckIn = !currentlyOut || Boolean(isMarked);
-  const disableCheckOut = currentlyOut;
-
   const cardAccent = isDayScholar
     ? "border-red-700/60 bg-red-900/10"
     : "border-green-700/60 bg-green-900/10";
+
+  const activeSessions = selectedEvent?.sessions?.filter((s) => s.isActive) || [];
 
   return (
     <div
@@ -49,27 +41,14 @@ export default function AttendanceCard({
           <span className="font-semibold text-gray-400">Roll Number:</span>{" "}
           <span className="text-white">{rollNumber}</span>
         </p>
-
         <p className="text-gray-300">
           <span className="font-semibold text-gray-400">Role:</span>{" "}
           <span className="text-white">{teamRole}</span>
         </p>
-
         <p className="text-gray-300">
           <span className="font-semibold text-gray-400">Team Name:</span>{" "}
           <span className="text-white">{teamName || "—"}</span>
         </p>
-
-        <p className="text-gray-300">
-          <span className="font-semibold text-gray-400">Email:</span>{" "}
-          <span className="text-white break-all">{email || "—"}</span>
-        </p>
-
-        <p className="text-gray-300">
-          <span className="font-semibold text-gray-400">Branch:</span>{" "}
-          <span className="text-white">{branch || "—"}</span>
-        </p>
-
         <p className="text-gray-300">
           <span className="font-semibold text-gray-400">Hostel Name:</span>{" "}
           <span className="text-white">{hostelName || "—"}</span> •
@@ -77,53 +56,78 @@ export default function AttendanceCard({
           <span className="text-white">{roomNo || "—"}</span>
         </p>
       </div>
-      <div className="flex flex-wrap gap-3">
-        <button
-          onClick={async () => {
-            if (disableCheckIn) return;
-            if (!onCheckIn) return;
-            const ok = await onCheckIn(rollNumber);
-            if (ok) (onClose || onCancel)?.();
-          }}
-          disabled={disableCheckIn}
-          className={`px-4 py-2 rounded-md text-white font-medium transition-colors ${
-            disableCheckIn
-              ? "bg-gray-600 cursor-default"
-              : "bg-blue-600 hover:bg-blue-700"
-          }`}
-        >
-          {disableCheckIn ? "Check In" : "Check In (Return)"}
-        </button>
 
-        <button
-          onClick={async () => {
-            if (!onCheckOut) return;
-            if (disableCheckOut) return;
-            if (isDayScholar) {
-              const ok = window.confirm("Do you really want to checkout?");
-              if (!ok) return;
-            }
-            const ok = await onCheckOut(rollNumber);
-            if (ok) (onClose || onCancel)?.();
-          }}
-          disabled={disableCheckOut}
-          className={`px-4 py-2 rounded-md text-white font-medium transition-colors ${
-            disableCheckOut
-              ? "bg-gray-600 cursor-default"
-              : "bg-purple-600 hover:bg-purple-700"
-          }`}
-        >
-          {disableCheckOut ? "✓ Checked Out" : "Check Out"}
-        </button>
+      <div className="border-t border-gray-700/50 pt-4 mt-4">
+        <h4 className="text-gray-400 text-sm font-semibold mb-3 uppercase tracking-wider">
+          Attendance Sessions
+        </h4>
 
-        {onCancel && (
-          <button
-            onClick={onCancel}
-            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-          >
-            Cancel
-          </button>
-        )}
+        {/* Show ALL sessions, but disable inactive ones */}
+        <div className="flex flex-col gap-3">
+          {selectedEvent?.sessions?.length === 0 ? (
+            <div className="text-gray-500 italic text-sm text-center">
+              No sessions configured by admin.
+            </div>
+          ) : (
+            selectedEvent.sessions.map((session) => {
+              const isActive = session.isActive;
+              const isMarked = attendanceRecords.some(
+                (r) => r.sessionName === session.name && r.isPresent
+              );
+
+              return (
+                <div key={session.name} className="flex items-center gap-3">
+                  <button
+                    onClick={async () => {
+                      if (!isActive || isMarked) return;
+                      if (onCheckIn) {
+                        await onCheckIn(rollNumber, session.name);
+                      }
+                    }}
+                    disabled={!isActive || isMarked}
+                    className={`flex-1 px-4 py-3 rounded-lg font-medium transition-all duration-200 border flex items-center justify-between
+                      ${!isActive
+                        ? "bg-gray-800/50 border-gray-700 text-gray-500 cursor-not-allowed opacity-70"
+                        : isMarked
+                          ? "bg-green-600/20 border-green-500/50 text-green-400 cursor-default"
+                          : "bg-blue-600 hover:bg-blue-700 border-transparent text-white shadow-md hover:shadow-lg hover:-translate-y-0.5"
+                      }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      {/* Icon based on state */}
+                      {isMarked ? (
+                        <span>✓</span>
+                      ) : !isActive ? (
+                        <span className="text-xs">🔒</span>
+                      ) : (
+                        <span>📍</span>
+                      )}
+                      <span>{session.name}</span>
+                    </div>
+
+                    {/* Status Label on right */}
+                    <span className="text-xs font-semibold opacity-80 uppercase tracking-widest">
+                      {isMarked
+                        ? "Marked"
+                        : !isActive
+                          ? "Waiting for Admin"
+                          : "Mark Attendance"}
+                    </span>
+                  </button>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+
+      <div className="flex justify-end mt-6 pt-4 border-t border-gray-700/50">
+        <button
+          onClick={onCancel || onClose}
+          className="px-6 py-2 bg-gray-700 text-gray-300 rounded-md hover:bg-gray-600 hover:text-white transition-colors"
+        >
+          Close
+        </button>
       </div>
     </div>
   );

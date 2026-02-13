@@ -24,26 +24,46 @@ export default function AttendancePage() {
   const [loading, setLoading] = useState(false);
   const [showManualSearch, setShowManualSearch] = useState(false);
   const [isMarked, setIsMarked] = useState(false);
-  const [attendanceInfo, setAttendanceInfo] = useState({
-    checkedIn: false,
-    checkedOut: false,
-    currentlyOut: false,
-    returned: false,
-    checkInText: "",
-    checkOutText: "",
-  });
+  const [attendanceRecords, setAttendanceRecords] = useState([]);
 
   useEffect(() => {
     refreshSummary();
     loadEvents();
+
+    const timer = setInterval(() => {
+      loadEvents();
+      refreshSummary();
+    }, 5000);
+
+    return () => clearInterval(timer);
   }, []);
+
+  // Update attendance records when the student or selected event changes
+  useEffect(() => {
+    if (student && selectedEvent) {
+      const regno = student.regno || student.rollNumber;
+      const eventName = selectedEvent.title || "Vintra";
+      checkAttendance(regno, eventName)
+        .then((res) => {
+          setAttendanceRecords(res.records || []);
+        })
+        .catch((err) => console.error("Failed to refresh attendance:", err));
+    }
+  }, [student, selectedEvent?._id]);
+
 
   const loadEvents = async () => {
     try {
       const res = await fetchEvents();
       const items = res?.events || [];
       setEvents(items);
-      if (items.length > 0) setSelectedEvent(items[0]);
+
+      setSelectedEvent((prev) => {
+        if (!prev && items.length > 0) return items[0];
+        if (!prev) return null;
+        const fresh = items.find((it) => it._id === prev._id);
+        return fresh || (items.length > 0 ? items[0] : null);
+      });
     } catch (err) {
       console.error("Failed to load events:", err);
     }
@@ -62,14 +82,7 @@ export default function AttendancePage() {
     setMessage("");
     setStudent(null);
     setIsMarked(false); // Reset marked state for new search
-    setAttendanceInfo({
-      checkedIn: false,
-      checkedOut: false,
-      currentlyOut: false,
-      returned: false,
-      checkInText: "",
-      checkOutText: "",
-    });
+    setAttendanceRecords([]);
     setLoading(true);
     try {
       const s = await fetchStudent(regno);
@@ -80,24 +93,12 @@ export default function AttendancePage() {
       try {
         const eventName = selectedEvent?.title || "Vintra";
         const attendanceStatus = await checkAttendance(regno, eventName);
-        const a = attendanceStatus?.attendance;
-        const checkedIn = Boolean(a?.checkInAt);
-        const checkedOut = Boolean(a?.checkOutAt);
-        const currentlyOut = Boolean(
-          attendanceStatus?.currentlyOut ?? a?.currentlyOut,
-        );
-        const returned = Boolean(attendanceStatus?.returned ?? a?.returned);
-        setAttendanceInfo({
-          checkedIn,
-          checkedOut,
-          currentlyOut,
-          returned,
-          checkInText: a?.checkInText || "",
-          checkOutText: a?.checkOutText || "",
-        });
-        // Disable Check In unless they're currently out.
-        setIsMarked(!currentlyOut);
-        if (currentlyOut) setMessage(`${s.name} is currently out.`);
+        const records = attendanceStatus.records || [];
+        setAttendanceRecords(records);
+        // Is marked logic might need to be session specific?
+        // checking if *any* session is marked or if *all* enabled sessions are marked?
+        // Let's just reset isMarked to false and let the card handle the UI.
+        setIsMarked(false);
       } catch (checkErr) {
         console.error("Failed to check attendance:", checkErr);
       }
@@ -108,30 +109,17 @@ export default function AttendancePage() {
     }
   };
 
-  const handleMark = async (regno) => {
+  const handleMark = async (regno, sessionName) => {
     try {
       const eventName = selectedEvent?.title || "Vintra";
-      const res = await markAttendance(regno, eventName);
+      const res = await markAttendance(regno, eventName, sessionName);
       setMessage(res.message || "Checked in successfully!");
       // Refresh from server to apply break-state rules (out -> in)
       try {
         const attendanceStatus = await checkAttendance(regno, eventName);
-        const a = attendanceStatus?.attendance;
-        const checkedIn = Boolean(a?.checkInAt);
-        const checkedOut = Boolean(a?.checkOutAt);
-        const currentlyOut = Boolean(
-          attendanceStatus?.currentlyOut ?? a?.currentlyOut,
-        );
-        const returned = Boolean(attendanceStatus?.returned ?? a?.returned);
-        setAttendanceInfo({
-          checkedIn,
-          checkedOut,
-          currentlyOut,
-          returned,
-          checkInText: a?.checkInText || "",
-          checkOutText: a?.checkOutText || "",
-        });
-        setIsMarked(!currentlyOut);
+        const records = attendanceStatus.records || [];
+        setAttendanceRecords(records);
+        setIsMarked(false);
       } catch {
         setIsMarked(true);
       }
@@ -154,32 +142,12 @@ export default function AttendancePage() {
       // After checkout, re-check status to drive UI break-state rules reliably
       try {
         const attendanceStatus = await checkAttendance(regno, eventName);
-        const a = attendanceStatus?.attendance;
-        const checkedIn = Boolean(a?.checkInAt);
-        const checkedOut = Boolean(a?.checkOutAt);
-        const currentlyOut = Boolean(
-          attendanceStatus?.currentlyOut ?? a?.currentlyOut,
-        );
-        const returned = Boolean(attendanceStatus?.returned ?? a?.returned);
-        setAttendanceInfo({
-          checkedIn,
-          checkedOut,
-          currentlyOut,
-          returned,
-          checkInText: a?.checkInText || "",
-          checkOutText: a?.checkOutText || "",
-        });
-        setIsMarked(!currentlyOut);
+        const records = attendanceStatus.records || [];
+        setAttendanceRecords(records);
+        setIsMarked(false);
       } catch {
-        // fallback: assume currently out after checkout
-        setAttendanceInfo({
-          checkedIn: Boolean(res?.attendance?.checkInAt),
-          checkedOut: true,
-          currentlyOut: true,
-          returned: false,
-          checkInText: "",
-          checkOutText: "",
-        });
+        // fallback
+        setAttendanceRecords([]);
         setIsMarked(false);
       }
       refreshSummary();
@@ -305,34 +273,21 @@ export default function AttendancePage() {
         ) : student ? (
           <AttendanceCard
             student={student}
+            selectedEvent={selectedEvent}
             onCheckIn={handleMark}
             onCheckOut={handleCheckOut}
             isMarked={isMarked}
-            attendanceInfo={attendanceInfo}
+            attendanceRecords={attendanceRecords}
             onClose={() => {
               setStudent(null);
               setIsMarked(false);
-              setAttendanceInfo({
-                checkedIn: false,
-                checkedOut: false,
-                currentlyOut: false,
-                returned: false,
-                checkInText: "",
-                checkOutText: "",
-              });
+              setAttendanceRecords([]);
             }}
             onCancel={() => {
               setStudent(null);
               setMessage("");
               setIsMarked(false);
-              setAttendanceInfo({
-                checkedIn: false,
-                checkedOut: false,
-                currentlyOut: false,
-                returned: false,
-                checkInText: "",
-                checkOutText: "",
-              });
+              setAttendanceRecords([]);
             }}
           />
         ) : (

@@ -1,83 +1,122 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getSummary, downloadCSV } from "../../services/api";
+import { getSummary, downloadCSV, fetchEvents } from "../../services/api";
 import { ADMIN_TOKEN } from "../../services/constants";
 
 export default function AttendanceSummary() {
   const navigate = useNavigate();
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState("");
+  const [selectedEventName, setSelectedEventName] = useState("");
+  const [events, setEvents] = useState([]);
 
   useEffect(() => {
-    refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    loadData();
 
-  useEffect(() => {
-    if (!selectedEvent) return;
-    refresh(selectedEvent);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedEvent]);
+    // Auto-refresh summary every 5 seconds
+    const timer = setInterval(() => {
+      refreshSummaryOnly(selectedEventName);
+    }, 5000);
 
-  const refresh = async (eventName) => {
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedEventName]);
+
+  const loadData = async () => {
     setLoading(true);
     try {
-      const data = await getSummary({ eventName, limit: 20000 });
-      setSummary(data);
-      // Pick a default event for downloads: most frequent event if available
-      if (!eventName && data && data.byEvent) {
-        const entries = Object.entries(data.byEvent);
+      const [summaryData, eventsData] = await Promise.all([
+        getSummary({ limit: 20000 }),
+        fetchEvents(),
+      ]);
+
+      setSummary(summaryData);
+      setEvents(eventsData.events || []);
+
+      if (summaryData?.byEvent) {
+        const entries = Object.entries(summaryData.byEvent);
         if (entries.length > 0) {
           const [topEvent] = entries.sort((a, b) => b[1] - a[1])[0];
-          setSelectedEvent(topEvent);
-        } else if (data.records && data.records.length > 0) {
-          setSelectedEvent(data.records[0].eventName || "default");
+          setSelectedEventName(topEvent);
+        } else if (summaryData.records && summaryData.records.length > 0) {
+          setSelectedEventName(summaryData.records[0].eventName || "default");
         } else {
-          setSelectedEvent("default");
+          setSelectedEventName("default");
         }
       }
     } catch (err) {
-      console.error("Failed to load summary:", err);
+      console.error("Failed to load data:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  const records =
+  const refreshSummaryOnly = async (eventName) => {
+    setLoading(true);
+    try {
+      const data = await getSummary({ eventName, limit: 20000 });
+      setSummary(data);
+    } catch (err) {
+      console.error("Failed to refresh summary:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Filter records by selected event
+  const rawRecords =
     summary && summary.records
       ? summary.records.filter(
-          (r) => (r.eventName || "default") === (selectedEvent || "default"),
-        )
+        (r) =>
+          (r.eventName || "default") === (selectedEventName || "default")
+      )
       : [];
 
-  const counts =
-    summary?.countsByEvent && selectedEvent
-      ? summary.countsByEvent[selectedEvent]
-      : null;
+  // Determine columns based on Event Config
+  const currentEventObj = events.find((e) => e.title === selectedEventName);
+  const sessionConfig = currentEventObj?.sessions || [];
+  // Show ALL configured sessions, not just active ones
+  const sessionColumns = sessionConfig;
 
-  const totalCheckIns =
-    counts?.totalCheckIns ??
-    records.reduce((n, r) => n + (r.checkedIn ? 1 : 0), 0);
-  const totalCheckOuts =
-    counts?.totalCheckOuts ??
-    records.reduce((n, r) => n + (r.checkedOut ? 1 : 0), 0);
+  // Group records by student (regno)
+  const studentsMap = {};
+  rawRecords.forEach((r) => {
+    if (!studentsMap[r.regno]) {
+      studentsMap[r.regno] = {
+        ...r,
+        sessions: {},
+      };
+    }
 
-  const totalReturns =
-    counts?.totalReturns ??
-    records.reduce((n, r) => n + (r.returned ? 1 : 0), 0);
-  const totalCurrentlyOut =
-    counts?.totalCurrentlyOut ??
-    records.reduce((n, r) => n + (r.currentlyOut ? 1 : 0), 0);
+    // Map session name
+    let sKey = r.sessionName;
+    // Treat "default" as missing/legacy
+    if ((!sKey || sKey === "default") && sessionColumns.length > 0) {
+      sKey = sessionColumns[0].name;
+    } else if (sKey) {
+      // Normalize case
+      const exact = sessionColumns.find(c => c.name === sKey);
+      if (!exact) {
+        const loose = sessionColumns.find(c => c.name.toLowerCase() === sKey.toLowerCase());
+        if (loose) sKey = loose.name;
+      }
+    }
+
+    if (sKey) {
+      studentsMap[r.regno].sessions[sKey] = r;
+    }
+  });
+
+  const studentRows = Object.values(studentsMap);
 
   const handleDownload = async (mode) => {
     try {
       const blob = await downloadCSV(
         mode === "returned"
-          ? { returnedOnly: true, eventName: selectedEvent }
+          ? { returnedOnly: true, eventName: selectedEventName }
           : mode === "outnow"
-            ? { outNowOnly: true, eventName: selectedEvent }
-            : { allStudents: true, eventName: selectedEvent },
+            ? { outNowOnly: true, eventName: selectedEventName }
+            : { allStudents: true, eventName: selectedEventName }
       );
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -113,56 +152,54 @@ export default function AttendanceSummary() {
           </div>
 
           <div className="w-full sm:w-auto flex flex-col sm:flex-row sm:flex-wrap gap-3">
-            {/* Event selector for downloads */}
-            <div className="w-full sm:w-auto flex items-center gap-2 bg-gray-800/60 border border-gray-700 rounded-lg px-3 py-2">
-              <label className="text-sm text-gray-300 whitespace-nowrap">
-                Event:
-              </label>
-              <select
-                value={selectedEvent}
-                onChange={(e) => setSelectedEvent(e.target.value)}
-                className="w-full sm:w-64 bg-gray-900 text-gray-200 border border-gray-700 rounded px-2 py-1 text-sm focus:outline-none focus:border-blue-500"
+            {/* Event selector */}
+            <div className="flex flex-col sm:flex-row items-center gap-3 bg-gray-900/40 p-1 rounded-xl border border-gray-700/50">
+              <div className="flex items-center gap-2 px-3 py-2">
+                <span className="text-gray-400 text-sm font-medium">Event:</span>
+                <select
+                  value={selectedEventName}
+                  onChange={(e) => setSelectedEventName(e.target.value)}
+                  className="bg-transparent text-white text-sm font-semibold focus:outline-none cursor-pointer min-w-[150px]"
+                >
+                  {/* Show events from fetched list first for correctness, fallback to summary keys */}
+                  {events.length > 0 ? (
+                    events.map(ev => (
+                      <option key={ev._id} value={ev.title} className="bg-gray-900">
+                        {ev.title}
+                      </option>
+                    ))
+                  ) : (
+                    summary && summary.byEvent && Object.keys(summary.byEvent).map((ev) => (
+                      <option key={ev} value={ev} className="bg-gray-900">
+                        {ev}
+                      </option>
+                    ))
+                  )}
+                  {!events.length && (!summary || !summary.byEvent || Object.keys(summary.byEvent).length === 0) && (
+                    <option value="default" className="bg-gray-900">Default</option>
+                  )}
+                </select>
+              </div>
+
+              <div className="h-6 w-px bg-gray-700 hidden sm:block"></div>
+
+              <button
+                onClick={() => navigate(`/member/Attendance/${ADMIN_TOKEN}`)}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-800 transition-colors"
               >
-                {/* Build options from byEvent keys */}
-                {summary &&
-                  summary.byEvent &&
-                  Object.keys(summary.byEvent).map((ev) => (
-                    <option key={ev} value={ev}>
-                      {ev}
-                    </option>
-                  ))}
-                {/* Fallback option if byEvent empty */}
-                {summary && Object.keys(summary.byEvent || {}).length === 0 && (
-                  <option value="default">default</option>
-                )}
-              </select>
+                Back to Scan
+              </button>
             </div>
+
             <button
-              onClick={() => navigate(`/member/Attendance/${ADMIN_TOKEN}`)}
-              className="w-full sm:w-auto px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm text-gray-200 border border-gray-700 transition-all duration-200"
+              onClick={() => handleDownload("all")}
+              className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold shadow-lg shadow-blue-900/20 transition-all hover:scale-105 active:scale-95 flex items-center gap-2"
             >
-              ← Back to Attendance
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Export CSV
             </button>
-            <div className="w-full sm:w-auto grid grid-cols-1 sm:flex sm:flex-wrap gap-2">
-              <button
-                onClick={() => handleDownload("returned")}
-                className="w-full sm:w-auto px-4 py-2 rounded-lg bg-linear-to-r from-green-500 to-emerald-400 hover:from-green-400 hover:to-emerald-300 text-white text-sm font-semibold shadow-md transition-all duration-200"
-              >
-                ⬇️ Download Returned
-              </button>
-              <button
-                onClick={() => handleDownload("outnow")}
-                className="w-full sm:w-auto px-4 py-2 rounded-lg bg-linear-to-r from-amber-500 to-orange-400 hover:from-amber-400 hover:to-orange-300 text-white text-sm font-semibold shadow-md transition-all duration-200"
-              >
-                ⬇️ Download Out Now
-              </button>
-              <button
-                onClick={() => handleDownload("all")}
-                className="w-full sm:w-auto px-4 py-2 rounded-lg bg-linear-to-r from-blue-500 to-cyan-400 hover:from-blue-400 hover:to-cyan-300 text-white text-sm font-semibold shadow-md transition-all duration-200"
-              >
-                ⬇️ Download All
-              </button>
-            </div>
           </div>
         </div>
 
@@ -174,116 +211,53 @@ export default function AttendanceSummary() {
         ) : summary ? (
           <div>
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
-              <div className="text-gray-300 text-sm flex flex-wrap gap-x-4 gap-y-1">
+              <div className="text-gray-300 text-sm">
                 <div>
-                  Total Records (for "{selectedEvent}"):{" "}
+                  Total Students Tracked:{" "}
                   <span className="font-semibold text-blue-400">
-                    {records.length}
-                  </span>
-                </div>
-                <div>
-                  Total Check In:{" "}
-                  <span className="font-semibold text-green-400">
-                    {totalCheckIns}
-                  </span>
-                </div>
-                <div>
-                  Total Check Out:{" "}
-                  <span className="font-semibold text-red-400">
-                    {totalCheckOuts}
-                  </span>
-                </div>
-                <div>
-                  Total Returns:{" "}
-                  <span className="font-semibold text-cyan-300">
-                    {totalReturns}
-                  </span>
-                </div>
-                <div>
-                  Currently Out:{" "}
-                  <span className="font-semibold text-amber-300">
-                    {totalCurrentlyOut}
+                    {studentRows.length}
                   </span>
                 </div>
               </div>
               <button
-                onClick={() => refresh(selectedEvent)}
+                onClick={() => refreshSummaryOnly(selectedEventName)}
                 className="self-start sm:self-auto text-sm text-gray-400 hover:text-blue-300 transition"
               >
                 ↻ Refresh
               </button>
             </div>
 
-            {/* Mobile card list */}
+            {/* Mobile list */}
             <div className="sm:hidden space-y-3">
-              {records.map((r) => (
+              {studentRows.map((s) => (
                 <div
-                  key={`${r.regno}-${r._id || r.timestamp}`}
+                  key={s.regno}
                   className="rounded-lg border border-gray-800 bg-gray-900/50 p-4 shadow-sm"
                 >
-                  <div className="flex items-center justify-between gap-2 mb-2">
-                    <div className="min-w-0 text-base font-semibold text-gray-100 wrap-break-word">
-                      {r.name}
-                    </div>
-                    <span
-                      className={`px-2 py-1 rounded text-xs font-medium ${
-                        r.isPresent
-                          ? "bg-green-600/30 text-green-400 border border-green-500/30"
-                          : "bg-red-600/30 text-red-400 border border-red-500/30"
-                      }`}
-                    >
-                      {r.isPresent ? "Yes" : "No"}
-                    </span>
+                  <div className="text-base font-semibold text-gray-100 wrap-break-word mb-2">
+                    {s.name}
                   </div>
-                  <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-3 text-xs text-gray-300">
-                    <div>
-                      <div className="text-gray-400">Roll Number</div>
-                      <div className="text-gray-200 break-all">{r.regno}</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-400">Hostel</div>
-                      <div className="text-gray-200">{r.hostelName || "—"}</div>
-                      <div className="text-gray-400 mt-1">Room No</div>
-                      <div className="text-gray-200">{r.roomNo || "—"}</div>
-                    </div>
-                  </div>
+                  <div className="text-sm text-gray-400 mb-2">{s.regno}</div>
 
-                  <div className="mt-3 grid grid-cols-1 min-[420px]:grid-cols-2 gap-3 text-xs text-gray-300">
-                    <div>
-                      <div className="text-gray-400">Check In</div>
-                      <div className="text-gray-300 flex items-center justify-between gap-2">
-                        <span className="min-w-0 wrap-break-word">
-                          {r.checkInText || "—"}
-                        </span>
-                        <span className="shrink-0">
-                          {r.checkedIn ? "✅" : "❌"}
-                        </span>
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-gray-400">Check Out</div>
-                      <div className="text-gray-300 flex items-center justify-between gap-2">
-                        <span className="min-w-0 wrap-break-word">
-                          {r.checkOutText || "—"}
-                        </span>
-                        <span className="shrink-0">
-                          {r.checkedOut ? "✅" : "❌"}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="min-[420px]:col-span-2">
-                      <div className="text-gray-400">Status</div>
-                      <div className="text-gray-300 flex flex-wrap items-center gap-x-3 gap-y-1">
-                        <span>Returned: {r.returned ? "✅" : "❌"}</span>
-                        <span>Out Now: {r.currentlyOut ? "✅" : "❌"}</span>
-                      </div>
-                    </div>
-                    <div className="min-[420px]:col-span-2">
-                      <div className="text-gray-400">Team / Role</div>
-                      <div className="text-gray-200 wrap-break-word">
-                        {(r.teamName || "—") + " • " + (r.role || "—")}
-                      </div>
-                    </div>
+                  <div className="space-y-2">
+                    {sessionColumns.map(sess => {
+                      const record = s.sessions[sess.name];
+                      const isPresent = record && record.isPresent;
+                      return (
+                        <div key={sess.name} className="flex justify-between items-center text-sm border-t border-gray-800 pt-2">
+                          <span className="text-gray-300">{sess.name}</span>
+                          <span>
+                            {isPresent ? (
+                              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-green-500/20 text-green-400">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                </svg>
+                              </span>
+                            ) : null}
+                          </span>
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
               ))}
@@ -291,83 +265,50 @@ export default function AttendanceSummary() {
 
             {/* Desktop table */}
             <div className="hidden sm:block overflow-x-auto rounded-lg border border-gray-800 bg-gray-950/50 shadow-inner">
-              <table className="min-w-[1100px] w-full text-sm">
+              <table className="min-w-[800px] w-full text-sm">
                 <thead className="bg-gray-800/80 text-gray-200 uppercase tracking-wide text-xs">
                   <tr>
                     <th className="px-3 py-3 text-left">Roll No</th>
                     <th className="px-3 py-3 text-left">Name</th>
-                    <th className="px-3 py-3 text-left">Team</th>
-                    <th className="px-3 py-3 text-left">Role</th>
                     <th className="px-3 py-3 text-left">Email</th>
-                    <th className="px-3 py-3 text-left">Branch</th>
                     <th className="px-3 py-3 text-left">Hostel</th>
-                    <th className="px-3 py-3 text-left">Room</th>
-                    <th className="px-3 py-3 text-left">Check In</th>
-                    <th className="px-3 py-3 text-left">Check Out</th>
-                    <th className="px-3 py-3 text-left">In</th>
-                    <th className="px-3 py-3 text-left">Out</th>
-                    <th className="px-3 py-3 text-left">Returned</th>
-                    <th className="px-3 py-3 text-left">Out Now</th>
-                    <th className="px-3 py-3 text-left">Present</th>
+                    {sessionColumns.map((sess) => (
+                      <th key={sess.name} className="px-3 py-3 text-center">
+                        {sess.name}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {records.map((r, i) => (
+                  {studentRows.map((s, i) => (
                     <tr
-                      key={`${r.regno}-${r._id || r.timestamp}`}
-                      className={`${
-                        i % 2 === 0 ? "bg-gray-900/40" : "bg-gray-800/30"
-                      } border-t border-gray-800 hover:bg-gray-800/70 transition-colors`}
+                      key={s.regno}
+                      className={`${i % 2 === 0 ? "bg-gray-900/40" : "bg-gray-800/30"
+                        } border-t border-gray-800 hover:bg-gray-800/70 transition-colors`}
                     >
-                      <td className="px-3 py-3 text-gray-200">{r.regno}</td>
-                      <td className="px-3 py-3 text-gray-200">{r.name}</td>
-                      <td className="px-3 py-3 text-gray-200">
-                        {r.teamName || "—"}
-                      </td>
-                      <td className="px-3 py-3 text-gray-200">
-                        {r.role || "—"}
-                      </td>
+                      <td className="px-3 py-3 text-gray-200">{s.regno}</td>
+                      <td className="px-3 py-3 text-gray-200">{s.name}</td>
                       <td className="px-3 py-3 text-gray-200 break-all">
-                        {r.email || "—"}
+                        {s.email || "—"}
                       </td>
                       <td className="px-3 py-3 text-gray-200">
-                        {r.branch || "—"}
+                        {s.hostelName || "—"}
                       </td>
-                      <td className="px-3 py-3 text-gray-200">
-                        {r.hostelName || "—"}
-                      </td>
-                      <td className="px-3 py-3 text-gray-200">
-                        {r.roomNo || "—"}
-                      </td>
-                      <td className="px-3 py-3 text-gray-400">
-                        {r.checkInText || "—"}
-                      </td>
-                      <td className="px-3 py-3 text-gray-400">
-                        {r.checkOutText || "—"}
-                      </td>
-                      <td className="px-3 py-3 text-gray-200">
-                        {r.checkedIn ? "✅" : "❌"}
-                      </td>
-                      <td className="px-3 py-3 text-gray-200">
-                        {r.checkedOut ? "✅" : "❌"}
-                      </td>
-                      <td className="px-3 py-3 text-gray-200">
-                        {r.returned ? "✅" : "❌"}
-                      </td>
-                      <td className="px-3 py-3 text-gray-200">
-                        {r.currentlyOut ? "✅" : "❌"}
-                      </td>
-                      <td className="px-3 py-3">
-                        <span
-                          className={`px-2 py-1 rounded text-xs font-medium ${
-                            r.isPresent
-                              ? "bg-green-600/30 text-green-400 border border-green-500/30"
-                              : "bg-red-600/30 text-red-400 border border-red-500/30"
-                          }`}
-                        >
-                          {r.isPresent ? "Yes" : "No"}
-                        </span>
-                      </td>
+                      {sessionColumns.map((sess) => {
+                        const record = s.sessions[sess.name];
+                        const isPresent = record && record.isPresent;
+                        return (
+                          <td key={sess.name} className="px-3 py-3 text-center">
+                            {isPresent ? (
+                              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-500/20 text-green-400">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                </svg>
+                              </span>
+                            ) : null}
+                          </td>
+                        );
+                      })}
                     </tr>
                   ))}
                 </tbody>
@@ -380,6 +321,6 @@ export default function AttendanceSummary() {
           </div>
         )}
       </div>
-    </div>
+    </div >
   );
 }

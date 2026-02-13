@@ -24,8 +24,8 @@ router.get("/:id/image", delegate('getEventImage', getEventImage));
 // POST /api/events/:id/register -> register
 router.post("/:id/register", delegate('registerEvent', registerEvent));
 
-// PUT /api/events/:id -> update event (authenticated)
-router.put("/:id", protect, delegate('updateEvent', updateEvent));
+// PUT /api/events/:id -> update event (authenticated or with secret token)
+router.put("/:id", identifyUser, delegate('updateEvent', updateEvent));
 
 // DELETE /api/events/:id -> delete event (authenticated)
 router.delete("/:id", protect, delegate('deleteEvent', deleteEvent));
