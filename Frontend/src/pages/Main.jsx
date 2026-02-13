@@ -274,7 +274,7 @@ export default function Main() {
         </section>
 
         {/* Footer */}
-        <FooterProfile />
+        {/* <FooterProfile /> */}
       </div>
     </BackgroundLines>
   );
