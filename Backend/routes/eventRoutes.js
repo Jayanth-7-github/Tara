@@ -8,15 +8,15 @@ const {
   updateEvent,
   deleteEvent,
 } = require("../controllers/eventController");
-const { protect } = require("../middleware/auth");
+const { protect, identifyUser } = require("../middleware/auth");
 
 const { delegate } = require("../engine/router");
 
 // POST /api/events -> create a new event (authenticated)
 router.post("/", protect, delegate('createEvent', createEvent));
 
-// GET /api/events -> list events
-router.get("/", delegate('getEvents', getEvents));
+// GET /api/events -> list events (optionally authenticated to see extra details)
+router.get("/", identifyUser, delegate('getEvents', getEvents));
 
 // GET /api/events/:id/image -> stream image for event
 router.get("/:id/image", delegate('getEventImage', getEventImage));

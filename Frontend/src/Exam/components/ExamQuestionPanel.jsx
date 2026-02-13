@@ -21,11 +21,10 @@ export default function ExamQuestionPanel({
             onClick={() => toggleMarkForReview(currentQuestion.id)}
           >
             <span
-              className={`inline-flex w-5 h-5 border-2 rounded items-center justify-center transition-colors ${
-                markedForReview[currentQuestion.id]
+              className={`inline-flex w-5 h-5 border-2 rounded items-center justify-center transition-colors ${markedForReview[currentQuestion.id]
                   ? "bg-orange-500 border-orange-500"
                   : "border-gray-400 hover:border-gray-600"
-              }`}
+                }`}
             >
               {markedForReview[currentQuestion.id] && (
                 <svg
@@ -42,11 +41,10 @@ export default function ExamQuestionPanel({
               )}
             </span>
             <span
-              className={`font-medium ${
-                markedForReview[currentQuestion.id]
+              className={`font-medium ${markedForReview[currentQuestion.id]
                   ? "text-orange-700"
                   : "text-gray-600 hover:text-gray-800"
-              }`}
+                }`}
             >
               {markedForReview[currentQuestion.id]
                 ? "Marked for review"
@@ -104,6 +102,7 @@ export default function ExamQuestionPanel({
           <div className="h-[600px] border border-gray-700 rounded-xl overflow-hidden shadow-2xl">
             <ExamCompiler
               key={currentQuestion.id}
+              questionId={currentQuestion.id}
               initialCode={(() => {
                 const ans = answers[currentQuestion.id];
                 if (ans && typeof ans === "object") return ans.code;
@@ -116,7 +115,7 @@ export default function ExamQuestionPanel({
               }
               initialPassed={
                 answers[currentQuestion.id] &&
-                typeof answers[currentQuestion.id] === "object"
+                  typeof answers[currentQuestion.id] === "object"
                   ? answers[currentQuestion.id].passed
                   : null
               }
@@ -142,27 +141,24 @@ export default function ExamQuestionPanel({
                 <button
                   key={`${currentQuestion.id}-${index}`}
                   onClick={() => selectAnswer(currentQuestion.id, index)}
-                  className={`w-full text-left px-5 py-4 border-2 rounded-xl text-base flex items-center gap-4 transition-all duration-200 ${
-                    selected
+                  className={`w-full text-left px-5 py-4 border-2 rounded-xl text-base flex items-center gap-4 transition-all duration-200 ${selected
                       ? "bg-blue-50 border-blue-500 ring-2 ring-blue-300 shadow-md"
                       : "bg-white hover:bg-gray-50 border-gray-300 hover:border-gray-400 shadow-sm hover:shadow-md"
-                  }`}
+                    }`}
                 >
                   <span
-                    className={`inline-flex w-5 h-5 border-2 rounded-full items-center justify-center shrink-0 transition-colors ${
-                      selected
+                    className={`inline-flex w-5 h-5 border-2 rounded-full items-center justify-center shrink-0 transition-colors ${selected
                         ? "border-blue-600 bg-blue-100"
                         : "border-gray-400"
-                    }`}
+                      }`}
                   >
                     {selected && (
                       <span className="w-2.5 h-2.5 bg-blue-600 rounded-full" />
                     )}
                   </span>
                   <span
-                    className={`font-medium ${
-                      selected ? "text-gray-900" : "text-gray-700"
-                    }`}
+                    className={`font-medium ${selected ? "text-gray-900" : "text-gray-700"
+                      }`}
                   >
                     {opt}
                   </span>
@@ -184,11 +180,10 @@ export default function ExamQuestionPanel({
           <button
             disabled={currentIndex === 0}
             onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
-            className={`px-6 py-3 rounded-lg text-sm font-medium border-2 transition-all ${
-              currentIndex === 0
+            className={`px-6 py-3 rounded-lg text-sm font-medium border-2 transition-all ${currentIndex === 0
                 ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
                 : "bg-white hover:bg-gray-50 text-gray-700 border-gray-300 hover:border-gray-400 shadow-sm hover:shadow-md"
-            }`}
+              }`}
           >
             Previous
           </button>
@@ -200,11 +195,10 @@ export default function ExamQuestionPanel({
             onClick={() =>
               setCurrentIndex((i) => Math.min(questions.length - 1, i + 1))
             }
-            className={`px-6 py-3 rounded-lg text-sm font-medium border-2 transition-all ${
-              currentIndex === questions.length - 1
+            className={`px-6 py-3 rounded-lg text-sm font-medium border-2 transition-all ${currentIndex === questions.length - 1
                 ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
                 : "bg-white hover:bg-gray-50 text-gray-700 border-gray-300 hover:border-gray-400 shadow-sm hover:shadow-md"
-            }`}
+              }`}
           >
             Next
           </button>

@@ -23,16 +23,20 @@ import StudentDashboard from "./pages/StudentDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import ManageApprovals from "./pages/ManageApprovals";
 import EventRegister from "./pages/EventRegister";
+import EventRegistrations from "./pages/EventRegistrations";
+import AllRegistrations from "./pages/AllRegistrations";
 import StudentResults from "./pages/StudentResults";
 import ManageQuestions from "./pages/ManageQuestions";
 import { ADMIN_TOKEN } from "./services/constants";
 import TestCompiler from "./Exam/pages/testcompailer";
 import PublicNavbar from "./components/PublicNavbar";
 import GoogleSuccess from "./components/GoogleSuccess";
+import DevToolsRestriction from "./components/DevToolsRestriction";
 
 function App() {
   return (
     <BrowserRouter>
+      <DevToolsRestriction />
       <div>
         <PublicNavbar />
 
@@ -82,6 +86,14 @@ function App() {
             <Route path="/events/questions" element={<ManageQuestions />} />
             <Route path="/events/results" element={<StudentResults />} />
             <Route path="/events/approvals" element={<ManageApprovals />} />
+            <Route
+              path="/events/all-registrations"
+              element={<AllRegistrations />}
+            />
+            <Route
+              path="/events/:eventId/registrations"
+              element={<EventRegistrations />}
+            />
             <Route
               path="/event-registration/:eventId"
               element={<EventRegister />}

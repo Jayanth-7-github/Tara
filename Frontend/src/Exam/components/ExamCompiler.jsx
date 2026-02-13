@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 export default function ExamCompiler({
+  questionId = "default",
   initialCode = "// Write your code here...",
   language = "javascript",
   testCases = [],
@@ -21,6 +22,40 @@ export default function ExamCompiler({
   const [isFooterExpanded, setIsFooterExpanded] = useState(true);
   const [activeFooterTab, setActiveFooterTab] = useState("run");
   const [activeTestCaseIndex, setActiveTestCaseIndex] = useState(0);
+  const [lastRunTime, setLastRunTime] = useState(0);
+  const [fontSize, setFontSize] = useState(14);
+  const lineNumberRef = React.useRef(null);
+  const textareaRef = React.useRef(null);
+
+  // Autosave code
+  // Autosave code and language
+  useEffect(() => {
+    // 1. Get saved language or fallback to default prop
+    const savedLang = localStorage.getItem("exam_language") || language;
+    setSelectedLanguage(savedLang);
+
+    // 2. Load code for that specific question and language
+    const key = `exam_code_${questionId}_${savedLang}`;
+    const savedCode = localStorage.getItem(key);
+
+    if (savedCode) {
+      setCode(savedCode);
+    } else {
+      setCode(initialCode);
+    }
+  }, [questionId]);
+
+  useEffect(() => {
+    // Save to question + language specific key
+    const key = `exam_code_${questionId}_${selectedLanguage}`;
+    localStorage.setItem(key, code);
+  }, [code, selectedLanguage, questionId]);
+
+  useEffect(() => {
+    localStorage.setItem("exam_language", selectedLanguage);
+  }, [selectedLanguage]);
+
+
 
   const templates = {
     c: `#include <stdio.h>\n\nint main() {\n    printf("Hello World");\n    return 0;\n}`,
@@ -80,7 +115,55 @@ export default function ExamCompiler({
     }
   };
 
+  const executeWithRetry = async (stdin, retries = 1) => {
+    try {
+      return await executeWithTimeout(stdin);
+    } catch (e) {
+      if (retries > 0) {
+        return executeWithRetry(stdin, retries - 1);
+      }
+      throw e;
+    }
+  };
+
+  const canRun = () => {
+    const now = Date.now();
+    if (now - lastRunTime < 2000) {
+      setOutput("Please wait before running again.");
+      return false;
+    }
+    setLastRunTime(now);
+    return true;
+  };
+
+  const checkSecurity = (codeStr, inputStr) => {
+    if (codeStr.length > 20000) return "Code too long.";
+    if (inputStr && inputStr.length > 5000) return "Input too large.";
+
+    const blockedPatterns = [
+      /while\s*\(\s*true\s*\)/,
+      /fork\s*\(/,
+      /system\s*\(/,
+      /exec\s*\(/,
+    ];
+
+    for (let pattern of blockedPatterns) {
+      if (pattern.test(codeStr)) {
+        return "Potentially unsafe code detected.";
+      }
+    }
+    return null;
+  };
+
   const handleRun = async () => {
+    const securityError = checkSecurity(code, input);
+    if (securityError) {
+      setOutput(securityError);
+      return;
+    }
+
+    if (!canRun()) return;
+
     setIsRunning(true);
     setOutput("Running...");
 
@@ -91,14 +174,24 @@ export default function ExamCompiler({
     }
     if (typeof onRun === "function") onRun(code);
 
-    try {
-      const data = await executeWithTimeout(input);
+    const start = Date.now();
 
-      if (data.run) {
-        setOutput(data.run.output || "No output returned.");
+    try {
+      const data = await executeWithRetry(input);
+      const time = Date.now() - start;
+
+      let resultOutput = "";
+      if (data.compile && data.compile.stderr) {
+        resultOutput = `Compilation Error:\n${data.compile.stderr}`;
+      } else if (data.run && data.run.stderr) {
+        resultOutput = `Runtime Error:\n${data.run.stderr}`;
+      } else if (data.run) {
+        resultOutput = data.run.output || "No output returned.";
       } else {
-        setOutput(`Error: ${data.message || "Unknown error occurred"}`);
+        resultOutput = `Error: ${data.message || "Unknown error occurred"}`;
       }
+
+      setOutput(`${resultOutput}\n\nExecuted in ${time} ms`);
     } catch (error) {
       if (error.name === "AbortError") {
         setOutput(
@@ -114,6 +207,15 @@ export default function ExamCompiler({
 
   const handleRunTestCases = async () => {
     if (testCases.length === 0) return;
+
+    const securityError = checkSecurity(code, "");
+    if (securityError) {
+      setOutput(securityError);
+      return;
+    }
+
+    if (!canRun()) return;
+
     setIsRunning(true);
     setOutput("Running test cases...\n");
     setTestResults({});
@@ -126,7 +228,7 @@ export default function ExamCompiler({
       setOutput((prev) => prev + `\nTest Case ${i + 1}: Running...`);
 
       try {
-        const data = await executeWithTimeout(tc.input);
+        const data = await executeWithRetry(tc.input);
 
         if (!data.run) {
           throw new Error(data.message || "Execution failed");
@@ -175,6 +277,29 @@ export default function ExamCompiler({
     }
   };
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handler = (e) => {
+      // Ctrl+Enter or Cmd+Enter to Run
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        if (e.shiftKey) {
+          handleRunTestCases();
+        } else {
+          handleRun();
+        }
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [handleRun, handleRunTestCases]);
+
+  const handleScroll = (e) => {
+    if (lineNumberRef.current) {
+      lineNumberRef.current.scrollTop = e.target.scrollTop;
+    }
+  };
+
   return (
     <div className="flex flex-col h-full bg-gray-900 rounded-xl overflow-hidden shadow-lg border border-gray-800">
       {/* Header */}
@@ -187,8 +312,22 @@ export default function ExamCompiler({
             value={selectedLanguage}
             onChange={(e) => {
               const newLang = e.target.value;
+              localStorage.setItem(
+                `exam_code_${questionId}_${selectedLanguage}`,
+                code,
+              );
+
               setSelectedLanguage(newLang);
-              setCode(templates[newLang.toLowerCase()] || "");
+
+              // Load saved code for this question + new language
+              const savedCode = localStorage.getItem(
+                `exam_code_${questionId}_${newLang}`,
+              );
+              if (savedCode) {
+                setCode(savedCode);
+              } else {
+                setCode(templates[newLang.toLowerCase()] || "");
+              }
             }}
             className="bg-gray-700 text-gray-200 text-xs font-mono font-bold px-2 py-1 rounded border border-gray-600 focus:outline-none focus:border-blue-500 uppercase tracking-wide"
           >
@@ -198,7 +337,27 @@ export default function ExamCompiler({
             <option value="python">Python</option>
             <option value="javascript">NodeJS</option>
           </select>
+
+          {/* Font Size Control */}
+          <div className="flex items-center bg-gray-700 rounded border border-gray-600 ml-2">
+            <button
+              onClick={() => setFontSize(Math.max(10, fontSize - 1))}
+              className="px-2 py-0.5 text-gray-300 hover:text-white hover:bg-gray-600 border-r border-gray-600 text-xs"
+            >
+              -
+            </button>
+            <span className="px-2 text-xs text-gray-300 w-8 text-center">
+              {fontSize}
+            </span>
+            <button
+              onClick={() => setFontSize(Math.min(24, fontSize + 1))}
+              className="px-2 py-0.5 text-gray-300 hover:text-white hover:bg-gray-600 border-l border-gray-600 text-xs"
+            >
+              +
+            </button>
+          </div>
         </div>
+
         <div className="flex items-center gap-2">
           <button
             onClick={() =>
@@ -212,8 +371,28 @@ export default function ExamCompiler({
       </div>
 
       {/* Code Editor Area */}
-      <div className="flex-1 relative">
+      <div className="flex-1 relative flex overflow-hidden">
+        {/* Line Numbers */}
+        <div
+          ref={lineNumberRef}
+          className="bg-[#1e1e1e] text-gray-600 text-right pr-3 pt-4 select-none overflow-hidden border-r border-gray-800"
+          style={{
+            fontSize: `${fontSize}px`,
+            lineHeight: "1.625", // Match textarea leading-relaxed
+            minWidth: "3rem",
+            fontFamily: "monospace",
+          }}
+        >
+          {code.split("\n").map((_, i) => (
+            <div key={i} className="leading-relaxed">
+              {i + 1}
+            </div>
+          ))}
+        </div>
+
+        {/* Textarea */}
         <textarea
+          ref={textareaRef}
           value={code}
           onChange={(e) => {
             const val = e.target.value;
@@ -226,28 +405,296 @@ export default function ExamCompiler({
               });
             }
           }}
+          onScroll={handleScroll}
           onPaste={
             allowCopyPaste
               ? undefined
               : (e) => {
-                  e.preventDefault();
-                }
+                e.preventDefault();
+              }
           }
           onCopy={
             allowCopyPaste
               ? undefined
               : (e) => {
-                  e.preventDefault();
-                }
+                e.preventDefault();
+              }
           }
           onCut={
             allowCopyPaste
               ? undefined
               : (e) => {
-                  e.preventDefault();
-                }
+                e.preventDefault();
+              }
           }
           onKeyDown={(e) => {
+            // 1. Allow undo/redo (let browser handle it)
+            if (
+              ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") ||
+              ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y")
+            ) {
+              return;
+            }
+
+            const val = e.target.value;
+            const start = e.target.selectionStart;
+            const end = e.target.selectionEnd;
+
+            // Helper to get line start/end indices
+            const getLineRange = (index) => {
+              const lineStart = val.lastIndexOf("\n", index - 1) + 1;
+              let lineEnd = val.indexOf("\n", index);
+              if (lineEnd === -1) lineEnd = val.length;
+              return { start: lineStart, end: lineEnd };
+            };
+
+            // Wrap selected text with quotes or brackets
+            const wrapPairs = {
+              '"': '"',
+              "'": "'",
+              "(": ")",
+              "{": "}",
+              "[": "]",
+            };
+
+            if (wrapPairs[e.key]) {
+              if (start !== end) {
+                e.preventDefault();
+
+                const selected = val.substring(start, end);
+                const open = e.key;
+                const close = wrapPairs[e.key];
+
+                // Use native insert so undo/redo works
+                document.execCommand(
+                  "insertText",
+                  false,
+                  open + selected + close,
+                );
+
+                setTimeout(() => {
+                  e.target.selectionStart = start + 1;
+                  e.target.selectionEnd = end + 1;
+                }, 0);
+
+                return;
+              }
+            }
+
+            // 0. Handle Commenting (Ctrl + /)
+            if ((e.ctrlKey || e.metaKey) && e.key === "/") {
+              e.preventDefault();
+
+              // Determine comment symbol based on language
+              let commentSymbol = "//";
+              if (
+                selectedLanguage === "python" ||
+                selectedLanguage === "python3"
+              ) {
+                commentSymbol = "#";
+              }
+
+              // Expand selection to cover full lines
+              const startRange = getLineRange(start);
+              const endRange = getLineRange(end > start ? end - 1 : end); // handle end at start of next line properly
+
+              const selectionStart = startRange.start;
+              const selectionEnd = endRange.end;
+
+              const selectedText = val.substring(selectionStart, selectionEnd);
+              const lines = selectedText.split("\n");
+
+              // Determine if we should comment or uncomment
+              // If *all* lines are commented, we uncomment. Otherwise, we comment all.
+              const allCommented = lines.every((line) => {
+                const trimmed = line.trim();
+                return (
+                  trimmed.length === 0 || trimmed.startsWith(commentSymbol)
+                );
+              });
+
+              const newLines = lines.map((line) => {
+                if (allCommented) {
+                  // Uncomment: remove the first occurrence of `// ` or `//` (or `#` etc)
+                  // We use a regex dealing with optional space after symbol
+                  const escapedSymbol =
+                    commentSymbol === "//" ? "\\/\\/" : commentSymbol;
+                  const regex = new RegExp(`^(\\s*)${escapedSymbol}\\s?`);
+                  return line.replace(regex, "$1");
+                } else {
+                  // Comment: add symbol at the start of indentation
+                  if (line.trim().length === 0) return line; // don't comment empty lines
+                  return line.replace(/^(\s*)(.*)/, `$1${commentSymbol} $2`);
+                }
+              });
+
+              const newText = newLines.join("\n");
+              const newValue =
+                val.substring(0, selectionStart) +
+                newText +
+                val.substring(selectionEnd);
+
+              setCode(newValue);
+
+              // Select the modified lines
+              setTimeout(() => {
+                e.target.selectionStart = selectionStart;
+                e.target.selectionEnd = selectionStart + newText.length;
+              }, 0);
+              return;
+            }
+
+            // 1. Handle Tab (Indentation)
+            if (e.key === "Tab") {
+              e.preventDefault();
+
+              const indent = "    "; // 4 spaces
+
+              // Find start of first selected line
+              const lineStart = val.lastIndexOf("\n", start - 1) + 1;
+
+              // Find end of last selected line
+              const lineEndIndex = val.indexOf("\n", end);
+              const lineEnd = lineEndIndex === -1 ? val.length : lineEndIndex;
+
+              const before = val.substring(0, lineStart);
+              const selection = val.substring(lineStart, lineEnd);
+              const after = val.substring(lineEnd);
+
+              const lines = selection.split("\n");
+
+              let updatedLines;
+              let newStart = start;
+              let newEnd = end;
+
+              if (e.shiftKey) {
+                // SHIFT + TAB → OUTDENT
+                updatedLines = lines.map((line) => {
+                  if (line.startsWith(indent)) {
+                    newEnd -= indent.length;
+                    if (lineStart < start) newStart -= indent.length;
+                    return line.slice(indent.length);
+                  } else if (line.startsWith("  ")) {
+                    newEnd -= 2;
+                    if (lineStart < start) newStart -= 2;
+                    return line.slice(2);
+                  } else if (line.startsWith(" ")) {
+                    newEnd -= 1;
+                    if (lineStart < start) newStart -= 1;
+                    return line.slice(1);
+                  }
+                  return line;
+                });
+              } else {
+                // TAB → INDENT
+                updatedLines = lines.map((line) => indent + line);
+                newEnd += indent.length * lines.length;
+                if (lineStart < start) newStart += indent.length;
+              }
+
+              const newSelection = updatedLines.join("\n");
+              const newValue = before + newSelection + after;
+
+              setCode(newValue);
+
+              // Restore selection
+              setTimeout(() => {
+                e.target.selectionStart = newStart;
+                e.target.selectionEnd = newEnd;
+              }, 0);
+
+              return;
+            }
+
+            // 2. Handle Enter (Auto-indent)
+            if (e.key === "Enter") {
+              e.preventDefault();
+
+              // Check for Smart Bracket Enter: { | } -> Enter -> { \n    | \n }
+              if (val[start - 1] === "{" && val[end] === "}") {
+                const lineStart = val.lastIndexOf("\n", start - 1) + 1;
+                const currentLine = val.substring(lineStart, start);
+                const indentMatch = currentLine.match(/^\s*/);
+                const currentIndent = indentMatch ? indentMatch[0] : "";
+                const extraIndent = "    ";
+
+                const newValue =
+                  val.substring(0, start) +
+                  "\n" +
+                  currentIndent +
+                  extraIndent +
+                  "\n" +
+                  currentIndent +
+                  val.substring(end);
+                setCode(newValue);
+                setTimeout(() => {
+                  e.target.selectionStart = e.target.selectionEnd =
+                    start + 1 + currentIndent.length + extraIndent.length;
+                }, 0);
+                return;
+              }
+
+              // Standard Auto-indent
+              const lineStart = val.lastIndexOf("\n", start - 1) + 1;
+              const currentLine = val.substring(lineStart, start);
+              const indentMatch = currentLine.match(/^\s*/);
+              let indent = indentMatch ? indentMatch[0] : "";
+
+              if (
+                currentLine.trim().endsWith("{") ||
+                currentLine.trim().endsWith("(") ||
+                currentLine.trim().endsWith("[") ||
+                currentLine.trim().endsWith(":") // useful for python
+              ) {
+                indent += "    ";
+              }
+
+              const newValue =
+                val.substring(0, start) + "\n" + indent + val.substring(end);
+              setCode(newValue);
+              setTimeout(() => {
+                e.target.selectionStart = e.target.selectionEnd =
+                  start + 1 + indent.length;
+              }, 0);
+              return;
+            }
+
+            // 3. Handle Closing Bracket (Auto-outdent)
+            if (e.key === "}" || e.key === "]" || e.key === ")") {
+              // Check if we are on a line with just indentation
+              const lineStart = val.lastIndexOf("\n", start - 1) + 1;
+              const currentLine = val.substring(lineStart, start);
+
+              // If current line is just whitespace and matches indentation size
+              // We want to outdent this line before inserting the brace
+              if (/^\s+$/.test(currentLine) && currentLine.length >= 4) {
+                if (currentLine.endsWith("    ")) {
+                  const newIndent = currentLine.slice(0, -4);
+                  const newValue =
+                    val.substring(0, lineStart) +
+                    newIndent +
+                    e.key +
+                    val.substring(end);
+                  setCode(newValue);
+                  e.preventDefault();
+                  setTimeout(() => {
+                    e.target.selectionStart = e.target.selectionEnd =
+                      lineStart + newIndent.length + 1;
+                  }, 0);
+                  return;
+                }
+              }
+              // Also handle closing pairs (overwrite if next char is same)
+              if (val[start] === e.key) {
+                e.preventDefault();
+                setTimeout(() => {
+                  e.target.selectionStart = e.target.selectionEnd = start + 1;
+                }, 0);
+                return;
+              }
+            }
+
+            // 4. Handle Opening Brackets (Auto-close)
             const pairs = {
               "(": ")",
               "{": "}",
@@ -256,45 +703,26 @@ export default function ExamCompiler({
               "'": "'",
             };
 
-            if (e.key === "Tab") {
-              e.preventDefault();
-              const start = e.target.selectionStart;
-              const end = e.target.selectionEnd;
-              const val = e.target.value;
-              const newValue =
-                val.substring(0, start) + "    " + val.substring(end);
-              setCode(newValue);
-              // Set cursor position after the inserted spaces
-              setTimeout(() => {
-                e.target.selectionStart = e.target.selectionEnd = start + 4;
-              }, 0);
-              return;
-            }
-
             if (pairs[e.key]) {
               e.preventDefault();
-              const start = e.target.selectionStart;
-              const end = e.target.selectionEnd;
-              const val = e.target.value;
-
-              const before = val.substring(0, start);
-              const after = val.substring(end);
-
-              const newValue = before + e.key + pairs[e.key] + after;
-
+              const newValue =
+                val.substring(0, start) +
+                e.key +
+                pairs[e.key] +
+                val.substring(end);
               setCode(newValue);
-
-              // Using setTimeout to ensure state update has processed before setting cursor
-              // or better, just use a ref or simple calculation since React state update is async
-              // but synthetic event properties might be lost.
-              // For a simple controlled input, we need to defer cursor move.
               setTimeout(() => {
                 e.target.selectionStart = e.target.selectionEnd = start + 1;
               }, 0);
+              return;
             }
           }}
-          className="w-full h-full bg-[#1e1e1e] text-gray-300 font-mono text-sm p-4 resize-none focus:outline-none leading-relaxed scrollbar-thin-dark"
+          className="w-full h-full bg-[#1e1e1e] text-gray-300 font-mono p-4 resize-none focus:outline-none leading-relaxed scrollbar-thin-dark"
           spellCheck="false"
+          style={{
+            fontSize: `${fontSize}px`,
+            lineHeight: "1.625",
+          }}
         />
       </div>
 
@@ -312,11 +740,10 @@ export default function ExamCompiler({
                   setActiveFooterTab(tab);
                   setIsFooterExpanded(true);
                 }}
-                className={`px-4 h-full text-xs font-bold uppercase tracking-wide border-r border-gray-700 transition-colors ${
-                  activeFooterTab === tab
-                    ? "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-200 border-t-2 border-t-blue-500"
-                    : "text-gray-500 hover:text-gray-300 hover:bg-gray-800"
-                }`}
+                className={`px-4 h-full text-xs font-bold uppercase tracking-wide border-r border-gray-700 transition-colors ${activeFooterTab === tab
+                  ? "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-200 border-t-2 border-t-blue-500"
+                  : "text-gray-500 hover:text-gray-300 hover:bg-gray-800"
+                  }`}
               >
                 {tab === "run"
                   ? "Run"
@@ -355,11 +782,10 @@ export default function ExamCompiler({
                 <button
                   onClick={handleRun}
                   disabled={isRunning}
-                  className={`flex items-center gap-2 px-4 py-1.5 rounded-sm text-sm font-bold shadow-md transition-all ${
-                    isRunning
-                      ? "bg-gray-700 text-gray-400 cursor-not-allowed"
-                      : "bg-[#7c3aed] text-white hover:bg-[#6d28d9]"
-                  }`}
+                  className={`flex items-center gap-2 px-4 py-1.5 rounded-sm text-sm font-bold shadow-md transition-all ${isRunning
+                    ? "bg-gray-700 text-gray-400 cursor-not-allowed"
+                    : "bg-[#7c3aed] text-white hover:bg-[#6d28d9]"
+                    }`}
                 >
                   {isRunning ? "Running..." : "Run Code"}
                 </button>
@@ -380,22 +806,22 @@ export default function ExamCompiler({
                     allowCopyPaste
                       ? undefined
                       : (e) => {
-                          e.preventDefault();
-                        }
+                        e.preventDefault();
+                      }
                   }
                   onCopy={
                     allowCopyPaste
                       ? undefined
                       : (e) => {
-                          e.preventDefault();
-                        }
+                        e.preventDefault();
+                      }
                   }
                   onCut={
                     allowCopyPaste
                       ? undefined
                       : (e) => {
-                          e.preventDefault();
-                        }
+                        e.preventDefault();
+                      }
                   }
                   placeholder="Enter your input here..."
                   className="w-full h-full bg-[#1e1e1e] border border-gray-700 rounded-sm p-3 text-sm text-gray-300 focus:outline-none focus:border-gray-500 font-mono resize-none"
@@ -405,9 +831,26 @@ export default function ExamCompiler({
 
               {/* Output (Only if there is output) */}
               <div className="flex-1 flex flex-col min-h-[100px]">
-                <label className="text-xs font-bold text-gray-400 mb-2 block">
-                  Output
-                </label>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="text-xs font-bold text-gray-400 block">
+                    Output
+                  </label>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(output);
+                      alert("Output copied!");
+                    }}
+                    className="text-xs text-gray-500 hover:text-white transition-colors mr-3"
+                  >
+                    Copy
+                  </button>
+                  <button
+                    onClick={() => setOutput("")}
+                    className="text-xs text-gray-500 hover:text-white transition-colors"
+                  >
+                    Clear
+                  </button>
+                </div>
                 <pre className="w-full h-full bg-[#1e1e1e] border border-gray-700 rounded-sm p-3 text-sm text-gray-300 font-mono overflow-y-auto whitespace-pre-wrap">
                   {output || (
                     <span className="text-gray-600 italic">
@@ -424,11 +867,10 @@ export default function ExamCompiler({
               {/* Results Banner */}
               {Object.keys(testResults).length > 0 && (
                 <div
-                  className={`px-4 py-2 flex justify-between items-center text-sm font-bold border-b ${
-                    Object.values(testResults).every((r) => r.success)
-                      ? "bg-green-100 text-green-700 border-green-200"
-                      : "bg-red-100 text-red-700 border-red-200"
-                  }`}
+                  className={`px-4 py-2 flex justify-between items-center text-sm font-bold border-b ${Object.values(testResults).every((r) => r.success)
+                    ? "bg-green-100 text-green-700 border-green-200"
+                    : "bg-red-100 text-red-700 border-red-200"
+                    }`}
                 >
                   <span className="flex-1 text-center">
                     You have passed{" "}
@@ -451,11 +893,10 @@ export default function ExamCompiler({
                     <button
                       onClick={handleRunTestCases}
                       disabled={isRunning}
-                      className={`w-full py-2 rounded text-sm font-bold shadow-md transition-all flex items-center justify-center gap-2 ${
-                        isRunning
-                          ? "bg-gray-700 text-gray-400 cursor-not-allowed"
-                          : "bg-[#7c3aed] text-white hover:bg-[#6d28d9]"
-                      }`}
+                      className={`w-full py-2 rounded text-sm font-bold shadow-md transition-all flex items-center justify-center gap-2 ${isRunning
+                        ? "bg-gray-700 text-gray-400 cursor-not-allowed"
+                        : "bg-[#7c3aed] text-white hover:bg-[#6d28d9]"
+                        }`}
                     >
                       {isRunning ? (
                         <svg
@@ -504,11 +945,10 @@ export default function ExamCompiler({
                         <div
                           key={i}
                           onClick={() => setActiveTestCaseIndex(i)}
-                          className={`px-4 py-3 cursor-pointer flex justify-between items-center text-sm font-medium border-b border-gray-700/50 transition-colors ${
-                            isActive
-                              ? "bg-[#2d2d2d] text-white border-l-4 border-l-white"
-                              : "text-gray-400 hover:bg-[#252525]"
-                          }`}
+                          className={`px-4 py-3 cursor-pointer flex justify-between items-center text-sm font-medium border-b border-gray-700/50 transition-colors ${isActive
+                            ? "bg-[#2d2d2d] text-white border-l-4 border-l-white"
+                            : "text-gray-400 hover:bg-[#252525]"
+                            }`}
                         >
                           <span>Test Case {i + 1}</span>
                           {isPass && (
@@ -559,11 +999,10 @@ export default function ExamCompiler({
                             Actual Output
                           </h4>
                           <div
-                            className={`border p-4 rounded text-sm font-mono whitespace-pre-wrap ${
-                              testResults[activeTestCaseIndex].success
-                                ? "bg-green-900/10 border-green-800 text-green-300"
-                                : "bg-red-900/10 border-red-800 text-red-300"
-                            }`}
+                            className={`border p-4 rounded text-sm font-mono whitespace-pre-wrap ${testResults[activeTestCaseIndex].success
+                              ? "bg-green-900/10 border-green-800 text-green-300"
+                              : "bg-red-900/10 border-red-800 text-red-300"
+                              }`}
                           >
                             {testResults[activeTestCaseIndex].actual ||
                               testResults[activeTestCaseIndex].error || (

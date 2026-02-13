@@ -182,6 +182,7 @@ async function createEvent(req, res) {
 
 /**
  * Get list of events, sorted by date ascending.
+ * If authenticated as admin or event manager, includes `registeredStudents` list.
  */
 async function getEvents(req, res) {
   try {
@@ -190,6 +191,94 @@ async function getEvents(req, res) {
       .select("-image.data")
       .sort({ date: 1 })
       .lean();
+
+    // Check if user is authenticated via identifyUser middleware
+    let actor = null;
+    if (req.user && req.user.id) {
+      // Import User model if not top-level, but it is top-level.
+      actor = await User.findById(req.user.id).lean();
+    }
+
+    const isAdmin = actor && actor.role === "admin";
+    const userEmail = actor && actor.email ? String(actor.email).toLowerCase().trim() : null;
+
+    // Identify events that need population
+    const eventsToPopulate = new Set();
+
+    if (isAdmin) {
+      // Admin sees requests for ALL events
+      events.forEach(e => eventsToPopulate.add(e._id.toString()));
+    } else if (userEmail) {
+      // Manager sees requests for their events
+      // Also strictly check role config if needed, but managerEmail is primary
+      events.forEach(e => {
+        if (e.managerEmail && String(e.managerEmail).toLowerCase().trim() === userEmail) {
+          eventsToPopulate.add(e._id.toString());
+        }
+      });
+
+      // Also check RoleConfig for delegated managers (optional but consistent)
+      try {
+        const rc = await RoleConfig.findOne().lean();
+        if (rc && rc.eventManagersByEvent) {
+          events.forEach(e => {
+            const key = (e.title || "").trim() || e._id.toString();
+            let managers = [];
+            if (rc.eventManagersByEvent instanceof Map || typeof rc.eventManagersByEvent.get === 'function') {
+              // handled by mongoose map logic usually as object in lean() unless Map type
+              // simpler: just check object keys
+            }
+            // In lean(), Maps are usually POJO if schema type is Map
+            // But let's check basic structure
+            const mapVal = rc.eventManagersByEvent[key]; // direct access
+            if (Array.isArray(mapVal)) managers = mapVal;
+
+            const normManagers = managers.map(m => String(m).toLowerCase());
+            if (normManagers.includes(userEmail)) {
+              eventsToPopulate.add(e._id.toString());
+            }
+          });
+        }
+      } catch (e) { /* ignore role check fail */ }
+    }
+
+    if (eventsToPopulate.size > 0) {
+      const studentFields = "name regno email department college year registrations";
+      const students = await Student.find({
+        "registrations.event": { $in: Array.from(eventsToPopulate) }
+      }).select(studentFields).lean();
+
+      const studentsByEvent = {};
+
+      students.forEach(s => {
+        if (s.registrations && Array.isArray(s.registrations)) {
+          s.registrations.forEach(r => {
+            const eId = r.event ? r.event.toString() : null;
+            if (eId && eventsToPopulate.has(eId)) {
+              if (!studentsByEvent[eId]) studentsByEvent[eId] = [];
+              studentsByEvent[eId].push({
+                _id: s._id,
+                name: s.name,
+                regno: s.regno,
+                email: s.email,
+                department: s.department,
+                college: s.college,
+                year: s.year,
+                registeredAt: r.registeredAt
+              });
+            }
+          });
+        }
+      });
+
+      // Attach data
+      events.forEach(e => {
+        if (eventsToPopulate.has(e._id.toString())) {
+          e.registeredStudents = studentsByEvent[e._id.toString()] || [];
+        }
+      });
+    }
+
     return res.json({ events });
   } catch (err) {
     console.error("getEvents error", err);

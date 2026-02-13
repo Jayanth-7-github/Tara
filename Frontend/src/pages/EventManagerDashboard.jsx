@@ -229,7 +229,10 @@ export default function EventManagerDashboard() {
             <p className="text-xs text-gray-500 mt-1">All time</p>
           </div>
 
-          <div className="bg-gray-800/50 backdrop-blur border border-gray-700 rounded-xl p-6 hover:border-green-500/50 transition">
+          <div
+            onClick={() => navigate("/events/all-registrations")}
+            className="bg-gray-800/50 backdrop-blur border border-gray-700 rounded-xl p-6 hover:border-green-500/50 transition cursor-pointer hover:bg-gray-700/30"
+          >
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-medium text-gray-400">
                 Registrations
@@ -281,8 +284,8 @@ export default function EventManagerDashboard() {
             <p className="text-xs text-gray-500 mt-1">
               {stats.totalRegistrations > 0
                 ? `${Math.round(
-                    (stats.totalAttendance / stats.totalRegistrations) * 100,
-                  )}% attendance rate`
+                  (stats.totalAttendance / stats.totalRegistrations) * 100,
+                )}% attendance rate`
                 : "No data"}
             </p>
           </div>
@@ -740,11 +743,10 @@ export default function EventManagerDashboard() {
                             </div>
                           </div>
                           <span
-                            className={`px-3 py-1 rounded-full text-xs font-medium ${
-                              isUpcoming
-                                ? "bg-green-500/10 text-green-400"
-                                : "bg-gray-500/10 text-gray-400"
-                            }`}
+                            className={`px-3 py-1 rounded-full text-xs font-medium ${isUpcoming
+                              ? "bg-green-500/10 text-green-400"
+                              : "bg-gray-500/10 text-gray-400"
+                              }`}
                           >
                             {isUpcoming ? "Upcoming" : "Completed"}
                           </span>
@@ -756,7 +758,13 @@ export default function EventManagerDashboard() {
 
                         {/* Event Stats */}
                         <div className="flex items-center gap-6">
-                          <div className="flex items-center gap-2">
+                          <div
+                            className="flex items-center gap-2 cursor-pointer hover:bg-gray-700/50 rounded p-1 transition"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/events/${event._id || event.id}/registrations`);
+                            }}
+                          >
                             <div className="p-1.5 bg-blue-500/10 rounded">
                               <svg
                                 className="w-4 h-4 text-blue-400"
@@ -826,10 +834,10 @@ export default function EventManagerDashboard() {
                               <p className="text-sm font-semibold text-white">
                                 {event.registeredCount > 0
                                   ? `${Math.round(
-                                      ((event.attendedCount || 0) /
-                                        event.registeredCount) *
-                                        100,
-                                    )}%`
+                                    ((event.attendedCount || 0) /
+                                      event.registeredCount) *
+                                    100,
+                                  )}%`
                                   : "N/A"}
                               </p>
                               <p className="text-xs text-gray-500">

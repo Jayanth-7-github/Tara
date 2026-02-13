@@ -524,6 +524,13 @@ export default function ExamPage({ mode = "mcq" }) {
 
       // Clear local storage on successful submit
       localStorage.removeItem(`examState_${mode}`);
+      localStorage.removeItem("exam_language");
+      // Remove all exam_code related items
+      Object.keys(localStorage).forEach((key) => {
+        if (key.startsWith("exam_code_")) {
+          localStorage.removeItem(key);
+        }
+      });
 
       if (options.auto) {
         setInfo("Test auto-submitted.");
@@ -611,7 +618,7 @@ export default function ExamPage({ mode = "mcq" }) {
 
       // Force exit fullscreen if valid
       if (document.fullscreenElement) {
-        document.exitFullscreen().catch(() => {});
+        document.exitFullscreen().catch(() => { });
       }
 
       setLives((prevLives) => {
@@ -634,8 +641,7 @@ export default function ExamPage({ mode = "mcq" }) {
             setIsTestStarted(false);
             setCanResume(true);
             setInfo(
-              `Violation: ${reason}! ${newLives} ${
-                newLives === 1 ? "life" : "lives"
+              `Violation: ${reason}! ${newLives} ${newLives === 1 ? "life" : "lives"
               } remaining. Test paused.`,
             );
           }

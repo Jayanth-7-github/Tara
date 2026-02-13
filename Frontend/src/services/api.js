@@ -190,13 +190,17 @@ export async function getAllTestResults(filters = {}) {
 
 // Events API
 export async function fetchEvents() {
-  const resp = await fetch(`${API_BASE.replace(/\/$/, "")}/events`);
+  const resp = await fetch(`${API_BASE.replace(/\/$/, "")}/events`, {
+    credentials: "include",
+  });
   if (!resp.ok) throw new Error("Failed to fetch events");
   return resp.json();
 }
 
 export async function fetchEventById(eventId) {
-  const resp = await fetch(`${API_BASE.replace(/\/$/, "")}/events`);
+  const resp = await fetch(`${API_BASE.replace(/\/$/, "")}/events`, {
+    credentials: "include",
+  });
   if (!resp.ok) throw new Error("Failed to fetch events");
   const data = await resp.json();
   const events = data.events || data;
