@@ -214,27 +214,100 @@ exports.exportCSV = async (req, res) => {
     const eventName = req.query.eventName;
     const query = eventName ? { eventName } : {};
 
+    // Fetch attendance documents
     const docs = await Attendance.find(query).lean();
 
-    const lines = [];
-    const keys = ["Roll Number", "Name", "Event", "Session", "Marked At", "Present"];
-    lines.push(keys.join(","));
+    // Fetch event configuration to get session names
+    const Event = require(path.join(__dirname, "..", "models", "Event"));
+    let sessionNames = [];
 
-    for (const doc of docs) {
-      if (doc.sessions) {
-        for (const [sName, sVal] of Object.entries(doc.sessions)) {
-          const row = [
-            doc.regno,
-            doc.name,
-            doc.eventName,
-            sName,
-            sVal.timestampText || "",
-            "Yes"
-          ];
-          const escaped = row.map(v => `"${String(v).replace(/"/g, '""')}"`);
-          lines.push(escaped.join(","));
+    if (eventName) {
+      const eventDoc = await Event.findOne({ title: eventName }).lean();
+      if (eventDoc && eventDoc.sessions) {
+        sessionNames = eventDoc.sessions.map(s => s.name);
+      }
+    }
+
+    // If no event or no sessions configured, extract unique session names from attendance data
+    if (sessionNames.length === 0) {
+      const sessionSet = new Set();
+      for (const doc of docs) {
+        if (doc.sessions) {
+          for (const sName of Object.keys(doc.sessions)) {
+            sessionSet.add(sName);
+          }
         }
       }
+      sessionNames = Array.from(sessionSet).sort();
+    }
+
+    // Build CSV header
+    const headers = ["Roll Number", "Name", "Email", "Hostel", "Event"];
+    sessionNames.forEach(sName => {
+      headers.push(sName); // Session attendance column
+      headers.push(`${sName} - Time`); // Session timestamp column
+    });
+
+    const lines = [];
+    lines.push(headers.join(","));
+
+    // Group by student (regno)
+    const studentMap = {};
+    for (const doc of docs) {
+      if (!studentMap[doc.regno]) {
+        studentMap[doc.regno] = {
+          regno: doc.regno,
+          name: doc.name,
+          eventName: doc.eventName,
+          sessions: {}
+        };
+      }
+
+      // Merge sessions from this document
+      if (doc.sessions) {
+        for (const [sName, sVal] of Object.entries(doc.sessions)) {
+          studentMap[doc.regno].sessions[sName] = sVal;
+        }
+      }
+    }
+
+    // Fetch student details for email and hostel
+    const regnos = Object.keys(studentMap);
+    const students = await Student.find({
+      regno: { $in: regnos }
+    }).lean();
+
+    const studentDetailsMap = {};
+    students.forEach(s => {
+      studentDetailsMap[s.regno] = s;
+    });
+
+    // Build CSV rows
+    for (const [regno, data] of Object.entries(studentMap)) {
+      const studentDetails = studentDetailsMap[regno] || {};
+      const row = [
+        regno,
+        data.name,
+        studentDetails.email || "",
+        studentDetails.hostelName || "",
+        data.eventName
+      ];
+
+      // Add session attendance and timestamps
+      sessionNames.forEach(sName => {
+        const session = data.sessions[sName];
+        if (session && session.isPresent) {
+          row.push("Present");
+          row.push(session.timestampText || formatLocalYMDHM(session.timestamp) || "");
+        } else {
+          row.push(""); // Not marked
+          row.push(""); // No timestamp
+        }
+      });
+
+      // Escape and add row
+      const escaped = row.map(v => `"${String(v).replace(/"/g, '""')}"`);
+      lines.push(escaped.join(","));
     }
 
     res.setHeader("Content-Type", "text/csv");
