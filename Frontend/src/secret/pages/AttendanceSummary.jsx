@@ -16,7 +16,7 @@ export default function AttendanceSummary() {
     // Auto-refresh summary every 5 seconds
     const timer = setInterval(() => {
       refreshSummaryOnly(selectedEventName);
-    }, 5000);
+    }, 60000);
 
     return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
