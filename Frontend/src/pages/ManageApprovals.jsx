@@ -136,8 +136,8 @@ export default function ManageApprovals() {
           <button
             onClick={() => setFilterStatus("pending")}
             className={`px-4 py-2 font-semibold transition ${filterStatus === "pending"
-                ? "border-b-2 border-blue-500 text-blue-400"
-                : "text-gray-400 hover:text-gray-200"
+              ? "border-b-2 border-blue-500 text-blue-400"
+              : "text-gray-400 hover:text-gray-200"
               }`}
           >
             Pending (
@@ -151,8 +151,8 @@ export default function ManageApprovals() {
           <button
             onClick={() => setFilterStatus("approved")}
             className={`px-4 py-2 font-semibold transition ${filterStatus === "approved"
-                ? "border-b-2 border-green-500 text-green-400"
-                : "text-gray-400 hover:text-gray-200"
+              ? "border-b-2 border-green-500 text-green-400"
+              : "text-gray-400 hover:text-gray-200"
               }`}
           >
             Approved ({contacts.filter((c) => c.approved === true).length})
@@ -160,8 +160,8 @@ export default function ManageApprovals() {
           <button
             onClick={() => setFilterStatus("rejected")}
             className={`px-4 py-2 font-semibold transition ${filterStatus === "rejected"
-                ? "border-b-2 border-red-500 text-red-400"
-                : "text-gray-400 hover:text-gray-200"
+              ? "border-b-2 border-red-500 text-red-400"
+              : "text-gray-400 hover:text-gray-200"
               }`}
           >
             Rejected (

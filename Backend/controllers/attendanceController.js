@@ -32,7 +32,10 @@ exports.markAttendance = async (req, res) => {
     const event = (eventName || "default").trim();
     // Don't default to "default" if sessionName is provided but potentially falsy (like 0, though unlikely for string)
     // Just ensure it's a string. If user provided "", use "default".
-    const sName = (sessionName && typeof sessionName === 'string' && sessionName.trim()) ? sessionName.trim() : "default";
+    const sName =
+      sessionName && typeof sessionName === "string" && sessionName.trim()
+        ? sessionName.trim()
+        : "default";
     const now = new Date();
 
     // Find the aggregate document for this student and event
@@ -47,7 +50,7 @@ exports.markAttendance = async (req, res) => {
         name: student.name,
         eventName: event,
         student: student._id,
-        sessions: {}
+        sessions: {},
       });
     }
 
@@ -69,12 +72,14 @@ exports.markAttendance = async (req, res) => {
       return res.json({
         message: `${student.name} is already marked for ${sName}.`,
         attendance: {
-          ...existingSession.toObject ? existingSession.toObject() : existingSession,
+          ...(existingSession.toObject
+            ? existingSession.toObject()
+            : existingSession),
           regno: attendanceDoc.regno,
           eventName: attendanceDoc.eventName,
           sessionName: sName,
           timestampText: formatLocalYMDHM(existingSession.timestamp),
-          _id: attendanceDoc._id
+          _id: attendanceDoc._id,
         },
       });
     }
@@ -84,7 +89,7 @@ exports.markAttendance = async (req, res) => {
       sessionName: sName,
       timestamp: now,
       timestampText: formatLocalYMDHM(now),
-      isPresent: true
+      isPresent: true,
     };
 
     attendanceDoc.sessions.set(sName, newSession);
@@ -98,7 +103,7 @@ exports.markAttendance = async (req, res) => {
         eventName: attendanceDoc.eventName,
         sessionName: sName,
         isPresent: true,
-        _id: attendanceDoc._id
+        _id: attendanceDoc._id,
       },
     });
   } catch (err) {
@@ -126,12 +131,13 @@ exports.checkAttendance = async (req, res) => {
     }
 
     // Flatten sessions map to array for frontend
-    const records = Object.values(attendanceDoc.sessions).map(s => ({
+    const records = Object.values(attendanceDoc.sessions).map((s) => ({
       ...s,
       regno: attendanceDoc.regno,
       eventName: attendanceDoc.eventName,
       student: attendanceDoc.student,
-      timestamp: s.timestamp instanceof Date ? s.timestamp.getTime() : s.timestamp,
+      timestamp:
+        s.timestamp instanceof Date ? s.timestamp.getTime() : s.timestamp,
       // Fallbacks for checkIn/checkOut removed
     }));
 
@@ -177,7 +183,7 @@ exports.getSummary = async (req, res) => {
 
       if (!countsByEvent[e]) {
         countsByEvent[e] = {
-          totalRecords: 0
+          totalRecords: 0,
         };
       }
 
@@ -190,7 +196,7 @@ exports.getSummary = async (req, res) => {
             name: doc.name,
             eventName: doc.eventName,
             sessionName: sVal.sessionName || sKey,
-            _id: doc._id
+            _id: doc._id,
           });
 
           // Update counts
@@ -200,8 +206,12 @@ exports.getSummary = async (req, res) => {
     }
 
     const records = flattenedRecords; // Frontend expects array of records
-    res.json({ total: flattenedRecords.length, byEvent, countsByEvent, records });
-
+    res.json({
+      total: flattenedRecords.length,
+      byEvent,
+      countsByEvent,
+      records,
+    });
   } catch (err) {
     console.error("getSummary error:", err);
     res.status(500).json({ error: "Internal server error" });
@@ -212,6 +222,9 @@ exports.getSummary = async (req, res) => {
 exports.exportCSV = async (req, res) => {
   try {
     const eventName = req.query.eventName;
+    const presentOnly = req.query.present === "1";
+    const allStudents = req.query.allStudents === "1";
+
     const query = eventName ? { eventName } : {};
 
     // Fetch attendance documents
@@ -220,11 +233,12 @@ exports.exportCSV = async (req, res) => {
     // Fetch event configuration to get session names
     const Event = require(path.join(__dirname, "..", "models", "Event"));
     let sessionNames = [];
+    let eventDoc = null;
 
     if (eventName) {
-      const eventDoc = await Event.findOne({ title: eventName }).lean();
+      eventDoc = await Event.findOne({ title: eventName }).lean();
       if (eventDoc && eventDoc.sessions) {
-        sessionNames = eventDoc.sessions.map(s => s.name);
+        sessionNames = eventDoc.sessions.map((s) => s.name);
       }
     }
 
@@ -243,7 +257,7 @@ exports.exportCSV = async (req, res) => {
 
     // Build CSV header
     const headers = ["Roll Number", "Name", "Email", "Hostel", "Event"];
-    sessionNames.forEach(sName => {
+    sessionNames.forEach((sName) => {
       headers.push(sName); // Session attendance column
       headers.push(`${sName} - Time`); // Session timestamp column
     });
@@ -251,69 +265,105 @@ exports.exportCSV = async (req, res) => {
     const lines = [];
     lines.push(headers.join(","));
 
-    // Group by student (regno)
-    const studentMap = {};
+    // Group attendance by student (regno)
+    const attendanceByRegno = {};
     for (const doc of docs) {
-      if (!studentMap[doc.regno]) {
-        studentMap[doc.regno] = {
+      if (!attendanceByRegno[doc.regno]) {
+        attendanceByRegno[doc.regno] = {
           regno: doc.regno,
           name: doc.name,
           eventName: doc.eventName,
-          sessions: {}
+          sessions: {},
         };
       }
 
-      // Merge sessions from this document
       if (doc.sessions) {
         for (const [sName, sVal] of Object.entries(doc.sessions)) {
-          studentMap[doc.regno].sessions[sName] = sVal;
+          attendanceByRegno[doc.regno].sessions[sName] = sVal;
         }
       }
     }
 
-    // Fetch student details for email and hostel
-    const regnos = Object.keys(studentMap);
-    const students = await Student.find({
-      regno: { $in: regnos }
-    }).lean();
+    let regnos = Object.keys(attendanceByRegno);
+    let students = [];
+
+    if (allStudents && eventName && eventDoc) {
+      // Include all students registered for this event
+      students = await Student.find({
+        "registrations.event": eventDoc._id,
+      }).lean();
+
+      const registeredRegnos = students.map((s) => s.regno).filter(Boolean);
+      const regnoSet = new Set(regnos);
+      for (const r of registeredRegnos) regnoSet.add(r);
+      regnos = Array.from(regnoSet);
+    } else {
+      // Default behaviour: only students who have attendance records
+      students = await Student.find({
+        regno: { $in: regnos },
+      }).lean();
+    }
 
     const studentDetailsMap = {};
-    students.forEach(s => {
+    students.forEach((s) => {
       studentDetailsMap[s.regno] = s;
     });
 
     // Build CSV rows
-    for (const [regno, data] of Object.entries(studentMap)) {
+    for (const regno of regnos) {
+      const attendanceData = attendanceByRegno[regno];
       const studentDetails = studentDetailsMap[regno] || {};
+
+      const displayName =
+        (studentDetails && studentDetails.name) ||
+        (attendanceData && attendanceData.name) ||
+        "";
+      const rowEventName =
+        eventName || (attendanceData && attendanceData.eventName) || "";
+
       const row = [
         regno,
-        data.name,
+        displayName,
         studentDetails.email || "",
         studentDetails.hostelName || "",
-        data.eventName
+        rowEventName,
       ];
 
+      let hasPresent = false;
+
       // Add session attendance and timestamps
-      sessionNames.forEach(sName => {
-        const session = data.sessions[sName];
+      sessionNames.forEach((sName) => {
+        const session =
+          attendanceData && attendanceData.sessions
+            ? attendanceData.sessions[sName]
+            : null;
         if (session && session.isPresent) {
+          hasPresent = true;
           row.push("Present");
-          row.push(session.timestampText || formatLocalYMDHM(session.timestamp) || "");
+          row.push(
+            session.timestampText || formatLocalYMDHM(session.timestamp) || "",
+          );
         } else {
-          row.push(""); // Not marked
-          row.push(""); // No timestamp
+          // When exporting all students, explicitly mark Absent
+          row.push(allStudents ? "Absent" : "");
+          row.push("");
         }
       });
 
+      // If presentOnly filter requested, skip students who were never present
+      if (presentOnly && !hasPresent) continue;
+
       // Escape and add row
-      const escaped = row.map(v => `"${String(v).replace(/"/g, '""')}"`);
+      const escaped = row.map((v) => `"${String(v).replace(/"/g, '""')}"`);
       lines.push(escaped.join(","));
     }
 
     res.setHeader("Content-Type", "text/csv");
-    res.setHeader("Content-Disposition", `attachment; filename="attendance.csv"`);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="attendance.csv"`,
+    );
     res.send(lines.join("\n"));
-
   } catch (err) {
     console.error("export error", err);
     res.status(500).send("Export failed");
@@ -326,10 +376,14 @@ exports.updateAttendance = async (req, res) => {
     const { regno } = req.params;
     const { eventName, sessionName, isPresent } = req.body || {};
 
-    if (!eventName) return res.status(400).json({ error: "eventName is required" });
+    if (!eventName)
+      return res.status(400).json({ error: "eventName is required" });
     const sName = sessionName || "default";
 
-    const doc = await Attendance.findOne({ regno: new RegExp(`^${regno}$`, "i"), eventName });
+    const doc = await Attendance.findOne({
+      regno: new RegExp(`^${regno}$`, "i"),
+      eventName,
+    });
     if (!doc) return res.status(404).json({ error: "Record not found" });
 
     // Update session
@@ -343,7 +397,7 @@ exports.updateAttendance = async (req, res) => {
         sessionName: sName,
         timestamp: new Date(),
         timestampText: formatLocalYMDHM(new Date()),
-        isPresent: true
+        isPresent: true,
       };
     }
 
@@ -355,7 +409,6 @@ exports.updateAttendance = async (req, res) => {
     doc.sessions.set(sName, sess);
     await doc.save();
     return res.json({ message: "Updated", attendance: doc });
-
   } catch (err) {
     console.error("update error", err);
     res.status(500).json({ error: "Update failed" });
@@ -368,9 +421,13 @@ exports.deleteAttendance = async (req, res) => {
     const { regno } = req.params;
     const { eventName } = req.query;
 
-    if (!eventName) return res.status(400).json({ error: "eventName required" });
+    if (!eventName)
+      return res.status(400).json({ error: "eventName required" });
 
-    await Attendance.deleteOne({ regno: new RegExp(`^${regno}$`, "i"), eventName });
+    await Attendance.deleteOne({
+      regno: new RegExp(`^${regno}$`, "i"),
+      eventName,
+    });
     res.json({ message: `Deleted attendance for ${regno} in ${eventName}` });
   } catch (err) {
     console.error("delete error", err);

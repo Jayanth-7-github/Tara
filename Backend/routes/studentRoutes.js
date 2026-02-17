@@ -16,4 +16,7 @@ router.post("/", delegate('createStudent', studentController.createStudent));
 // POST /api/students/bulk
 router.post("/bulk", delegate('createStudentsBulk', studentController.createStudentsBulk));
 
+// PUT /api/students/:regno
+router.put("/:regno", delegate('updateStudent', studentController.updateStudent));
+
 module.exports = router;

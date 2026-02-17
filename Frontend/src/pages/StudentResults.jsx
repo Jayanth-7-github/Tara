@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { checkLogin } from "../services/auth";
 import { getAllTestResults, fetchEvents } from "../services/api";
 
 export default function StudentResults() {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const eventParam = searchParams.get("event");
+
     const [loading, setLoading] = useState(true);
     const [results, setResults] = useState([]);
     const [events, setEvents] = useState([]);
     const [filteredResults, setFilteredResults] = useState([]);
-    const [selectedEventTitle, setSelectedEventTitle] = useState("All");
+    const [selectedEventTitle, setSelectedEventTitle] = useState(eventParam || "All");
     const [expandedRows, setExpandedRows] = useState(new Set());
 
     const toggleRow = (id) => {
@@ -74,7 +77,6 @@ export default function StudentResults() {
                     }
 
                     setResults(visibleResults);
-                    setFilteredResults(visibleResults);
                     setEvents(visibleEvents);
                 } catch (err) {
                     console.error("Data fetch failed:", err);

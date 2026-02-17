@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { searchStudents } from "../../services/api";
 
-export default function SearchBar({ onSearch }) {
+export default function SearchBar({ onSearch, selectedEvent }) {
   const [value, setValue] = useState("");
   const [loading, setLoading] = useState(false);
   const [filteredStudents, setFilteredStudents] = useState([]);
@@ -13,7 +13,9 @@ export default function SearchBar({ onSearch }) {
     const delayDebounce = setTimeout(async () => {
       if (value.trim().length >= 2) {
         try {
-          const results = await searchStudents(value.trim());
+          // Pass selectedEvent._id if available
+          const eventId = selectedEvent ? selectedEvent._id : null;
+          const results = await searchStudents(value.trim(), eventId);
           setFilteredStudents(results);
           setShowDropdown(results.length > 0);
         } catch (err) {
@@ -26,6 +28,7 @@ export default function SearchBar({ onSearch }) {
         setShowDropdown(false);
       }
     }, 300);
+
 
     return () => clearTimeout(delayDebounce);
   }, [value]);

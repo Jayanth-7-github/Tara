@@ -19,6 +19,12 @@ export default function SingleStudentForm({
   const [events, setEvents] = useState([]);
 
   useEffect(() => {
+    if (propEventName) {
+      setEventName(propEventName);
+    }
+  }, [propEventName]);
+
+  useEffect(() => {
     if (propEventName) return;
     // fetch events and set the first event title as default
     (async () => {
@@ -37,7 +43,7 @@ export default function SingleStudentForm({
   }, [propEventName]);
 
   async function handleCreate(e) {
-    e && e.preventDefault();
+    if (e) e.preventDefault(); // Fix for potential implicit submission
     setError(null);
     setMessage(null);
     if (!regno.trim() || !name.trim()) {
@@ -127,27 +133,29 @@ export default function SingleStudentForm({
             className="bg-gray-900/40 border border-gray-700 rounded-lg p-4 space-y-3"
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {/** Event selector (optional) */}
-              <label className="flex flex-col gap-1">
-                <span className="text-xs text-gray-400">Event (optional)</span>
-                <select
-                  value={eventId || ""}
-                  onChange={(e) => {
-                    const id = e.target.value;
-                    setEventId(id);
-                    const ev = id ? events.find((it) => it._id === id) : null;
-                    setEventName(ev ? ev.title : propEventName || "");
-                  }}
-                  className="p-2 rounded bg-gray-800 border border-gray-700 text-white text-sm"
-                >
-                  <option value="">(none)</option>
-                  {events.map((ev) => (
-                    <option key={ev._id} value={ev._id}>
-                      {ev.title}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              {/** Event selector (optional) - show only if no propEventName provided */}
+              {!propEventName && (
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs text-gray-400">Event (optional)</span>
+                  <select
+                    value={eventId || ""}
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      setEventId(id);
+                      const ev = id ? events.find((it) => it._id === id) : null;
+                      setEventName(ev ? ev.title : propEventName || "");
+                    }}
+                    className="p-2 rounded bg-gray-800 border border-gray-700 text-white text-sm"
+                  >
+                    <option value="">(none)</option>
+                    {events.map((ev) => (
+                      <option key={ev._id} value={ev._id}>
+                        {ev.title}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
               <label className="flex flex-col gap-1">
                 <span className="text-xs text-gray-400">RegNo</span>
                 <input

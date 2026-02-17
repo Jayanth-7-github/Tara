@@ -43,16 +43,25 @@ function normalizeStudentInput(input) {
 // Search students by regno prefix
 exports.searchStudents = async (req, res) => {
   const query = req.query.q || "";
+  const eventId = req.query.eventId;
+
   if (!query.trim()) {
     return res.json([]);
   }
 
   try {
-    // Find students whose regno starts with the query (case-insensitive)
-    const students = await Student.find({
+    const filter = {
       regno: new RegExp(`^${query}`, "i"),
-    })
-      .select("regno name branch department year role teamName")
+    };
+
+    if (eventId) {
+      // Filter by registration for this event
+      filter["registrations.event"] = eventId;
+    }
+
+    // Find students whose regno starts with the query (case-insensitive)
+    const students = await Student.find(filter)
+      .select("regno name branch department year role teamName registrations") // Added registrations to return for debug/client use
       .limit(20)
       .lean();
     res.json(students);
@@ -220,7 +229,44 @@ exports.createStudentsBulk = async (req, res) => {
       ...results,
     });
   } catch (err) {
-    console.error("createStudentsBulk error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// PUT /api/students/:regno
+exports.updateStudent = async (req, res) => {
+  const regnoParam = req.params.regno;
+  if (!regnoParam) {
+    return res.status(400).json({ error: "regno is required" });
+  }
+
+  try {
+    const existing = await Student.findOne({
+      regno: new RegExp(`^${regnoParam}$`, "i"),
+    });
+
+    if (!existing) {
+      return res.status(404).json({ error: "Student not found" });
+    }
+
+    const body = req.body || {};
+    // fields to update
+    if (body.name) existing.name = body.name.trim();
+    if (body.email !== undefined) existing.email = body.email ? body.email.trim() : null;
+    if (body.phone !== undefined) existing.phone = body.phone ? body.phone.trim() : null;
+    if (body.year !== undefined) existing.year = body.year ? body.year.trim() : null;
+    if (body.department !== undefined) existing.department = body.department ? body.department.trim() : null;
+    if (body.branch !== undefined) existing.branch = body.branch ? body.branch.trim() : null;
+    if (body.teamName !== undefined) existing.teamName = body.teamName ? body.teamName.trim() : null;
+    if (body.role !== undefined) existing.role = body.role ? body.role.trim() : null;
+    if (body.hostelName !== undefined) existing.hostelName = body.hostelName ? body.hostelName.trim() : null;
+    if (body.roomNo !== undefined) existing.roomNo = body.roomNo ? body.roomNo.trim() : null;
+
+    const saved = await existing.save();
+    return res.json(saved);
+
+  } catch (err) {
+    console.error("updateStudent error:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 };

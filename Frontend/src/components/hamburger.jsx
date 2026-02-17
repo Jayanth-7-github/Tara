@@ -79,7 +79,7 @@ export default function Hamburger() {
   const adminMenu = [
     { label: "Admin Dashboard", to: "/dashboard/admin" },
     { label: "Events", to: "/main" },
-    { label: "Assign Roles", to: `/admin/roles/${ADMIN_TOKEN}` },
+    { label: "Assign Roles", to: "/admin/roles" },
   ];
 
   const memberMenu = [
@@ -96,9 +96,9 @@ export default function Hamburger() {
     normalized === "admin"
       ? adminMenu
       : normalized === "member" ||
-          ["eventmanager", "event_manager", "event-manager"].includes(
-            normalized,
-          )
+        ["eventmanager", "event_manager", "event-manager"].includes(
+          normalized,
+        )
         ? memberMenu
         : normalized === "student" || normalized === "user"
           ? studentMenu
@@ -131,9 +131,8 @@ export default function Hamburger() {
       {/* overlay */}
       <div
         aria-hidden={!open}
-        className={`fixed inset-0 bg-[rgba(0,0,0,0.5)] backdrop-blur-sm transition-opacity duration-300 ${
-          open ? "opacity-100 visible" : "opacity-0 invisible"
-        }`}
+        className={`fixed inset-0 bg-[rgba(0,0,0,0.5)] backdrop-blur-sm transition-opacity duration-300 ${open ? "opacity-100 visible" : "opacity-0 invisible"
+          }`}
         onClick={() => setOpen(false)}
       />
 
@@ -141,9 +140,8 @@ export default function Hamburger() {
       <aside
         role="dialog"
         aria-modal="true"
-        className={`fixed top-0 right-0 h-full w-80 max-w-full bg-gray-900 border-l border-gray-800 shadow-xl transform transition-transform duration-300 ease-out z-50 flex flex-col ${
-          open ? "translate-x-0" : "translate-x-full"
-        }`}
+        className={`fixed top-0 right-0 h-full w-80 max-w-full bg-gray-900 border-l border-gray-800 shadow-xl transform transition-transform duration-300 ease-out z-50 flex flex-col ${open ? "translate-x-0" : "translate-x-full"
+          }`}
       >
         <div className="flex items-center justify-between p-4 border-b border-gray-800">
           <div className="text-white font-semibold">Menu</div>
@@ -172,41 +170,40 @@ export default function Hamburger() {
         <div className="p-4 overflow-y-auto flex-1">
           {(userName ||
             (normalized !== "user" && normalized !== "student")) && (
-            <div className="mb-4 pb-3 border-b border-gray-700">
-              {userName && (
-                <div className="mb-2">
-                  <div className="text-xs text-gray-500 uppercase tracking-wide mb-0.5">
-                    Signed in as
+              <div className="mb-4 pb-3 border-b border-gray-700">
+                {userName && (
+                  <div className="mb-2">
+                    <div className="text-xs text-gray-500 uppercase tracking-wide mb-0.5">
+                      Signed in as
+                    </div>
+                    <div className="text-sm text-white font-medium truncate">
+                      {userName}
+                    </div>
                   </div>
-                  <div className="text-sm text-white font-medium truncate">
-                    {userName}
-                  </div>
-                </div>
-              )}
+                )}
 
-              {normalized !== "user" && normalized !== "student" && (
-                <div>
-                  <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">
-                    Current Role
+                {normalized !== "user" && normalized !== "student" && (
+                  <div>
+                    <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">
+                      Current Role
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div
+                        className={`w-2 h-2 rounded-full ${normalized === "admin"
+                            ? "bg-red-500"
+                            : normalized === "member"
+                              ? "bg-blue-500"
+                              : "bg-green-500"
+                          }`}
+                      ></div>
+                      <span className="text-white font-medium capitalize">
+                        {role}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={`w-2 h-2 rounded-full ${
-                        normalized === "admin"
-                          ? "bg-red-500"
-                          : normalized === "member"
-                            ? "bg-blue-500"
-                            : "bg-green-500"
-                      }`}
-                    ></div>
-                    <span className="text-white font-medium capitalize">
-                      {role}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+                )}
+              </div>
+            )}
           <nav className="flex flex-col gap-1.5">
             {menuToRender.map((item, index) => {
               return (
@@ -215,10 +212,9 @@ export default function Hamburger() {
                     to={item.to}
                     onClick={() => setOpen(false)}
                     className={({ isActive }) =>
-                      `text-sm px-3 py-2.5 rounded-lg transition-all flex items-center gap-2 ${
-                        isActive
-                          ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
-                          : "text-gray-300 hover:text-white hover:bg-gray-800"
+                      `text-sm px-3 py-2.5 rounded-lg transition-all flex items-center gap-2 ${isActive
+                        ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
+                        : "text-gray-300 hover:text-white hover:bg-gray-800"
                       }`
                     }
                   >
@@ -330,20 +326,20 @@ export default function Hamburger() {
                     )}
                     {(item.label.includes("Secret") ||
                       item.label.includes("Absent")) && (
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                        />
-                      </svg>
-                    )}
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                          />
+                        </svg>
+                      )}
                     <span>{item.label}</span>
                   </NavLink>
                 </React.Fragment>

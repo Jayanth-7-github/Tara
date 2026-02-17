@@ -12,10 +12,9 @@ import CreateEvent from "./pages/CreateEvent";
 import Assignments from "./pages/Assignments";
 import ExamPage from "./Exam/pages/ExamPage";
 import Test from "./pages/Test";
-import ManageAttendance from "./secret/pages/ManageAttendance";
+import ManageStudent from "./secret/pages/ManageStudent";
 import ManageSessions from "./secret/pages/ManageSessions";
 import UpdateAttendance from "./secret/pages/UpdateAttendance";
-import MarkAbsent from "./secret/pages/MarkAbsent";
 import AdminSecret from "./secret/pages/AdminSecret";
 import AddRoles from "./secret/pages/AddRoles";
 import EventContacts from "./pages/EventContacts";
@@ -44,42 +43,43 @@ function App() {
         <main>
           <Routes>
             <Route path="/" element={<PublicHome />} />
+
+            {/* attendance and summary pages */}
             <Route
-              path={`/member/secret/${ADMIN_TOKEN}`}
+              path="/member/secret"
               element={<Secret />}
             />
             <Route
-              path={`/member/Attendance/${ADMIN_TOKEN}`}
+              path="/member/Attendance"
               element={<AttendancePage />}
             />
             <Route
-              path={`/member/summary/${ADMIN_TOKEN}`}
+              path="/member/summary"
               element={<AttendanceSummary />}
             />
+            {/* Developer options */}
             <Route
-              path={`/admin/manage-attendance/${ADMIN_TOKEN}`}
-              element={<ManageAttendance />}
+              path="/admin/manage-student"
+              element={<ManageStudent />}
             />
             <Route
-              path={`/admin/manage-sessions/${ADMIN_TOKEN}`}
+              path="/admin/manage-sessions"
               element={<ManageSessions />}
             />
             <Route
-              path={`/admin/update-attendance/${ADMIN_TOKEN}`}
+              path="/admin/update-attendance"
               element={<UpdateAttendance />}
             />
             <Route
-              path={`/admin/secret/${ADMIN_TOKEN}`}
+              path="/admin/secret"
               element={<AdminSecret />}
             />
             <Route
-              path={`/admin/roles/${ADMIN_TOKEN}`}
+              path="/admin/roles"
               element={<AddRoles />}
             />
-            <Route
-              path={`/admin/mark-absent/${ADMIN_TOKEN}`}
-              element={<MarkAbsent />}
-            />
+
+            {/* public and event manager pages */}
             <Route path="/main" element={<Main />} />
 
             <Route path="/events/create" element={<CreateEvent />} />

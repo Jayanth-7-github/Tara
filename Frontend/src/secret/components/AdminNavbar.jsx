@@ -26,7 +26,7 @@ export default function AdminNavbar() {
       setIsUnlocked(true);
       // Optional: dispatch event if other components need to know immediately
       window.dispatchEvent(new Event("storage"));
-      navigate(`/admin/secret/${ADMIN_TOKEN}`);
+      navigate("/admin/secret");
     } else if (key !== null) {
       alert("Invalid Admin Key!");
     }
@@ -36,7 +36,7 @@ export default function AdminNavbar() {
     <nav className="flex flex-wrap items-center gap-2 p-3 bg-gray-800/30 rounded-xl border border-gray-700/50 mb-6 transition-all duration-300">
       {/* Admin link is always visible, acts as the unlock trigger */}
       <NavLink
-        to={`/admin/secret/${ADMIN_TOKEN}`}
+        to="/admin/secret"
         onClick={handleAdminClick}
         className={({ isActive }) =>
           `px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap ${isActive
@@ -52,7 +52,7 @@ export default function AdminNavbar() {
       {isUnlocked && (
         <>
           <NavLink
-            to={`/admin/update-attendance/${ADMIN_TOKEN}`}
+            to="/admin/update-attendance"
             className={({ isActive }) =>
               `px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap ${isActive
                 ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
@@ -60,11 +60,11 @@ export default function AdminNavbar() {
               }`
             }
           >
-            Update
+            Manage Attendance
           </NavLink>
 
           <NavLink
-            to={`/admin/mark-absent/${ADMIN_TOKEN}`}
+            to="/admin/manage-student"
             className={({ isActive }) =>
               `px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap ${isActive
                 ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
@@ -72,23 +72,11 @@ export default function AdminNavbar() {
               }`
             }
           >
-            Mark Absent
+            Manage Student
           </NavLink>
 
           <NavLink
-            to={`/admin/manage-attendance/${ADMIN_TOKEN}`}
-            className={({ isActive }) =>
-              `px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap ${isActive
-                ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
-                : "text-gray-300 hover:text-white hover:bg-gray-700/50"
-              }`
-            }
-          >
-            Students
-          </NavLink>
-
-          <NavLink
-            to={`/admin/manage-sessions/${ADMIN_TOKEN}`}
+            to="/admin/manage-sessions"
             className={({ isActive }) =>
               `px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap ${isActive
                 ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
@@ -100,7 +88,7 @@ export default function AdminNavbar() {
           </NavLink>
 
           <NavLink
-            to={`/admin/roles/${ADMIN_TOKEN}`}
+            to="/admin/roles"
             className={({ isActive }) =>
               `px-3 py-1 rounded whitespace-nowrap ${isActive
                 ? "bg-blue-600 text-white"
@@ -112,7 +100,7 @@ export default function AdminNavbar() {
           </NavLink>
 
           <NavLink
-            to={`/member/secret/${ADMIN_TOKEN}`}
+            to="/member/secret"
             className={({ isActive }) =>
               `ml-4 px-3 py-1 rounded text-sm ${isActive
                 ? "bg-gray-600 text-white"
@@ -127,7 +115,7 @@ export default function AdminNavbar() {
             onClick={() => {
               sessionStorage.removeItem("adminUnlocked");
               setIsUnlocked(false);
-              navigate(`/admin/secret/${ADMIN_TOKEN}`);
+              navigate("/admin/secret");
             }}
             className="ml-auto px-3 py-1 text-xs text-red-400 hover:text-red-300 transition-colors"
           >

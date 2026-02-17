@@ -10,7 +10,7 @@ export default function ManageSessions() {
 
     useEffect(() => {
         if (sessionStorage.getItem("adminUnlocked") !== "1") {
-            navigate(`/admin/secret/${ADMIN_TOKEN}`);
+            navigate("/admin/secret");
         }
     }, [navigate]);
 

@@ -100,31 +100,26 @@ export default function AdminSecret() {
                 </h3>
                 <div className="flex flex-wrap gap-3">
                   <Link
-                    to={`/admin/update-attendance/${ADMIN_TOKEN}`}
+                    to="/admin/update-attendance"
                     className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm"
                   >
                     Update Attendance
                   </Link>
                   <Link
-                    to={`/admin/mark-absent/${ADMIN_TOKEN}`}
-                    className="px-4 py-2 rounded bg-red-600 hover:bg-red-700 text-white text-sm"
-                  >
-                    Mark Absent
-                  </Link>
-                  <Link
-                    to={`/admin/manage-attendance/${ADMIN_TOKEN}`}
+                    to="/admin/manage-student"
                     className="px-4 py-2 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-sm"
                   >
                     Manage Students
                   </Link>
+
                   <Link
-                    to={`/admin/manage-sessions/${ADMIN_TOKEN}`}
+                    to="/admin/manage-sessions"
                     className="px-4 py-2 rounded bg-teal-600 hover:bg-teal-700 text-white text-sm"
                   >
                     Manage Sessions
                   </Link>
                   <Link
-                    to={`/member/summary/${ADMIN_TOKEN}`}
+                    to="/member/summary"
                     className="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-sm"
                   >
                     Attendance Summary

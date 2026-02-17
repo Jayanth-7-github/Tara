@@ -165,11 +165,10 @@ export default function EventContacts() {
             <button
               key={tab.value}
               onClick={() => setFilter(tab.value)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                filter === tab.value
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition ${filter === tab.value
                   ? "bg-blue-600 text-white"
                   : "bg-gray-800 text-gray-300 hover:bg-gray-700"
-              }`}
+                }`}
             >
               {tab.label} <span className="opacity-75">({tab.count})</span>
             </button>
@@ -188,11 +187,10 @@ export default function EventContacts() {
                 <div
                   key={contact._id}
                   onClick={() => setSelectedContact(contact)}
-                  className={`bg-gray-900/70 border rounded-xl p-4 cursor-pointer transition ${
-                    selectedContact?._id === contact._id
+                  className={`bg-gray-900/70 border rounded-xl p-4 cursor-pointer transition ${selectedContact?._id === contact._id
                       ? "border-blue-500 shadow-lg shadow-blue-500/20"
                       : "border-gray-800 hover:border-gray-700"
-                  }`}
+                    }`}
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div>
@@ -205,13 +203,12 @@ export default function EventContacts() {
                       <p className="text-sm text-gray-400">{contact.email}</p>
                     </div>
                     <span
-                      className={`text-xs px-2 py-1 rounded ${
-                        contact.status === "unread"
+                      className={`text-xs px-2 py-1 rounded ${contact.status === "unread"
                           ? "bg-blue-900/50 text-blue-300"
                           : contact.status === "read"
-                          ? "bg-yellow-900/50 text-yellow-300"
-                          : "bg-green-900/50 text-green-300"
-                      }`}
+                            ? "bg-yellow-900/50 text-yellow-300"
+                            : "bg-green-900/50 text-green-300"
+                        }`}
                     >
                       {contact.status}
                     </span>
@@ -302,11 +299,10 @@ export default function EventContacts() {
                           disabled={
                             updating || selectedContact.status === status
                           }
-                          className={`flex-1 px-3 py-2 rounded text-sm font-medium transition ${
-                            selectedContact.status === status
+                          className={`flex-1 px-3 py-2 rounded text-sm font-medium transition ${selectedContact.status === status
                               ? "bg-gray-700 text-gray-500 cursor-not-allowed"
                               : "bg-blue-600 hover:bg-blue-700 text-white"
-                          } ${updating ? "opacity-50 cursor-wait" : ""}`}
+                            } ${updating ? "opacity-50 cursor-wait" : ""}`}
                         >
                           {status.charAt(0).toUpperCase() + status.slice(1)}
                         </button>
@@ -323,13 +319,12 @@ export default function EventContacts() {
                         !selectedContact.regno ||
                         !selectedContact.name
                       }
-                      className={`w-full px-4 py-2 rounded-lg text-sm font-medium transition ${
-                        updating ||
-                        !selectedContact.regno ||
-                        !selectedContact.name
+                      className={`w-full px-4 py-2 rounded-lg text-sm font-medium transition ${updating ||
+                          !selectedContact.regno ||
+                          !selectedContact.name
                           ? "bg-gray-700 text-gray-500 cursor-not-allowed"
                           : "bg-purple-600 hover:bg-purple-700 text-white"
-                      }`}
+                        }`}
                       title={
                         !selectedContact.regno || !selectedContact.name
                           ? "Contact missing regno or name"
@@ -354,11 +349,10 @@ export default function EventContacts() {
                       </div>
                     </button>
                     <a
-                      href={`mailto:${
-                        selectedContact.email
-                      }?subject=Re: ${encodeURIComponent(
-                        selectedContact.eventTitle
-                      )}`}
+                      href={`mailto:${selectedContact.email
+                        }?subject=Re: ${encodeURIComponent(
+                          selectedContact.eventTitle
+                        )}`}
                       className="inline-flex items-center justify-center gap-2 w-full px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg text-sm transition"
                     >
                       <svg

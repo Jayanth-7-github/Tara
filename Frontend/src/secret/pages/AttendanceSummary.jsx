@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getSummary, downloadCSV, fetchEvents } from "../../services/api";
-import { ADMIN_TOKEN } from "../../services/constants";
 
 export default function AttendanceSummary() {
   const navigate = useNavigate();
@@ -67,9 +66,9 @@ export default function AttendanceSummary() {
   const rawRecords =
     summary && summary.records
       ? summary.records.filter(
-        (r) =>
-          (r.eventName || "default") === (selectedEventName || "default")
-      )
+          (r) =>
+            (r.eventName || "default") === (selectedEventName || "default"),
+        )
       : [];
 
   // Determine columns based on Event Config
@@ -78,12 +77,12 @@ export default function AttendanceSummary() {
   // Show ALL configured sessions, not just active ones
   const sessionColumns = sessionConfig;
 
-  // Group records by student (regno)
-  const studentsMap = {};
+  // Group attendance records by student (regno)
+  const attendanceByRegno = {};
   rawRecords.forEach((r) => {
-    if (!studentsMap[r.regno]) {
-      studentsMap[r.regno] = {
-        ...r,
+    if (!attendanceByRegno[r.regno]) {
+      attendanceByRegno[r.regno] = {
+        base: r,
         sessions: {},
       };
     }
@@ -95,19 +94,42 @@ export default function AttendanceSummary() {
       sKey = sessionColumns[0].name;
     } else if (sKey) {
       // Normalize case
-      const exact = sessionColumns.find(c => c.name === sKey);
+      const exact = sessionColumns.find((c) => c.name === sKey);
       if (!exact) {
-        const loose = sessionColumns.find(c => c.name.toLowerCase() === sKey.toLowerCase());
+        const loose = sessionColumns.find(
+          (c) => c.name.toLowerCase() === sKey.toLowerCase(),
+        );
         if (loose) sKey = loose.name;
       }
     }
 
     if (sKey) {
-      studentsMap[r.regno].sessions[sKey] = r;
+      attendanceByRegno[r.regno].sessions[sKey] = r;
     }
   });
 
-  const studentRows = Object.values(studentsMap);
+  // Build final student list: include all registered students for the event,
+  // defaulting them to "absent" when no attendance record exists.
+  const registeredStudents = currentEventObj?.registeredStudents || [];
+  const studentRows =
+    registeredStudents.length > 0
+      ? registeredStudents.map((stu) => {
+          const attendance = attendanceByRegno[stu.regno] || {};
+          return {
+            regno: stu.regno,
+            name: stu.name || attendance.base?.name || "",
+            email: stu.email || attendance.base?.email,
+            hostelName: stu.hostelName || attendance.base?.hostelName,
+            sessions: attendance.sessions || {},
+          };
+        })
+      : Object.values(attendanceByRegno).map((entry) => ({
+          regno: entry.base.regno,
+          name: entry.base.name,
+          email: entry.base.email,
+          hostelName: entry.base.hostelName,
+          sessions: entry.sessions,
+        }));
 
   const handleDownload = async (mode) => {
     try {
@@ -116,7 +138,7 @@ export default function AttendanceSummary() {
           ? { returnedOnly: true, eventName: selectedEventName }
           : mode === "outnow"
             ? { outNowOnly: true, eventName: selectedEventName }
-            : { allStudents: true, eventName: selectedEventName }
+            : { allStudents: true, eventName: selectedEventName },
       );
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -155,36 +177,47 @@ export default function AttendanceSummary() {
             {/* Event selector */}
             <div className="flex flex-col sm:flex-row items-center gap-3 bg-gray-900/40 p-1 rounded-xl border border-gray-700/50">
               <div className="flex items-center gap-2 px-3 py-2">
-                <span className="text-gray-400 text-sm font-medium">Event:</span>
+                <span className="text-gray-400 text-sm font-medium">
+                  Event:
+                </span>
                 <select
                   value={selectedEventName}
                   onChange={(e) => setSelectedEventName(e.target.value)}
                   className="bg-transparent text-white text-sm font-semibold focus:outline-none cursor-pointer min-w-[150px]"
                 >
                   {/* Show events from fetched list first for correctness, fallback to summary keys */}
-                  {events.length > 0 ? (
-                    events.map(ev => (
-                      <option key={ev._id} value={ev.title} className="bg-gray-900">
-                        {ev.title}
+                  {events.length > 0
+                    ? events.map((ev) => (
+                        <option
+                          key={ev._id}
+                          value={ev.title}
+                          className="bg-gray-900"
+                        >
+                          {ev.title}
+                        </option>
+                      ))
+                    : summary &&
+                      summary.byEvent &&
+                      Object.keys(summary.byEvent).map((ev) => (
+                        <option key={ev} value={ev} className="bg-gray-900">
+                          {ev}
+                        </option>
+                      ))}
+                  {!events.length &&
+                    (!summary ||
+                      !summary.byEvent ||
+                      Object.keys(summary.byEvent).length === 0) && (
+                      <option value="default" className="bg-gray-900">
+                        Default
                       </option>
-                    ))
-                  ) : (
-                    summary && summary.byEvent && Object.keys(summary.byEvent).map((ev) => (
-                      <option key={ev} value={ev} className="bg-gray-900">
-                        {ev}
-                      </option>
-                    ))
-                  )}
-                  {!events.length && (!summary || !summary.byEvent || Object.keys(summary.byEvent).length === 0) && (
-                    <option value="default" className="bg-gray-900">Default</option>
-                  )}
+                    )}
                 </select>
               </div>
 
               <div className="h-6 w-px bg-gray-700 hidden sm:block"></div>
 
               <button
-                onClick={() => navigate(`/member/Attendance/${ADMIN_TOKEN}`)}
+                onClick={() => navigate(`/member/Attendance`)}
                 className="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-800 transition-colors"
               >
                 Back to Scan
@@ -195,8 +228,19 @@ export default function AttendanceSummary() {
               onClick={() => handleDownload("all")}
               className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold shadow-lg shadow-blue-900/20 transition-all hover:scale-105 active:scale-95 flex items-center gap-2"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                />
               </svg>
               Export CSV
             </button>
@@ -240,23 +284,39 @@ export default function AttendanceSummary() {
                   <div className="text-sm text-gray-400 mb-2">{s.regno}</div>
 
                   <div className="space-y-2">
-                    {sessionColumns.map(sess => {
+                    {sessionColumns.map((sess) => {
                       const record = s.sessions[sess.name];
                       const isPresent = record && record.isPresent;
                       return (
-                        <div key={sess.name} className="flex justify-between items-center text-sm border-t border-gray-800 pt-2">
+                        <div
+                          key={sess.name}
+                          className="flex justify-between items-center text-sm border-t border-gray-800 pt-2"
+                        >
                           <span className="text-gray-300">{sess.name}</span>
                           <span>
                             {isPresent ? (
                               <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-green-500/20 text-green-400">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  className="h-3 w-3"
+                                  viewBox="0 0 20 20"
+                                  fill="currentColor"
+                                >
+                                  <path
+                                    fillRule="evenodd"
+                                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                    clipRule="evenodd"
+                                  />
                                 </svg>
                               </span>
-                            ) : null}
+                            ) : (
+                              <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 text-xs font-medium">
+                                Absent
+                              </span>
+                            )}
                           </span>
                         </div>
-                      )
+                      );
                     })}
                   </div>
                 </div>
@@ -283,8 +343,9 @@ export default function AttendanceSummary() {
                   {studentRows.map((s, i) => (
                     <tr
                       key={s.regno}
-                      className={`${i % 2 === 0 ? "bg-gray-900/40" : "bg-gray-800/30"
-                        } border-t border-gray-800 hover:bg-gray-800/70 transition-colors`}
+                      className={`${
+                        i % 2 === 0 ? "bg-gray-900/40" : "bg-gray-800/30"
+                      } border-t border-gray-800 hover:bg-gray-800/70 transition-colors`}
                     >
                       <td className="px-3 py-3 text-gray-200">{s.regno}</td>
                       <td className="px-3 py-3 text-gray-200">{s.name}</td>
@@ -301,11 +362,24 @@ export default function AttendanceSummary() {
                           <td key={sess.name} className="px-3 py-3 text-center">
                             {isPresent ? (
                               <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-500/20 text-green-400">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  className="h-4 w-4"
+                                  viewBox="0 0 20 20"
+                                  fill="currentColor"
+                                >
+                                  <path
+                                    fillRule="evenodd"
+                                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                    clipRule="evenodd"
+                                  />
                                 </svg>
                               </span>
-                            ) : null}
+                            ) : (
+                              <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 text-xs font-medium">
+                                Absent
+                              </span>
+                            )}
                           </td>
                         );
                       })}
@@ -321,6 +395,6 @@ export default function AttendanceSummary() {
           </div>
         )}
       </div>
-    </div >
+    </div>
   );
 }

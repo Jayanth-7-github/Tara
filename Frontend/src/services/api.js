@@ -3,10 +3,12 @@ import { API_BASE, ADMIN_TOKEN } from "./constants";
 // Backward-compatible export: some components import API_BASE from this module.
 export { API_BASE, ADMIN_TOKEN };
 
-export async function searchStudents(query) {
-  const resp = await fetch(
-    `${API_BASE}/students/search?q=${encodeURIComponent(query)}`,
-  );
+export async function searchStudents(query, eventId) {
+  let url = `${API_BASE}/students/search?q=${encodeURIComponent(query)}`;
+  if (eventId) {
+    url += `&eventId=${encodeURIComponent(eventId)}`;
+  }
+  const resp = await fetch(url);
   if (!resp.ok) throw new Error("Failed to search students");
   return resp.json();
 }
@@ -109,6 +111,22 @@ export async function createStudentsBulk(students) {
     throw err;
   }
   return body;
+}
+
+// Update non-attendance student data (name, email, etc.)
+export async function updateStudent(regno, body) {
+  const resp = await fetch(`${API_BASE}/students/${encodeURIComponent(regno)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const respBody = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(respBody.error || "Failed to update student");
+    err.status = resp.status;
+    throw err;
+  }
+  return respBody;
 }
 
 // Update attendance for a regno. body can contain { eventName?, name?, isPresent?, timestamp?, newEventName? }
