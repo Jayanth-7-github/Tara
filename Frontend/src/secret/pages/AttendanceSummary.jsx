@@ -10,47 +10,63 @@ export default function AttendanceSummary() {
   const [events, setEvents] = useState([]);
 
   useEffect(() => {
-    loadData();
+    const fetchEventsAndInit = async () => {
+      setLoading(true);
+      try {
+        const eventsData = await fetchEvents();
+        const eventList = eventsData.events || [];
+        setEvents(eventList);
 
-    // Auto-refresh summary every 5 seconds
+        // If no event is selected yet, default to the first event (if any)
+        if (!selectedEventName) {
+          if (eventList.length > 0) {
+            setSelectedEventName(eventList[0].title);
+          } else {
+            setSelectedEventName("default");
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load events:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEventsAndInit();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Fetch summary only for the currently selected event,
+  // and auto-refresh that event's summary every 60 seconds.
+  useEffect(() => {
+    if (!selectedEventName) return;
+
+    const fetchSummary = async () => {
+      setLoading(true);
+      try {
+        const data = await getSummary({
+          eventName: selectedEventName,
+          limit: 20000,
+        });
+        setSummary(data);
+      } catch (err) {
+        console.error("Failed to fetch summary:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSummary();
+
     const timer = setInterval(() => {
-      refreshSummaryOnly(selectedEventName);
+      fetchSummary();
     }, 60000);
 
     return () => clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedEventName]);
 
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      const [summaryData, eventsData] = await Promise.all([
-        getSummary({ limit: 20000 }),
-        fetchEvents(),
-      ]);
-
-      setSummary(summaryData);
-      setEvents(eventsData.events || []);
-
-      if (summaryData?.byEvent) {
-        const entries = Object.entries(summaryData.byEvent);
-        if (entries.length > 0) {
-          const [topEvent] = entries.sort((a, b) => b[1] - a[1])[0];
-          setSelectedEventName(topEvent);
-        } else if (summaryData.records && summaryData.records.length > 0) {
-          setSelectedEventName(summaryData.records[0].eventName || "default");
-        } else {
-          setSelectedEventName("default");
-        }
-      }
-    } catch (err) {
-      console.error("Failed to load data:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const refreshSummaryOnly = async (eventName) => {
+    if (!eventName) return;
     setLoading(true);
     try {
       const data = await getSummary({ eventName, limit: 20000 });
@@ -76,6 +92,11 @@ export default function AttendanceSummary() {
   const sessionConfig = currentEventObj?.sessions || [];
   // Show ALL configured sessions, not just active ones
   const sessionColumns = sessionConfig;
+  const registeredStudents = currentEventObj?.registeredStudents || [];
+  const totalRegistered =
+    (currentEventObj && currentEventObj.registeredCount) ||
+    registeredStudents.length ||
+    0;
 
   // Group attendance records by student (regno)
   const attendanceByRegno = {};
@@ -108,28 +129,50 @@ export default function AttendanceSummary() {
     }
   });
 
-  // Build final student list: include all registered students for the event,
-  // defaulting them to "absent" when no attendance record exists.
-  const registeredStudents = currentEventObj?.registeredStudents || [];
-  const studentRows =
-    registeredStudents.length > 0
-      ? registeredStudents.map((stu) => {
-          const attendance = attendanceByRegno[stu.regno] || {};
-          return {
-            regno: stu.regno,
-            name: stu.name || attendance.base?.name || "",
-            email: stu.email || attendance.base?.email,
-            hostelName: stu.hostelName || attendance.base?.hostelName,
-            sessions: attendance.sessions || {},
-          };
-        })
-      : Object.values(attendanceByRegno).map((entry) => ({
-          regno: entry.base.regno,
+  // Build final student list:
+  // - Start with all registered students for the event (always shown, default Absent).
+  // - Also include any students who have attendance records but aren't in registeredStudents.
+  const studentRowMap = new Map();
+
+  if (registeredStudents.length > 0) {
+    registeredStudents.forEach((stu) => {
+      const attendance = attendanceByRegno[stu.regno] || {};
+      studentRowMap.set(stu.regno, {
+        regno: stu.regno,
+        name: stu.name || attendance.base?.name || "",
+        email: stu.email || attendance.base?.email,
+        hostelName: stu.hostelName || attendance.base?.hostelName,
+        sessions: attendance.sessions || {},
+      });
+    });
+
+    // Add any extra attendees not present in registeredStudents
+    Object.values(attendanceByRegno).forEach((entry) => {
+      const regno = entry.base.regno;
+      if (!studentRowMap.has(regno)) {
+        studentRowMap.set(regno, {
+          regno,
           name: entry.base.name,
           email: entry.base.email,
           hostelName: entry.base.hostelName,
           sessions: entry.sessions,
-        }));
+        });
+      }
+    });
+  } else {
+    // Fallback: no registeredStudents list available, just use attendance records.
+    Object.values(attendanceByRegno).forEach((entry) => {
+      studentRowMap.set(entry.base.regno, {
+        regno: entry.base.regno,
+        name: entry.base.name,
+        email: entry.base.email,
+        hostelName: entry.base.hostelName,
+        sessions: entry.sessions,
+      });
+    });
+  }
+
+  const studentRows = Array.from(studentRowMap.values());
 
   const handleDownload = async (mode) => {
     try {
@@ -257,7 +300,13 @@ export default function AttendanceSummary() {
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
               <div className="text-gray-300 text-sm">
                 <div>
-                  Total Students Tracked:{" "}
+                  Total Students (Registered):{" "}
+                  <span className="font-semibold text-blue-400">
+                    {totalRegistered}
+                  </span>
+                </div>
+                <div>
+                  Showing in table:{" "}
                   <span className="font-semibold text-blue-400">
                     {studentRows.length}
                   </span>

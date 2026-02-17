@@ -384,7 +384,7 @@ export default function EventManagerDashboard() {
           </button>
 
           <button
-            onClick={() => navigate(`/member/Attendance/${ADMIN_TOKEN}`)}
+            onClick={() => navigate(`/member/Attendance`)}
             className="bg-gray-800/50 backdrop-blur border border-gray-700 rounded-xl p-6 hover:border-green-500/50 transition text-left group"
           >
             <div className="flex items-center justify-between mb-3">
@@ -426,7 +426,7 @@ export default function EventManagerDashboard() {
           </button>
 
           <button
-            onClick={() => navigate(`/member/summary/${ADMIN_TOKEN}`)}
+            onClick={() => navigate(`/member/summary`)}
             className="bg-gray-800/50 backdrop-blur border border-gray-700 rounded-xl p-6 hover:border-purple-500/50 transition text-left group"
           >
             <div className="flex items-center justify-between mb-3">

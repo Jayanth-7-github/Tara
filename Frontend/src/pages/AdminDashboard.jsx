@@ -543,7 +543,7 @@ export default function AdminDashboard() {
           </button>
 
           <button
-            onClick={() => navigate(`/admin/manage-attendance/${ADMIN_TOKEN}`)}
+            onClick={() => navigate(`/admin/update-attendance`)}
             className="bg-gray-800/50 backdrop-blur border border-gray-700 rounded-xl p-6 hover:border-green-500/50 transition text-left group"
           >
             <div className="flex items-center justify-between mb-3">
@@ -583,7 +583,7 @@ export default function AdminDashboard() {
           </button>
 
           <button
-            onClick={() => navigate(`/admin/roles/${ADMIN_TOKEN}`)}
+            onClick={() => navigate(`/admin/roles`)}
             className="bg-gray-800/50 backdrop-blur border border-gray-700 rounded-xl p-6 hover:border-purple-500/50 transition text-left group"
           >
             <div className="flex items-center justify-between mb-3">
@@ -623,7 +623,7 @@ export default function AdminDashboard() {
           </button>
 
           <button
-            onClick={() => navigate(`/admin/secret/${ADMIN_TOKEN}`)}
+            onClick={() => navigate(`/admin/secret`)}
             className="bg-gray-800/50 backdrop-blur border border-gray-700 rounded-xl p-6 hover:border-orange-500/50 transition text-left group"
           >
             <div className="flex items-center justify-between mb-3">
