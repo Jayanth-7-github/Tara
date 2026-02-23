@@ -75,18 +75,37 @@ export default function ManageStudents() {
     const loadInitialData = async () => {
         try {
             const evData = await fetchEvents();
-            setEvents(evData.events || evData || []);
+            const allEvents = evData.events || evData || [];
+
+            // Filter events based on logged-in user's managed events
+            const userEmail = (user?.email || "").toLowerCase().trim();
+            const isAdmin = user?.role === "admin";
+
+            const managedEvents = isAdmin ? allEvents : allEvents.filter(ev => {
+                const managerEmail = (ev.managerEmail || "").toLowerCase().trim();
+                return managerEmail === userEmail;
+            });
+
+            setEvents(managedEvents);
+
+            // If an event manager has events, automatically select the first one to scope the view
+            let initialEvId = "";
+            if (!isAdmin && managedEvents.length > 0) {
+                initialEvId = managedEvents[0]._id || managedEvents[0].id;
+                setSelectedEventId(initialEvId);
+            }
+
             // Load initial students
-            handleSearch("");
+            handleSearch("", initialEvId);
         } catch (err) {
             console.error("Failed to load data:", err);
         }
     };
 
-    const handleSearch = async (query = searchQuery) => {
+    const handleSearch = async (query = searchQuery, evId = selectedEventId) => {
         setIsSearching(true);
         try {
-            const data = await searchStudents(query, selectedEventId);
+            const data = await searchStudents(query, evId);
             setStudents(Array.isArray(data) ? data : data.students || []);
         } catch (err) {
             showNotification("Search failed", "error");
@@ -326,10 +345,13 @@ export default function ManageStudents() {
                                 onChange={(e) => setSelectedEventId(e.target.value)}
                                 className="bg-gray-900/50 border border-gray-700 rounded-xl py-2.5 px-4 text-sm focus:border-blue-500 outline-none min-w-[200px]"
                             >
-                                <option value="">All Events</option>
+                                {user?.role === "admin" && <option value="">All Events</option>}
                                 {events.map(ev => (
                                     <option key={ev._id} value={ev._id}>{ev.title}</option>
                                 ))}
+                                {user?.role !== "admin" && events.length === 0 && (
+                                    <option value="" disabled>No events assigned</option>
+                                )}
                             </select>
                             <button
                                 onClick={() => handleSearch()}
