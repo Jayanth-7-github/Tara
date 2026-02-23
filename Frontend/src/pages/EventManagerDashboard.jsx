@@ -281,8 +281,8 @@ export default function EventManagerDashboard() {
             <p className="text-xs text-gray-500 mt-1">
               {stats.totalRegistrations > 0
                 ? `${Math.round(
-                    (stats.totalAttendance / stats.totalRegistrations) * 100,
-                  )}% attendance rate`
+                  (stats.totalAttendance / stats.totalRegistrations) * 100,
+                )}% attendance rate`
                 : "No data"}
             </p>
           </div>
@@ -673,6 +673,35 @@ export default function EventManagerDashboard() {
               View assessment scores and reports
             </p>
           </button>
+
+          <button
+            onClick={() => navigate("/events/students")}
+            className="bg-gray-800/50 backdrop-blur border border-gray-700 rounded-xl p-6 hover:border-blue-400/50 transition text-left group shadow-lg shadow-blue-500/5"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-3 bg-blue-500/10 rounded-lg group-hover:bg-blue-500/20 transition">
+                <svg
+                  className="w-6 h-6 text-blue-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
+                  />
+                </svg>
+              </div>
+            </div>
+            <h3 className="text-lg font-semibold text-white mb-1">
+              Manage Students
+            </h3>
+            <p className="text-sm text-gray-400">
+              Primary portal for student records and bulk data
+            </p>
+          </button>
         </div>
 
         {/* Events List */}
@@ -824,11 +853,10 @@ export default function EventManagerDashboard() {
                             </div>
                           </div>
                           <span
-                            className={`px-3 py-1 rounded-full text-xs font-medium ${
-                              isUpcoming
+                            className={`px-3 py-1 rounded-full text-xs font-medium ${isUpcoming
                                 ? "bg-green-500/10 text-green-400"
                                 : "bg-gray-500/10 text-gray-400"
-                            }`}
+                              }`}
                           >
                             {isUpcoming ? "Upcoming" : "Completed"}
                           </span>
@@ -918,10 +946,10 @@ export default function EventManagerDashboard() {
                               <p className="text-sm font-semibold text-white">
                                 {event.registeredCount > 0
                                   ? `${Math.round(
-                                      ((event.attendedCount || 0) /
-                                        event.registeredCount) *
-                                        100,
-                                    )}%`
+                                    ((event.attendedCount || 0) /
+                                      event.registeredCount) *
+                                    100,
+                                  )}%`
                                   : "N/A"}
                               </p>
                               <p className="text-xs text-gray-500">

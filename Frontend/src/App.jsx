@@ -29,6 +29,7 @@ import StudentResults from "./pages/StudentResults";
 import ManageQuestions from "./pages/ManageQuestions";
 import EventSessions from "./pages/EventSessions";
 import EventAttendance from "./pages/EventAttendance";
+import ManageStudents from "./pages/ManageStudents";
 import { ADMIN_TOKEN } from "./services/constants";
 import TestCompiler from "./Exam/pages/testcompailer";
 import PublicNavbar from "./components/PublicNavbar";
@@ -74,6 +75,7 @@ function App() {
             <Route path="/events/sessions" element={<EventSessions />} />
             <Route path="/events/results" element={<StudentResults />} />
             <Route path="/events/approvals" element={<ManageApprovals />} />
+            <Route path="/events/students" element={<ManageStudents />} />
             <Route
               path="/events/all-registrations"
               element={<AllRegistrations />}
