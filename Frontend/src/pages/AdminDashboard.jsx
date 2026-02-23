@@ -257,7 +257,10 @@ export default function AdminDashboard() {
             <p className="text-xs text-gray-500 mt-1">All time</p>
           </div>
 
-          <div className="bg-gray-800/50 backdrop-blur border border-gray-700 rounded-xl p-6 hover:border-green-500/50 transition">
+          <div
+            onClick={() => navigate("/events/all-registrations")}
+            className="bg-gray-800/50 backdrop-blur border border-gray-700 rounded-xl p-6 hover:border-green-500/50 transition cursor-pointer hover:bg-gray-700/30"
+          >
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-medium text-gray-400">
                 Total Registrations
@@ -369,7 +372,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Secondary Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
           <div className="bg-gray-800/50 backdrop-blur border border-gray-700 rounded-xl p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white">Event Status</h3>
@@ -455,47 +458,6 @@ export default function AdminDashboard() {
               >
                 View All Contacts
               </button>
-            </div>
-          </div>
-
-          <div className="bg-gray-800/50 backdrop-blur border border-gray-700 rounded-xl p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white">
-                System Health
-              </h3>
-              <svg
-                className="w-5 h-5 text-green-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-            </div>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-gray-300 text-sm">Database</span>
-                <span className="px-2 py-1 bg-green-500/10 text-green-400 rounded text-xs font-medium">
-                  Operational
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-300 text-sm">API Server</span>
-                <span className="px-2 py-1 bg-green-500/10 text-green-400 rounded text-xs font-medium">
-                  Healthy
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-300 text-sm">Auto-Refresh</span>
-                <span className="px-2 py-1 bg-blue-500/10 text-blue-400 rounded text-xs font-medium">
-                  Active
-                </span>
-              </div>
             </div>
           </div>
         </div>

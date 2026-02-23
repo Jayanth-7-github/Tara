@@ -252,19 +252,27 @@ exports.updateStudent = async (req, res) => {
     const body = req.body || {};
     // fields to update
     if (body.name) existing.name = body.name.trim();
-    if (body.email !== undefined) existing.email = body.email ? body.email.trim() : null;
-    if (body.phone !== undefined) existing.phone = body.phone ? body.phone.trim() : null;
-    if (body.year !== undefined) existing.year = body.year ? body.year.trim() : null;
-    if (body.department !== undefined) existing.department = body.department ? body.department.trim() : null;
-    if (body.branch !== undefined) existing.branch = body.branch ? body.branch.trim() : null;
-    if (body.teamName !== undefined) existing.teamName = body.teamName ? body.teamName.trim() : null;
-    if (body.role !== undefined) existing.role = body.role ? body.role.trim() : null;
-    if (body.hostelName !== undefined) existing.hostelName = body.hostelName ? body.hostelName.trim() : null;
-    if (body.roomNo !== undefined) existing.roomNo = body.roomNo ? body.roomNo.trim() : null;
+    if (body.email !== undefined)
+      existing.email = body.email ? body.email.trim() : null;
+    if (body.phone !== undefined)
+      existing.phone = body.phone ? body.phone.trim() : null;
+    if (body.year !== undefined)
+      existing.year = body.year ? body.year.trim() : null;
+    if (body.department !== undefined)
+      existing.department = body.department ? body.department.trim() : null;
+    if (body.branch !== undefined)
+      existing.branch = body.branch ? body.branch.trim() : null;
+    if (body.teamName !== undefined)
+      existing.teamName = body.teamName ? body.teamName.trim() : null;
+    if (body.role !== undefined)
+      existing.role = body.role ? body.role.trim() : null;
+    if (body.hostelName !== undefined)
+      existing.hostelName = body.hostelName ? body.hostelName.trim() : null;
+    if (body.roomNo !== undefined)
+      existing.roomNo = body.roomNo ? body.roomNo.trim() : null;
 
     const saved = await existing.save();
     return res.json(saved);
-
   } catch (err) {
     console.error("updateStudent error:", err);
     return res.status(500).json({ error: "Internal server error" });

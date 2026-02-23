@@ -1,6 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { API_BASE, fetchEvents, upsertRoles } from "../../services/api";
+import {
+  API_BASE,
+  fetchEvents,
+  upsertRoles,
+  fetchStudent,
+} from "../../services/api";
 import { getMe } from "../../services/auth";
 
 export default function AddRoles() {
@@ -12,6 +17,10 @@ export default function AddRoles() {
   const [members, setMembers] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
+  const [previewAdmins, setPreviewAdmins] = useState(null);
+  const [previewMembers, setPreviewMembers] = useState(null);
+  const [previewStudents, setPreviewStudents] = useState(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -19,9 +28,15 @@ export default function AddRoles() {
       try {
         const profile = await getMe();
         const u = profile?.user || profile;
+        if (!u) {
+          // not logged in — require login
+          navigate("/login");
+          return;
+        }
         setMe(u || null);
-        if (!u || u.role !== "admin") {
+        if (u.role !== "admin") {
           // not an admin
+          setCheckingAuth(false);
           return;
         }
         const evs = await fetchEvents();
@@ -33,68 +48,63 @@ export default function AddRoles() {
         if ((list || []).length) setEventId(list[0]._id || list[0].id || "");
       } catch (err) {
         // user not logged in or other error
+        navigate("/login");
+      } finally {
+        setCheckingAuth(false);
       }
     })();
-  }, []);
+  }, [navigate]);
 
-  if (!me || me.role !== "admin") {
-    return (
-      <div className="p-6 max-w-3xl mx-auto">
-        <div className="rounded-xl border border-gray-700 bg-gray-900 p-6">
-          <h3 className="text-lg font-semibold text-gray-100">Access denied</h3>
-          <p className="text-sm text-gray-300">
-            You must be an admin to access this page.
-          </p>
-          <div className="mt-4">
-            <button
-              onClick={() => navigate("/login")}
-              className="px-3 py-1 rounded bg-blue-600 text-white"
-            >
-              Login
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
+  // Handle form submission: upsert admins/members/students
   async function handleSubmit(e) {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     setMessage(null);
-    // Require either an event selected (for student updates) or admins/members provided
-    if (!eventId && !admins.trim() && !members.trim()) {
-      setMessage({
-        type: "error",
-        text: "Please select an event or provide global admins",
-      });
-      return;
-    }
     setLoading(true);
     try {
       const selected = events.find((ev) => (ev._id || ev.id) === eventId) || {};
 
-      // Track whether we sent anything
       let didUpdate = false;
 
-      // If admins provided, update global admins
+      const parseRegnos = (txt) =>
+        String(txt || "")
+          .split(/[,\s]+/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+
+      const fetchDetailsFor = async (regnoList) => {
+        const results = [];
+        for (const r of regnoList) {
+          try {
+            const stu = await fetchStudent(r);
+            if (stu) results.push(stu);
+          } catch (err) {
+            results.push({ regno: r, _error: err?.message || String(err) });
+          }
+        }
+        return results;
+      };
+
       if (admins && String(admins).trim()) {
-        await upsertRoles({ admins });
+        const adminRegnos = parseRegnos(admins);
+        const adminDetails = await fetchDetailsFor(adminRegnos);
+        await upsertRoles({ admins: adminDetails });
         didUpdate = true;
       }
 
-      // If members provided, update global members
       if (members && String(members).trim()) {
-        await upsertRoles({ members });
+        const memberRegnos = parseRegnos(members);
+        const memberDetails = await fetchDetailsFor(memberRegnos);
+        await upsertRoles({ members: memberDetails });
         didUpdate = true;
       }
 
-      // If students provided, update per-event students (keyed by event title)
       if (students && String(students).trim()) {
         if (!eventId) throw new Error("Please select an event to add students");
-        // Prefer eventId when updating per-event lists so keys are stable
+        const studentRegnos = parseRegnos(students);
+        const studentDetails = await fetchDetailsFor(studentRegnos);
         const payload = {
           eventId: selected._id || selected.id || eventId,
-          students,
+          students: studentDetails,
         };
         await upsertRoles(payload);
         didUpdate = true;
@@ -103,7 +113,6 @@ export default function AddRoles() {
       if (!didUpdate) throw new Error("No admins or students provided");
 
       setMessage({ type: "success", text: "Roles updated" });
-      // optionally clear inputs
       setAdmins("");
       setStudents("");
       setMembers("");
@@ -115,6 +124,78 @@ export default function AddRoles() {
     } finally {
       setLoading(false);
     }
+  }
+
+  // Preview fetched student details without saving
+  async function handlePreview() {
+    setMessage(null);
+    setPreviewAdmins(null);
+    setPreviewMembers(null);
+    setPreviewStudents(null);
+    setLoading(true);
+    try {
+      const parseRegnos = (txt) =>
+        String(txt || "")
+          .split(/[,\s]+/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+
+      const fetchDetailsFor = async (regnoList) => {
+        const results = [];
+        for (const r of regnoList) {
+          try {
+            const stu = await fetchStudent(r);
+            if (stu) results.push(stu);
+          } catch (err) {
+            results.push({ regno: r, _error: err?.message || String(err) });
+          }
+        }
+        return results;
+      };
+
+      if (admins && String(admins).trim()) {
+        const adminRegnos = parseRegnos(admins);
+        const adminDetails = await fetchDetailsFor(adminRegnos);
+        setPreviewAdmins(adminDetails);
+      }
+
+      if (members && String(members).trim()) {
+        const memberRegnos = parseRegnos(members);
+        const memberDetails = await fetchDetailsFor(memberRegnos);
+        setPreviewMembers(memberDetails);
+      }
+
+      if (students && String(students).trim()) {
+        const studentRegnos = parseRegnos(students);
+        const studentDetails = await fetchDetailsFor(studentRegnos);
+        setPreviewStudents(studentDetails);
+      }
+    } catch (err) {
+      setMessage({ type: "error", text: err.message || "Preview failed" });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (checkingAuth) {
+    return null;
+  }
+
+  if (!checkingAuth && !me) {
+    return null;
+  }
+
+  if (me && me.role !== "admin") {
+    return (
+      <div className="p-6 max-w-3xl mx-auto">
+        <div className="rounded-xl border border-gray-700 bg-gray-900 p-6">
+          <h3 className="text-lg font-semibold text-gray-100">Access denied</h3>
+          <p className="text-sm text-gray-300">
+            You are not authorized to view this page.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -185,10 +266,11 @@ export default function AddRoles() {
 
             {message && (
               <div
-                className={`p-3 rounded ${message.type === "error"
-                  ? "bg-red-700 text-white"
-                  : "bg-emerald-700 text-white"
-                  }`}
+                className={`p-3 rounded ${
+                  message.type === "error"
+                    ? "bg-red-700 text-white"
+                    : "bg-emerald-700 text-white"
+                }`}
               >
                 {message.text}
               </div>

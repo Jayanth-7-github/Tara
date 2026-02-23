@@ -229,10 +229,7 @@ export default function EventManagerDashboard() {
             <p className="text-xs text-gray-500 mt-1">All time</p>
           </div>
 
-          <div
-            onClick={() => navigate("/events/all-registrations")}
-            className="bg-gray-800/50 backdrop-blur border border-gray-700 rounded-xl p-6 hover:border-green-500/50 transition cursor-pointer hover:bg-gray-700/30"
-          >
+          <div className="bg-gray-800/50 backdrop-blur border border-gray-700 rounded-xl p-6 hover:border-green-500/50 transition">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-medium text-gray-400">
                 Registrations
@@ -284,8 +281,8 @@ export default function EventManagerDashboard() {
             <p className="text-xs text-gray-500 mt-1">
               {stats.totalRegistrations > 0
                 ? `${Math.round(
-                  (stats.totalAttendance / stats.totalRegistrations) * 100,
-                )}% attendance rate`
+                    (stats.totalAttendance / stats.totalRegistrations) * 100,
+                  )}% attendance rate`
                 : "No data"}
             </p>
           </div>
@@ -422,6 +419,90 @@ export default function EventManagerDashboard() {
             </h3>
             <p className="text-sm text-gray-400">
               Record student attendance for events
+            </p>
+          </button>
+
+          <button
+            onClick={() => navigate("/events/sessions")}
+            className="bg-gray-800/50 backdrop-blur border border-gray-700 rounded-xl p-6 hover:border-indigo-500/50 transition text-left group"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-3 bg-indigo-500/10 rounded-lg group-hover:bg-indigo-500/20 transition">
+                <svg
+                  className="w-6 h-6 text-indigo-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
+                </svg>
+              </div>
+              <svg
+                className="w-5 h-5 text-gray-600 group-hover:text-indigo-400 transition"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-white mb-1">
+              Manage Sessions
+            </h3>
+            <p className="text-sm text-gray-400">
+              Add or toggle attendance sessions
+            </p>
+          </button>
+
+          <button
+            onClick={() => navigate("/events/attendance")}
+            className="bg-gray-800/50 backdrop-blur border border-gray-700 rounded-xl p-6 hover:border-emerald-500/50 transition text-left group"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-3 bg-emerald-500/10 rounded-lg group-hover:bg-emerald-500/20 transition">
+                <svg
+                  className="w-6 h-6 text-emerald-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+                  />
+                </svg>
+              </div>
+              <svg
+                className="w-5 h-5 text-gray-600 group-hover:text-emerald-400 transition"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-white mb-1">
+              Manage Attendance
+            </h3>
+            <p className="text-sm text-gray-400">
+              Open the detailed attendance manager
             </p>
           </button>
 
@@ -743,10 +824,11 @@ export default function EventManagerDashboard() {
                             </div>
                           </div>
                           <span
-                            className={`px-3 py-1 rounded-full text-xs font-medium ${isUpcoming
-                              ? "bg-green-500/10 text-green-400"
-                              : "bg-gray-500/10 text-gray-400"
-                              }`}
+                            className={`px-3 py-1 rounded-full text-xs font-medium ${
+                              isUpcoming
+                                ? "bg-green-500/10 text-green-400"
+                                : "bg-gray-500/10 text-gray-400"
+                            }`}
                           >
                             {isUpcoming ? "Upcoming" : "Completed"}
                           </span>
@@ -762,7 +844,9 @@ export default function EventManagerDashboard() {
                             className="flex items-center gap-2 cursor-pointer hover:bg-gray-700/50 rounded p-1 transition"
                             onClick={(e) => {
                               e.stopPropagation();
-                              navigate(`/events/${event._id || event.id}/registrations`);
+                              navigate(
+                                `/events/${event._id || event.id}/registrations`,
+                              );
                             }}
                           >
                             <div className="p-1.5 bg-blue-500/10 rounded">
@@ -834,10 +918,10 @@ export default function EventManagerDashboard() {
                               <p className="text-sm font-semibold text-white">
                                 {event.registeredCount > 0
                                   ? `${Math.round(
-                                    ((event.attendedCount || 0) /
-                                      event.registeredCount) *
-                                    100,
-                                  )}%`
+                                      ((event.attendedCount || 0) /
+                                        event.registeredCount) *
+                                        100,
+                                    )}%`
                                   : "N/A"}
                               </p>
                               <p className="text-xs text-gray-500">

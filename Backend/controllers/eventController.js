@@ -202,19 +202,23 @@ async function getEvents(req, res) {
     }
 
     const isAdmin = actor && actor.role === "admin";
-    const userEmail = actor && actor.email ? String(actor.email).toLowerCase().trim() : null;
+    const userEmail =
+      actor && actor.email ? String(actor.email).toLowerCase().trim() : null;
 
     // Identify events that need population
     const eventsToPopulate = new Set();
 
     if (isAdmin) {
       // Admin sees requests for ALL events
-      events.forEach(e => eventsToPopulate.add(e._id.toString()));
+      events.forEach((e) => eventsToPopulate.add(e._id.toString()));
     } else if (userEmail) {
       // Manager sees requests for their events
       // Also strictly check role config if needed, but managerEmail is primary
-      events.forEach(e => {
-        if (e.managerEmail && String(e.managerEmail).toLowerCase().trim() === userEmail) {
+      events.forEach((e) => {
+        if (
+          e.managerEmail &&
+          String(e.managerEmail).toLowerCase().trim() === userEmail
+        ) {
           eventsToPopulate.add(e._id.toString());
         }
       });
@@ -223,10 +227,13 @@ async function getEvents(req, res) {
       try {
         const rc = await RoleConfig.findOne().lean();
         if (rc && rc.eventManagersByEvent) {
-          events.forEach(e => {
+          events.forEach((e) => {
             const key = (e.title || "").trim() || e._id.toString();
             let managers = [];
-            if (rc.eventManagersByEvent instanceof Map || typeof rc.eventManagersByEvent.get === 'function') {
+            if (
+              rc.eventManagersByEvent instanceof Map ||
+              typeof rc.eventManagersByEvent.get === "function"
+            ) {
               // handled by mongoose map logic usually as object in lean() unless Map type
               // simpler: just check object keys
             }
@@ -235,26 +242,31 @@ async function getEvents(req, res) {
             const mapVal = rc.eventManagersByEvent[key]; // direct access
             if (Array.isArray(mapVal)) managers = mapVal;
 
-            const normManagers = managers.map(m => String(m).toLowerCase());
+            const normManagers = managers.map((m) => String(m).toLowerCase());
             if (normManagers.includes(userEmail)) {
               eventsToPopulate.add(e._id.toString());
             }
           });
         }
-      } catch (e) { /* ignore role check fail */ }
+      } catch (e) {
+        /* ignore role check fail */
+      }
     }
 
     if (eventsToPopulate.size > 0) {
-      const studentFields = "name regno email department college year registrations";
+      const studentFields =
+        "name regno email department college year registrations";
       const students = await Student.find({
-        "registrations.event": { $in: Array.from(eventsToPopulate) }
-      }).select(studentFields).lean();
+        "registrations.event": { $in: Array.from(eventsToPopulate) },
+      })
+        .select(studentFields)
+        .lean();
 
       const studentsByEvent = {};
 
-      students.forEach(s => {
+      students.forEach((s) => {
         if (s.registrations && Array.isArray(s.registrations)) {
-          s.registrations.forEach(r => {
+          s.registrations.forEach((r) => {
             const eId = r.event ? r.event.toString() : null;
             if (eId && eventsToPopulate.has(eId)) {
               if (!studentsByEvent[eId]) studentsByEvent[eId] = [];
@@ -266,7 +278,7 @@ async function getEvents(req, res) {
                 department: s.department,
                 college: s.college,
                 year: s.year,
-                registeredAt: r.registeredAt
+                registeredAt: r.registeredAt,
               });
             }
           });
@@ -274,7 +286,7 @@ async function getEvents(req, res) {
       });
 
       // Attach data
-      events.forEach(e => {
+      events.forEach((e) => {
         if (eventsToPopulate.has(e._id.toString())) {
           e.registeredStudents = studentsByEvent[e._id.toString()] || [];
         }
@@ -467,7 +479,9 @@ async function updateEvent(req, res) {
 
       if (!isAdmin) {
         const userEmail =
-          actor && actor.email ? String(actor.email).toLowerCase().trim() : null;
+          actor && actor.email
+            ? String(actor.email).toLowerCase().trim()
+            : null;
         // check direct manager match
         if (
           userEmail &&
@@ -485,7 +499,9 @@ async function updateEvent(req, res) {
               managers = rc.eventManagersByEvent.get(key) || [];
             else managers = rc.eventManagersByEvent[key] || [];
           }
-          const normalized = (managers || []).map((m) => String(m).toLowerCase());
+          const normalized = (managers || []).map((m) =>
+            String(m).toLowerCase(),
+          );
           if (!userEmail || !normalized.includes(userEmail))
             return res.status(403).json({ error: "Forbidden" });
         }
@@ -510,7 +526,10 @@ async function updateEvent(req, res) {
     if (questions !== undefined) $set.questions = questions;
 
     if (sessions !== undefined) {
-      console.log(`[updateEvent] Updating sessions for ${id}:`, JSON.stringify(sessions));
+      console.log(
+        `[updateEvent] Updating sessions for ${id}:`,
+        JSON.stringify(sessions),
+      );
       $set.sessions = sessions;
     }
 
@@ -552,7 +571,10 @@ async function updateEvent(req, res) {
     if (Object.keys($set).length > 0) updateOps.$set = $set;
     if (Object.keys($unset).length > 0) updateOps.$unset = $unset;
 
-    console.log("[updateEvent] Executing update:", JSON.stringify(updateOps, (k, v) => (k === 'data' ? '<Buffer>' : v)));
+    console.log(
+      "[updateEvent] Executing update:",
+      JSON.stringify(updateOps, (k, v) => (k === "data" ? "<Buffer>" : v)),
+    );
 
     const updatedEvent = await Event.findByIdAndUpdate(id, updateOps, {
       new: true,

@@ -27,16 +27,18 @@ export default function AttendancePage() {
   const [attendanceRecords, setAttendanceRecords] = useState([]);
 
   useEffect(() => {
-    refreshSummary();
+    // Load events initially; summary will be fetched for the selected event
     loadEvents();
 
     const timer = setInterval(() => {
       loadEvents();
-      refreshSummary();
+      // refresh summary for currently selected event only
+      refreshSummary(selectedEvent?.title);
     }, 5000);
 
     return () => clearInterval(timer);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedEvent?.title]);
 
   // Update attendance records when the student or selected event changes
   useEffect(() => {
@@ -50,7 +52,6 @@ export default function AttendancePage() {
         .catch((err) => console.error("Failed to refresh attendance:", err));
     }
   }, [student, selectedEvent?._id]);
-
 
   const loadEvents = async () => {
     try {
@@ -69,14 +70,20 @@ export default function AttendancePage() {
     }
   };
 
-  const refreshSummary = async () => {
+  const refreshSummary = async (eventName) => {
     try {
-      const data = await getSummary();
+      const opts = eventName ? { eventName, limit: 20000 } : { limit: 20000 };
+      const data = await getSummary(opts);
       setSummary(data);
     } catch (err) {
       console.error("Failed to fetch summary:", err);
     }
   };
+
+  // Fetch summary whenever selected event changes
+  useEffect(() => {
+    if (selectedEvent) refreshSummary(selectedEvent.title);
+  }, [selectedEvent]);
 
   const handleSearch = async (regno) => {
     setMessage("");
@@ -123,7 +130,7 @@ export default function AttendancePage() {
       } catch {
         setIsMarked(true);
       }
-      refreshSummary();
+      refreshSummary(selectedEvent?.title);
       return true;
     } catch (err) {
       setMessage(err.message || "Failed to mark attendance.");
@@ -150,7 +157,7 @@ export default function AttendancePage() {
         setAttendanceRecords([]);
         setIsMarked(false);
       }
-      refreshSummary();
+      refreshSummary(selectedEvent?.title);
       return true;
     } catch (err) {
       setMessage(err.message || "Failed to check out.");
@@ -243,7 +250,10 @@ export default function AttendancePage() {
                     ✕
                   </button>
                 </div>
-                <SearchBar onSearch={handleSearch} />
+                <SearchBar
+                  onSearch={handleSearch}
+                  selectedEvent={selectedEvent}
+                />
               </div>
             </motion.div>
           )}

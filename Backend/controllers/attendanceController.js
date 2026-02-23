@@ -380,11 +380,30 @@ exports.updateAttendance = async (req, res) => {
       return res.status(400).json({ error: "eventName is required" });
     const sName = sessionName || "default";
 
-    const doc = await Attendance.findOne({
+    let doc = await Attendance.findOne({
       regno: new RegExp(`^${regno}$`, "i"),
       eventName,
     });
-    if (!doc) return res.status(404).json({ error: "Record not found" });
+
+    if (!doc) {
+      // If document doesn't exist, create it (upsert behavior)
+      const Student = require("../models/Student");
+      const student = await Student.findOne({
+        regno: new RegExp(`^${regno}$`, "i"),
+      });
+
+      if (!student) {
+        return res.status(404).json({ error: "Student not found" });
+      }
+
+      doc = new Attendance({
+        regno: student.regno,
+        name: student.name,
+        eventName,
+        student: student._id,
+        sessions: new Map(),
+      });
+    }
 
     // Update session
     if (!doc.sessions) doc.sessions = new Map();

@@ -8,7 +8,8 @@ import {
   fetchEvents,
   fetchStudent,
   updateStudent,
-  checkAttendance
+  registerForEvent,
+  checkAttendance,
 } from "../../services/api";
 import { useNavigate } from "react-router-dom";
 import { ADMIN_TOKEN } from "../../services/constants";
@@ -77,7 +78,6 @@ export default function ManageStudent() {
   const [editLoading, setEditLoading] = useState(false);
   const [editMessage, setEditMessage] = useState(null);
   const [editError, setEditError] = useState(null);
-
 
   useEffect(() => {
     (async () => {
@@ -180,15 +180,13 @@ export default function ManageStudent() {
               (r) =>
                 r.event === ev._id ||
                 (r.eventName &&
-                  r.eventName.toLowerCase() === ev.title.toLowerCase())
+                  r.eventName.toLowerCase() === ev.title.toLowerCase()),
             );
 
             if (isRegistered) {
               setEditData(student);
             } else {
-              setEditError(
-                `Student is not registered for event "${ev.title}"`
-              );
+              setEditError(`Student is not registered for event "${ev.title}"`);
               setEditData(null);
             }
           } else {
@@ -254,11 +252,56 @@ export default function ManageStudent() {
       if (Array.isArray(data)) {
         const normalized = data.map(normalizeStudentInput);
         const res = await createStudentsBulk(normalized);
-        setResult({ message: "Bulk upload successful", body: res });
+        // If an event is selected, register each created student for it
+        if (selectedEventId) {
+          try {
+            await Promise.all(
+              normalized.map((stu) =>
+                registerForEvent(selectedEventId, {
+                  regno: stu.regno,
+                  name: stu.name,
+                }),
+              ),
+            );
+            setResult({
+              message: "Bulk upload successful and students registered",
+              body: res,
+            });
+          } catch (regErr) {
+            setResult({
+              message: "Bulk upload successful; some registrations failed",
+              body: {
+                created: res,
+                registrationError: regErr?.message || String(regErr),
+              },
+            });
+          }
+        } else {
+          setResult({ message: "Bulk upload successful", body: res });
+        }
       } else {
         const normalized = normalizeStudentInput(data);
         const res = await createStudent(normalized);
-        setResult({ message: "Student created", body: res });
+        // If an event is selected, register the single student for it
+        if (selectedEventId) {
+          try {
+            await registerForEvent(selectedEventId, {
+              regno: normalized.regno,
+              name: normalized.name,
+            });
+            setResult({ message: "Student created and registered", body: res });
+          } catch (regErr) {
+            setResult({
+              message: "Student created; registration failed",
+              body: {
+                created: res,
+                registrationError: regErr?.message || String(regErr),
+              },
+            });
+          }
+        } else {
+          setResult({ message: "Student created", body: res });
+        }
       }
       setText("");
       setParsed(null);
@@ -294,10 +337,8 @@ export default function ManageStudent() {
 
         <div className="p-8">
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-
             {/* LEFT COLUMN: Create & Bulk Operations */}
             <div className="xl:col-span-2 space-y-8">
-
               {/* EVENT SELECTION CONTEXT */}
               <div className="bg-gray-800/30 border border-gray-700/50 rounded-xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div>
@@ -331,10 +372,38 @@ export default function ManageStudent() {
                 </h2>
 
                 <SingleStudentForm
-                  eventName={events.find((it) => it._id === selectedEventId)?.title}
-                  onCreated={(res) =>
-                    setResult({ message: "Student created", body: res })
+                  eventName={
+                    events.find((it) => it._id === selectedEventId)?.title
                   }
+                  onCreated={async (res) => {
+                    setResult({ message: "Student created", body: res });
+                    // If a target event is selected, register the student for it
+                    if (selectedEventId) {
+                      try {
+                        const regPayload = {
+                          regno:
+                            res?.regno || res?.body?.regno || res?.data?.regno,
+                          name: res?.name || res?.body?.name || res?.data?.name,
+                        };
+                        await registerForEvent(selectedEventId, regPayload);
+                        setResult((prev) => ({
+                          message: "Student created and registered",
+                          body: {
+                            created: res,
+                            registrationEventId: selectedEventId,
+                          },
+                        }));
+                      } catch (err) {
+                        setResult((prev) => ({
+                          message: "Student created; registration failed",
+                          body: {
+                            created: res,
+                            registrationError: err?.message || String(err),
+                          },
+                        }));
+                      }
+                    }
+                  }}
                 />
               </div>
 
@@ -401,7 +470,9 @@ export default function ManageStudent() {
 
               {parsed && (
                 <div className="mt-2 p-3 bg-gray-700 rounded border border-gray-600">
-                  <strong className="text-gray-200">Parsed JSON preview:</strong>
+                  <strong className="text-gray-200">
+                    Parsed JSON preview:
+                  </strong>
                   <pre className="whitespace-pre-wrap mt-2 text-sm text-gray-100">
                     {JSON.stringify(parsed, null, 2)}
                   </pre>
@@ -439,7 +510,9 @@ export default function ManageStudent() {
                 <div className="flex flex-col gap-3 mb-4">
                   {/* Optional Event Context for Edit */}
                   <div className="flex flex-col gap-1">
-                    <span className="text-xs text-gray-400">Context Event (Optional)</span>
+                    <span className="text-xs text-gray-400">
+                      Context Event (Optional)
+                    </span>
                     <select
                       value={editEventId}
                       onChange={(e) => setEditEventId(e.target.value)}
@@ -453,7 +526,6 @@ export default function ManageStudent() {
                       ))}
                     </select>
                   </div>
-
                   <input
                     value={editRegno}
                     onChange={(e) => setEditRegno(e.target.value)}
@@ -465,70 +537,114 @@ export default function ManageStudent() {
                   )}
                 </div>
 
-                {editMessage && <div className="p-3 mb-4 bg-green-900/20 text-green-300 border border-green-800 rounded">{editMessage}</div>}
-                {editError && <div className="p-3 mb-4 bg-red-900/20 text-red-300 border border-red-800 rounded">{editError}</div>}
+                {editMessage && (
+                  <div className="p-3 mb-4 bg-green-900/20 text-green-300 border border-green-800 rounded">
+                    {editMessage}
+                  </div>
+                )}
+                {editError && (
+                  <div className="p-3 mb-4 bg-red-900/20 text-red-300 border border-red-800 rounded">
+                    {editError}
+                  </div>
+                )}
 
                 {editData && (
                   <div className="space-y-4 animate-fade-in-up">
                     <div className="grid grid-cols-1 gap-4">
                       <div>
-                        <label className="text-xs text-gray-400 block mb-1">Name</label>
+                        <label className="text-xs text-gray-400 block mb-1">
+                          Name
+                        </label>
                         <input
                           value={editData.name || ""}
-                          onChange={(e) => setEditData({ ...editData, name: e.target.value })}
+                          onChange={(e) =>
+                            setEditData({ ...editData, name: e.target.value })
+                          }
                           className="w-full p-2 rounded bg-gray-900/50 border border-gray-700 text-white focus:border-blue-500 outline-none"
                         />
                       </div>
                       <div>
-                        <label className="text-xs text-gray-400 block mb-1">Email</label>
+                        <label className="text-xs text-gray-400 block mb-1">
+                          Email
+                        </label>
                         <input
                           value={editData.email || ""}
-                          onChange={(e) => setEditData({ ...editData, email: e.target.value })}
+                          onChange={(e) =>
+                            setEditData({ ...editData, email: e.target.value })
+                          }
                           className="w-full p-2 rounded bg-gray-900/50 border border-gray-700 text-white focus:border-blue-500 outline-none"
                         />
                       </div>
                       <div>
-                        <label className="text-xs text-gray-400 block mb-1">Department</label>
+                        <label className="text-xs text-gray-400 block mb-1">
+                          Department
+                        </label>
                         <input
                           value={editData.department || ""}
-                          onChange={(e) => setEditData({ ...editData, department: e.target.value })}
+                          onChange={(e) =>
+                            setEditData({
+                              ...editData,
+                              department: e.target.value,
+                            })
+                          }
                           className="w-full p-2 rounded bg-gray-900/50 border border-gray-700 text-white focus:border-blue-500 outline-none"
                         />
                       </div>
                       <div>
-                        <label className="text-xs text-gray-400 block mb-1">Year</label>
+                        <label className="text-xs text-gray-400 block mb-1">
+                          Year
+                        </label>
                         <input
                           value={editData.year || ""}
-                          onChange={(e) => setEditData({ ...editData, year: e.target.value })}
+                          onChange={(e) =>
+                            setEditData({ ...editData, year: e.target.value })
+                          }
                           className="w-full p-2 rounded bg-gray-900/50 border border-gray-700 text-white focus:border-blue-500 outline-none"
                         />
                       </div>
                       <div>
-                        <label className="text-xs text-gray-400 block mb-1">Team Name</label>
+                        <label className="text-xs text-gray-400 block mb-1">
+                          Team Name
+                        </label>
                         <input
                           value={editData.teamName || ""}
-                          onChange={(e) => setEditData({ ...editData, teamName: e.target.value })}
+                          onChange={(e) =>
+                            setEditData({
+                              ...editData,
+                              teamName: e.target.value,
+                            })
+                          }
                           className="w-full p-2 rounded bg-gray-900/50 border border-gray-700 text-white focus:border-blue-500 outline-none"
                         />
                       </div>
                       <div>
-                        <label className="text-xs text-gray-400 block mb-1">Role</label>
+                        <label className="text-xs text-gray-400 block mb-1">
+                          Role
+                        </label>
                         <input
                           value={editData.role || ""}
-                          onChange={(e) => setEditData({ ...editData, role: e.target.value })}
+                          onChange={(e) =>
+                            setEditData({ ...editData, role: e.target.value })
+                          }
                           className="w-full p-2 rounded bg-gray-900/50 border border-gray-700 text-white focus:border-blue-500 outline-none"
                         />
                       </div>
                       <div>
-                        <label className="text-xs text-gray-400 block mb-1">Phone</label>
+                        <label className="text-xs text-gray-400 block mb-1">
+                          Phone
+                        </label>
                         <input
                           value={editData.phone || ""}
-                          onChange={(e) => setEditData({ ...editData, phone: e.target.value })}
+                          onChange={(e) =>
+                            setEditData({ ...editData, phone: e.target.value })
+                          }
                           className="w-full p-2 rounded bg-gray-900/50 border border-gray-700 text-white focus:border-blue-500 outline-none"
                         />
                       </div>
                       <div>
-                        <label className="text-xs text-gray-400 block mb-1">RegNo (Read-only)</label>
+                        <label className="text-xs text-gray-400 block mb-1">
+                          RegNo (Read-only)
+                        </label>
                         <input
                           value={editData.regno || ""}
                           readOnly
@@ -561,7 +677,6 @@ export default function ManageStudent() {
                 )}
               </div>
             </div>
-
           </div>
         </div>
       </motion.div>

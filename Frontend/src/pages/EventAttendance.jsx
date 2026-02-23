@@ -1,23 +1,19 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import AdminNavbar from "../components/AdminNavbar";
+import { checkLogin } from "../services/auth";
 import {
   updateAttendance,
   checkAttendance,
   fetchEvents,
   fetchStudent,
-} from "../../services/api";
-import { ADMIN_TOKEN } from "../../services/constants";
+} from "../services/api";
 
-export default function UpdateAttendance() {
+export default function EventAttendance() {
   const navigate = useNavigate();
-
-  useEffect(() => {
-    if (sessionStorage.getItem("adminUnlocked") !== "1") {
-      navigate("/admin/secret");
-    }
-  }, [navigate]);
+  const [user, setUser] = useState(null);
+  const [authorized, setAuthorized] = useState(false);
+  const [loadingAuth, setLoadingAuth] = useState(true);
 
   const [regno, setRegno] = useState("");
   const [events, setEvents] = useState([]);
@@ -31,21 +27,60 @@ export default function UpdateAttendance() {
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
 
-  // Fetch events on mount
   useEffect(() => {
-    (async () => {
+    let mounted = true;
+    const verify = async () => {
       try {
-        const res = await fetchEvents();
-        const items = res?.events || [];
-        setEvents(items);
-        if (items.length > 0) {
-          setSelectedEventId(items[0]._id);
+        const res = await checkLogin();
+        if (!mounted) return;
+        if (!res.authenticated) {
+          navigate("/login", { replace: true });
+          return;
+        }
+        const userData = res.user || {};
+        setUser(userData);
+        const role = userData.role;
+        if (role === "admin" || role === "member") {
+          setAuthorized(true);
+        } else {
+          setAuthorized(false);
         }
       } catch (err) {
-        console.error("Failed to load events in UpdateAttendance:", err);
+        console.error("Auth check failed:", err);
+        if (mounted) navigate("/login", { replace: true });
+      } finally {
+        if (mounted) setLoadingAuth(false);
       }
-    })();
-  }, []);
+    };
+    verify();
+    return () => (mounted = false);
+  }, [navigate]);
+
+  useEffect(() => {
+    if (authorized && user) {
+      loadEvents();
+    }
+  }, [authorized, user]);
+
+  const loadEvents = async () => {
+    try {
+      const res = await fetchEvents();
+      const allEvents = res.events || res || [];
+
+      const userEmail = (user.email || "").toLowerCase().trim();
+      const managedEvents = allEvents.filter((ev) => {
+        const managerEmail = (ev.managerEmail || "").toLowerCase().trim();
+        return managerEmail === userEmail;
+      });
+
+      setEvents(managedEvents);
+      if (managedEvents.length > 0 && !selectedEventId) {
+        setSelectedEventId(managedEvents[0]._id);
+      }
+    } catch (err) {
+      console.error("Failed to load events", err);
+    }
+  };
 
   // Update sessions when event changes
   useEffect(() => {
@@ -157,16 +192,69 @@ export default function UpdateAttendance() {
     }
   }
 
+  if (loadingAuth) {
+    return (
+      <div className="min-h-screen bg-linear-to-br from-gray-950 via-black to-gray-900 text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!authorized) {
+    return (
+      <div className="min-h-screen bg-linear-to-br from-gray-950 via-black to-gray-900 text-white flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-red-400 mb-4">
+            Access Denied
+          </h2>
+          <p className="text-gray-400 mb-6">
+            You need to be an event manager to access this page.
+          </p>
+          <button
+            onClick={() => navigate("/main")}
+            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition"
+          >
+            Go to Home
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-linear-to-br from-gray-950 via-black to-gray-900 text-white font-sans py-10 px-5">
-      <AdminNavbar />
+      <div className="max-w-2xl mx-auto mb-6">
+        <button
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-2 text-gray-400 hover:text-white transition"
+        >
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M10 19l-7-7m0 0l7-7m-7 7h18"
+            />
+          </svg>
+          Back to Dashboard
+        </button>
+      </div>
+
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
         className="max-w-2xl mx-auto bg-gray-800/50 backdrop-blur-xl border border-gray-700 shadow-2xl rounded-2xl overflow-hidden"
       >
-        <div className="bg-gray-800/50 px-6 pb-6 border-b border-gray-700">
+        <div className="bg-gray-800/50 px-6 pb-6 pt-6 border-b border-gray-700">
           <h1 className="text-3xl font-extrabold bg-linear-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent mb-2">
             Manage Attendance
           </h1>

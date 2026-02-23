@@ -92,11 +92,6 @@ export default function AttendanceSummary() {
   const sessionConfig = currentEventObj?.sessions || [];
   // Show ALL configured sessions, not just active ones
   const sessionColumns = sessionConfig;
-  const registeredStudents = currentEventObj?.registeredStudents || [];
-  const totalRegistered =
-    (currentEventObj && currentEventObj.registeredCount) ||
-    registeredStudents.length ||
-    0;
 
   // Group attendance records by student (regno)
   const attendanceByRegno = {};
@@ -129,50 +124,28 @@ export default function AttendanceSummary() {
     }
   });
 
-  // Build final student list:
-  // - Start with all registered students for the event (always shown, default Absent).
-  // - Also include any students who have attendance records but aren't in registeredStudents.
-  const studentRowMap = new Map();
-
-  if (registeredStudents.length > 0) {
-    registeredStudents.forEach((stu) => {
-      const attendance = attendanceByRegno[stu.regno] || {};
-      studentRowMap.set(stu.regno, {
-        regno: stu.regno,
-        name: stu.name || attendance.base?.name || "",
-        email: stu.email || attendance.base?.email,
-        hostelName: stu.hostelName || attendance.base?.hostelName,
-        sessions: attendance.sessions || {},
-      });
-    });
-
-    // Add any extra attendees not present in registeredStudents
-    Object.values(attendanceByRegno).forEach((entry) => {
-      const regno = entry.base.regno;
-      if (!studentRowMap.has(regno)) {
-        studentRowMap.set(regno, {
-          regno,
+  // Build final student list: include all registered students for the event,
+  // defaulting them to "absent" when no attendance record exists.
+  const registeredStudents = currentEventObj?.registeredStudents || [];
+  const studentRows =
+    registeredStudents.length > 0
+      ? registeredStudents.map((stu) => {
+          const attendance = attendanceByRegno[stu.regno] || {};
+          return {
+            regno: stu.regno,
+            name: stu.name || attendance.base?.name || "",
+            email: stu.email || attendance.base?.email,
+            hostelName: stu.hostelName || attendance.base?.hostelName,
+            sessions: attendance.sessions || {},
+          };
+        })
+      : Object.values(attendanceByRegno).map((entry) => ({
+          regno: entry.base.regno,
           name: entry.base.name,
           email: entry.base.email,
           hostelName: entry.base.hostelName,
           sessions: entry.sessions,
-        });
-      }
-    });
-  } else {
-    // Fallback: no registeredStudents list available, just use attendance records.
-    Object.values(attendanceByRegno).forEach((entry) => {
-      studentRowMap.set(entry.base.regno, {
-        regno: entry.base.regno,
-        name: entry.base.name,
-        email: entry.base.email,
-        hostelName: entry.base.hostelName,
-        sessions: entry.sessions,
-      });
-    });
-  }
-
-  const studentRows = Array.from(studentRowMap.values());
+        }));
 
   const handleDownload = async (mode) => {
     try {
@@ -300,13 +273,7 @@ export default function AttendanceSummary() {
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
               <div className="text-gray-300 text-sm">
                 <div>
-                  Total Students (Registered):{" "}
-                  <span className="font-semibold text-blue-400">
-                    {totalRegistered}
-                  </span>
-                </div>
-                <div>
-                  Showing in table:{" "}
+                  Total Students Tracked:{" "}
                   <span className="font-semibold text-blue-400">
                     {studentRows.length}
                   </span>

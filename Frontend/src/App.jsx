@@ -27,6 +27,8 @@ import EventRegistrations from "./pages/EventRegistrations";
 import AllRegistrations from "./pages/AllRegistrations";
 import StudentResults from "./pages/StudentResults";
 import ManageQuestions from "./pages/ManageQuestions";
+import EventSessions from "./pages/EventSessions";
+import EventAttendance from "./pages/EventAttendance";
 import { ADMIN_TOKEN } from "./services/constants";
 import TestCompiler from "./Exam/pages/testcompailer";
 import PublicNavbar from "./components/PublicNavbar";
@@ -45,39 +47,18 @@ function App() {
             <Route path="/" element={<PublicHome />} />
 
             {/* attendance and summary pages */}
-            <Route
-              path="/member/secret"
-              element={<Secret />}
-            />
-            <Route
-              path="/member/Attendance"
-              element={<AttendancePage />}
-            />
-            <Route
-              path="/member/summary"
-              element={<AttendanceSummary />}
-            />
+            <Route path="/member/secret" element={<Secret />} />
+            <Route path="/member/Attendance" element={<AttendancePage />} />
+            <Route path="/member/summary" element={<AttendanceSummary />} />
             {/* Developer options */}
-            <Route
-              path="/admin/manage-student"
-              element={<ManageStudent />}
-            />
-            <Route
-              path="/admin/manage-sessions"
-              element={<ManageSessions />}
-            />
+            <Route path="/admin/manage-student" element={<ManageStudent />} />
+            <Route path="/admin/manage-sessions" element={<ManageSessions />} />
             <Route
               path="/admin/update-attendance"
               element={<UpdateAttendance />}
             />
-            <Route
-              path="/admin/secret"
-              element={<AdminSecret />}
-            />
-            <Route
-              path="/admin/roles"
-              element={<AddRoles />}
-            />
+            <Route path="/admin/secret" element={<AdminSecret />} />
+            <Route path="/admin/roles" element={<AddRoles />} />
 
             {/* public and event manager pages */}
             <Route path="/main" element={<Main />} />
@@ -88,7 +69,9 @@ function App() {
               path="/events/dashboard"
               element={<EventManagerDashboard />}
             />
+            <Route path="/events/attendance" element={<EventAttendance />} />
             <Route path="/events/questions" element={<ManageQuestions />} />
+            <Route path="/events/sessions" element={<EventSessions />} />
             <Route path="/events/results" element={<StudentResults />} />
             <Route path="/events/approvals" element={<ManageApprovals />} />
             <Route
