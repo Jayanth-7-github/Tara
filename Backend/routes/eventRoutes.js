@@ -7,6 +7,8 @@ const {
   registerEvent,
   updateEvent,
   deleteEvent,
+  generateEventKey,
+  revokeEventKey,
 } = require("../controllers/eventController");
 const { protect, identifyUser } = require("../middleware/auth");
 
@@ -29,5 +31,11 @@ router.put("/:id", identifyUser, delegate('updateEvent', updateEvent));
 
 // DELETE /api/events/:id -> delete event (authenticated)
 router.delete("/:id", protect, delegate('deleteEvent', deleteEvent));
+
+// POST /api/events/:id/generate-key -> generate a new access key (authenticated)
+router.post("/:id/generate-key", protect, generateEventKey);
+
+// POST /api/events/:id/revoke-key -> revoke an access key (authenticated)
+router.post("/:id/revoke-key", protect, revokeEventKey);
 
 module.exports = router;

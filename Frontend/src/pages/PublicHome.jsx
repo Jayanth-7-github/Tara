@@ -27,7 +27,7 @@ export default function PublicHome() {
 
   return (
     <div className="relative min-h-screen bg-linear-to-br from-gray-950 via-black to-gray-900 text-white flex items-center justify-center px-6 py-16 font-sans overflow-hidden">
-      <BackgroundRippleEffect rows={8} cols={24} cellSize={52} />
+      <BackgroundRippleEffect rows={20} cols={40} cellSize={52} />
       <div className="relative z-10 max-w-4xl w-full text-center space-y-8">
         <div className="space-y-4">
           <p className="text-sm uppercase tracking-[0.3em] text-slate-400">
@@ -48,10 +48,16 @@ export default function PublicHome() {
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
           <button
             onClick={handleGetStarted}
-            className="px-7 py-3 rounded-full bg-linear-to-r from-blue-500 to-cyan-400 hover:from-blue-400 hover:to-cyan-300 text-white font-semibold shadow-lg shadow-blue-900/40 transition-all duration-200 hover:-translate-y-0.5"
+            className="px-7 py-3 rounded-full bg-linear-to-r from-blue-500 to-cyan-400 hover:from-blue-400 hover:to-cyan-300 text-white font-semibold shadow-lg shadow-blue-900/40 transition-all duration-200 hover:-translate-y-0.5 w-full sm:w-auto text-center"
           >
             {isAuthenticated ? "Open Dashboard" : "Get Started"}
           </button>
+          <Link
+            to="/become-organizer"
+            className="px-7 py-3 rounded-full bg-transparent border border-slate-700 hover:border-slate-500 text-slate-300 hover:text-white font-semibold transition-all duration-200 hover:-translate-y-0.5 w-full sm:w-auto text-center"
+          >
+            Become Organizer
+          </Link>
         </div>
 
         <div className="pt-8 text-xs sm:text-sm text-slate-500">

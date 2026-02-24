@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { getSummary, downloadCSV, fetchEvents } from "../../services/api";
+import { getSummary, downloadCSV, fetchEvents, verifyEventKey } from "../../services/api";
+import { checkLogin } from "../../services/auth";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function AttendanceSummary() {
   const navigate = useNavigate();
@@ -8,22 +10,71 @@ export default function AttendanceSummary() {
   const [loading, setLoading] = useState(false);
   const [selectedEventName, setSelectedEventName] = useState("");
   const [events, setEvents] = useState([]);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState(null);
+  const [isPublicAccess, setIsPublicAccess] = useState(false);
+  const [showKeyModal, setShowKeyModal] = useState(false);
+  const [inputKey, setInputKey] = useState("");
+  const [keyError, setKeyError] = useState("");
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  // Auth check on mount
+  useEffect(() => {
+    const runCheck = async () => {
+      try {
+        const auth = await checkLogin();
+        if (auth.authenticated && (auth.user.role === "admin" || auth.user.role === "member")) {
+          setIsAuthenticated(true);
+          setUser(auth.user);
+          setCheckingAuth(false);
+        } else {
+          const stored = sessionStorage.getItem("temp_event_access");
+          if (stored) {
+            setIsPublicAccess(true);
+            setCheckingAuth(false);
+          } else {
+            setShowKeyModal(true);
+            setCheckingAuth(false);
+          }
+        }
+      } catch (err) {
+        setCheckingAuth(false);
+        setShowKeyModal(true);
+      }
+    };
+    runCheck();
+  }, []);
 
   useEffect(() => {
     const fetchEventsAndInit = async () => {
       setLoading(true);
       try {
         const eventsData = await fetchEvents();
-        const eventList = eventsData.events || [];
+        let eventList = eventsData.events || [];
+
+        // If public access, filter to ONLY the one event we have access to
+        if (isPublicAccess) {
+          const stored = sessionStorage.getItem("temp_event_access");
+          if (stored) {
+            const data = JSON.parse(stored);
+            eventList = eventList.filter(ev => ev._id === data.eventId);
+          }
+        } else if (isAuthenticated && user && user.role === "member") {
+          // If logged in as member (manager), only show their events
+          const userEmail = (user.email || "").toLowerCase().trim();
+          eventList = eventList.filter(ev => (ev.managerEmail || "").toLowerCase().trim() === userEmail);
+        }
+
         setEvents(eventList);
 
-        // If no event is selected yet, default to the first event (if any)
-        if (!selectedEventName) {
-          if (eventList.length > 0) {
+        // Ensure selectedEventName is valid for the filtered list
+        if (eventList.length > 0) {
+          const exists = eventList.find(ev => ev.title === selectedEventName);
+          if (!exists) {
             setSelectedEventName(eventList[0].title);
-          } else {
-            setSelectedEventName("default");
           }
+        } else {
+          setSelectedEventName("default");
         }
       } catch (err) {
         console.error("Failed to load events:", err);
@@ -33,8 +84,7 @@ export default function AttendanceSummary() {
     };
 
     fetchEventsAndInit();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isPublicAccess, selectedEventName, isAuthenticated, user]);
 
   // Fetch summary only for the currently selected event,
   // and auto-refresh that event's summary every 60 seconds.
@@ -82,9 +132,9 @@ export default function AttendanceSummary() {
   const rawRecords =
     summary && summary.records
       ? summary.records.filter(
-          (r) =>
-            (r.eventName || "default") === (selectedEventName || "default"),
-        )
+        (r) =>
+          (r.eventName || "default") === (selectedEventName || "default"),
+      )
       : [];
 
   // Determine columns based on Event Config
@@ -130,22 +180,22 @@ export default function AttendanceSummary() {
   const studentRows =
     registeredStudents.length > 0
       ? registeredStudents.map((stu) => {
-          const attendance = attendanceByRegno[stu.regno] || {};
-          return {
-            regno: stu.regno,
-            name: stu.name || attendance.base?.name || "",
-            email: stu.email || attendance.base?.email,
-            hostelName: stu.hostelName || attendance.base?.hostelName,
-            sessions: attendance.sessions || {},
-          };
-        })
+        const attendance = attendanceByRegno[stu.regno] || {};
+        return {
+          regno: stu.regno,
+          name: stu.name || attendance.base?.name || "",
+          email: stu.email || attendance.base?.email,
+          hostelName: stu.hostelName || attendance.base?.hostelName,
+          sessions: attendance.sessions || {},
+        };
+      })
       : Object.values(attendanceByRegno).map((entry) => ({
-          regno: entry.base.regno,
-          name: entry.base.name,
-          email: entry.base.email,
-          hostelName: entry.base.hostelName,
-          sessions: entry.sessions,
-        }));
+        regno: entry.base.regno,
+        name: entry.base.name,
+        email: entry.base.email,
+        hostelName: entry.base.hostelName,
+        sessions: entry.sessions,
+      }));
 
   const handleDownload = async (mode) => {
     try {
@@ -175,6 +225,39 @@ export default function AttendanceSummary() {
     }
   };
 
+  const handleVerifyKey = async (e) => {
+    e.preventDefault();
+    setKeyError("");
+    setLoading(true);
+    try {
+      const res = await verifyEventKey(inputKey);
+      if (res.success) {
+        sessionStorage.setItem("temp_event_access", JSON.stringify({
+          eventId: res.eventId,
+          eventTitle: res.eventTitle,
+          managerEmail: res.managerEmail,
+          token: res.token
+        }));
+        setIsPublicAccess(true);
+        setShowKeyModal(false);
+        // Page level refresh to reload data with the key
+        window.location.reload();
+      }
+    } catch (err) {
+      setKeyError(err.message || "Invalid access key. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-linear-to-br from-gray-950 via-black to-gray-900 text-white py-6 sm:py-12 px-3 sm:px-5 font-sans">
       <div className="max-w-7xl mx-auto bg-gray-800/50 backdrop-blur-md shadow-2xl rounded-2xl border border-gray-700 p-4 sm:p-8">
@@ -198,27 +281,28 @@ export default function AttendanceSummary() {
                 </span>
                 <select
                   value={selectedEventName}
+                  disabled={isPublicAccess}
                   onChange={(e) => setSelectedEventName(e.target.value)}
-                  className="bg-transparent text-white text-sm font-semibold focus:outline-none cursor-pointer min-w-[150px]"
+                  className={`bg-transparent text-white text-sm font-semibold focus:outline-none cursor-pointer min-w-[150px] ${isPublicAccess ? "opacity-50 cursor-not-allowed" : ""}`}
                 >
                   {/* Show events from fetched list first for correctness, fallback to summary keys */}
                   {events.length > 0
                     ? events.map((ev) => (
-                        <option
-                          key={ev._id}
-                          value={ev.title}
-                          className="bg-gray-900"
-                        >
-                          {ev.title}
-                        </option>
-                      ))
+                      <option
+                        key={ev._id}
+                        value={ev.title}
+                        className="bg-gray-900"
+                      >
+                        {ev.title}
+                      </option>
+                    ))
                     : summary &&
-                      summary.byEvent &&
-                      Object.keys(summary.byEvent).map((ev) => (
-                        <option key={ev} value={ev} className="bg-gray-900">
-                          {ev}
-                        </option>
-                      ))}
+                    summary.byEvent &&
+                    Object.keys(summary.byEvent).map((ev) => (
+                      <option key={ev} value={ev} className="bg-gray-900">
+                        {ev}
+                      </option>
+                    ))}
                   {!events.length &&
                     (!summary ||
                       !summary.byEvent ||
@@ -359,9 +443,8 @@ export default function AttendanceSummary() {
                   {studentRows.map((s, i) => (
                     <tr
                       key={s.regno}
-                      className={`${
-                        i % 2 === 0 ? "bg-gray-900/40" : "bg-gray-800/30"
-                      } border-t border-gray-800 hover:bg-gray-800/70 transition-colors`}
+                      className={`${i % 2 === 0 ? "bg-gray-900/40" : "bg-gray-800/30"
+                        } border-t border-gray-800 hover:bg-gray-800/70 transition-colors`}
                     >
                       <td className="px-3 py-3 text-gray-200">{s.regno}</td>
                       <td className="px-3 py-3 text-gray-200">{s.name}</td>
@@ -411,6 +494,75 @@ export default function AttendanceSummary() {
           </div>
         )}
       </div>
+
+      {/* Access Key Modal */}
+      <AnimatePresence>
+        {showKeyModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/95 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative w-full max-w-md bg-gray-900 border border-gray-800 rounded-3xl p-8 shadow-2xl"
+            >
+              <div className="text-center mb-8">
+                <div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-blue-500/20">
+                  <svg className="w-8 h-8 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                  </svg>
+                </div>
+                <h2 className="text-2xl font-bold text-white mb-2">Summary Access</h2>
+                <p className="text-gray-400 text-sm">Please enter the access code provided by your event manager.</p>
+              </div>
+
+              <form onSubmit={handleVerifyKey} className="space-y-6">
+                <div>
+                  <input
+                    type="text"
+                    value={inputKey}
+                    onChange={(e) => setInputKey(e.target.value)}
+                    placeholder="Enter Access Key"
+                    autoFocus
+                    className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-4 text-center text-xl font-mono tracking-widest text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
+                  />
+                  {keyError && (
+                    <motion.p
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="text-red-400 text-xs mt-3 text-center font-medium"
+                    >
+                      {keyError}
+                    </motion.p>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  <button
+                    type="submit"
+                    disabled={loading || !inputKey.trim()}
+                    className="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-800 disabled:text-gray-500 text-white rounded-xl font-bold transition-all active:scale-95 shadow-lg shadow-blue-900/20"
+                  >
+                    {loading ? "Verifying..." : "View Summary"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate("/login")}
+                    className="w-full py-4 bg-transparent hover:bg-gray-800 text-gray-400 rounded-xl font-medium text-sm transition-all"
+                  >
+                    Login as Manager instead
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

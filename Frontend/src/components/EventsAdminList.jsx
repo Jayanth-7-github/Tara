@@ -3,11 +3,12 @@ import EventForm from "./EventForm";
 
 export default function EventsAdminList({
   events = [],
-  onEdit = () => {},
-  onDelete = () => {},
+  onEdit = () => { },
+  onDelete = () => { },
   editingId = null,
-  onEditDone = () => {},
-  onCancelEdit = () => {},
+  onEditDone = () => { },
+  onCancelEdit = () => { },
+  currentUser = null,
 }) {
   return (
     <div className="bg-gray-900/60 border border-gray-800 rounded-2xl p-4">
@@ -28,6 +29,7 @@ export default function EventsAdminList({
                     eventId={ev._id}
                     initialData={ev}
                     onSuccess={onEditDone}
+                    currentUser={currentUser}
                   />
                   <div className="mt-2">
                     <button

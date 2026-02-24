@@ -6,12 +6,14 @@ const RoleConfig = require(path.join(__dirname, "..", "models", "RoleConfig"));
 const Student = require(path.join(__dirname, "..", "models", "Student"));
 
 // POST /api/contact
-// body: { name, regno, email, branch, college, message, eventId }
+// body: { name, regno, email, branch, college, message, eventId, type }
 // Saves contact message to database instead of sending email
 async function sendContactMessage(req, res) {
   try {
-    const { name, regno, email, branch, college, message, eventId } =
+    const { name, regno, email, branch, college, message, eventId, type } =
       req.body || {};
+
+    const msgType = type || "general";
 
     // If user is authenticated, prefer their profile values when fields missing
     let actorEmail = email;
@@ -34,26 +36,34 @@ async function sendContactMessage(req, res) {
     if (!actorName || !actorEmail)
       return res.status(400).json({ error: "Missing name or email" });
 
-    if (!eventId) return res.status(400).json({ error: "Missing eventId" });
+    // For general contacts, eventId is required. For organizer_application, it's optional.
+    if (msgType === "general" && !eventId) {
+      return res.status(400).json({ error: "Missing eventId" });
+    }
 
     // Determine recipient email and event title
     let recipient = null;
-    let eventTitle = "event";
+    let eventTitle = msgType === "organizer_application" ? "Become Organizer Request" : "event";
     let event = null;
 
-    try {
-      event = await Event.findById(eventId).lean();
-      if (!event) return res.status(404).json({ error: "Event not found" });
-
-      eventTitle = event.title || eventTitle;
-      if (event.managerEmail) recipient = event.managerEmail;
-    } catch (e) {
-      return res.status(500).json({ error: "Failed to fetch event" });
+    if (eventId) {
+      try {
+        event = await Event.findById(eventId).lean();
+        if (event) {
+          eventTitle = event.title || eventTitle;
+          if (event.managerEmail) recipient = event.managerEmail;
+        }
+      } catch (e) {
+        // If eventId was provided but lookup fails, it's only fatal for 'general' messages
+        if (msgType === "general") {
+          return res.status(500).json({ error: "Failed to fetch event" });
+        }
+      }
     }
 
     // Save contact message to database
     const contactData = {
-      eventId,
+      eventId: eventId || undefined,
       eventTitle,
       name: actorName,
       regno: regno || undefined,
@@ -64,6 +74,7 @@ async function sendContactMessage(req, res) {
       recipientEmail: recipient,
       userId: userId || undefined,
       status: "unread",
+      type: msgType,
     };
 
     const contact = await Contact.create(contactData);
@@ -135,14 +146,20 @@ async function getMyContacts(req, res) {
       }
     }
 
+    if (managedEventIds.length === 0 && !isAdmin) {
+      return res.json({ contacts: [] });
+    }
+
+    // Fetch only event contacts – organizer applications have their own endpoint
+    const contactQuery = managedEventIds.length > 0
+      ? { eventId: { $in: managedEventIds }, type: { $ne: "organizer_application" } }
+      : { type: { $ne: "organizer_application" } }; // admin with no events still returns empty
+
     if (managedEventIds.length === 0) {
       return res.json({ contacts: [] });
     }
 
-    // Fetch contacts for managed events
-    const contacts = await Contact.find({
-      eventId: { $in: managedEventIds },
-    })
+    const contacts = await Contact.find(contactQuery)
       .sort({ createdAt: -1 })
       .lean();
 
@@ -150,6 +167,29 @@ async function getMyContacts(req, res) {
   } catch (err) {
     console.error("getMyContacts error", err);
     return res.status(500).json({ error: "Failed to fetch contacts" });
+  }
+}
+
+// GET /api/contact/organizer-applications
+// Returns all organizer applications (admin only)
+async function getOrganizerApplications(req, res) {
+  try {
+    if (!req.user || !req.user.id)
+      return res.status(401).json({ error: "Unauthorized" });
+
+    const actor = await User.findById(req.user.id).lean();
+    if (!actor || actor.role !== "admin") {
+      return res.status(403).json({ error: "Only admins can view organizer applications" });
+    }
+
+    const applications = await Contact.find({ type: "organizer_application" })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return res.json({ applications });
+  } catch (err) {
+    console.error("getOrganizerApplications error", err);
+    return res.status(500).json({ error: "Failed to fetch organizer applications" });
   }
 }
 
@@ -393,15 +433,93 @@ async function addContactAsStudent(req, res) {
   }
 }
 
-module.exports = {
-  sendContactMessage,
-  getMyContacts,
-  updateContactStatus,
-  addContactAsStudent,
-  approveContact,
-  rejectContact,
-  getMyRequests,
-};
+
+// POST /api/contact/:id/promote-member
+// Promote the contact user to member role
+async function promoteToMember(req, res) {
+  try {
+    const { id } = req.params;
+
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    // Verify admin permission
+    const actor = await User.findById(req.user.id).lean();
+    if (!actor || actor.role !== "admin") {
+      return res.status(403).json({ error: "Only admins can promote users" });
+    }
+
+    const contact = await Contact.findById(id);
+    if (!contact) {
+      return res.status(404).json({ error: "Contact not found" });
+    }
+
+    // SOURCE OF TRUTH: The email and regno provided in the form
+    const formEmail = contact.email ? String(contact.email).toLowerCase().trim() : null;
+    const formRegno = contact.regno ? String(contact.regno).toUpperCase().trim() : null;
+
+    // Search for user primarily by form identity
+    let user = null;
+    if (formEmail || formRegno) {
+      const orClauses = [];
+      if (formEmail) orClauses.push({ email: formEmail });
+      if (formRegno) orClauses.push({ regno: formRegno });
+
+      user = await User.findOne({ $or: orClauses });
+    }
+
+    // Fallback to userId only if identity matches or if form identity was missing (unlikely)
+    if (!user && contact.userId) {
+      user = await User.findById(contact.userId);
+    }
+
+    if (user) {
+      if (user.role === "admin" || user.role === "member") {
+        contact.status = "handled";
+        await contact.save();
+        return res.json({ success: true, message: `User is already a ${user.role} — contact marked as handled.` });
+      }
+      // Update user role
+      user.role = "member";
+      await user.save();
+    }
+
+    // Update RoleConfig for persistence (whitelisting for future signup)
+    let rc = await RoleConfig.findOne();
+    if (!rc) {
+      rc = new RoleConfig();
+    }
+
+    if (!rc.members) rc.members = [];
+
+    // The identifier we want to whitelist: prioritize email, then regno
+    const identifier = formEmail || formRegno || (user && (user.email || user.regno));
+
+    if (identifier) {
+      const normalizedIdentifier = String(identifier).toLowerCase().trim();
+      if (!rc.members.some(m => String(m).toLowerCase().trim() === normalizedIdentifier)) {
+        rc.members.push(identifier);
+        await rc.save();
+      }
+    }
+
+    // Update contact status
+    contact.status = "handled";
+    await contact.save();
+
+    const displayName = (user && (user.name || user.email)) || contact.name || formEmail || "Unknown Applicant";
+    return res.json({
+      success: true,
+      message: user
+        ? `Successfully promoted ${displayName} to Member`
+        : `User account not found, but ${displayName} (${identifier || 'no identity'}) has been added to authorized members list.`
+    });
+  } catch (err) {
+    console.error("promoteToMember error", err);
+    return res.status(500).json({ error: "Failed to promote user" });
+  }
+}
 
 // PUT /api/contact/:id/approve
 // Approve a contact request
@@ -530,3 +648,15 @@ async function rejectContact(req, res) {
     return res.status(500).json({ error: "Failed to reject contact" });
   }
 }
+
+module.exports = {
+  sendContactMessage,
+  getMyContacts,
+  getOrganizerApplications,
+  getMyRequests,
+  updateContactStatus,
+  addContactAsStudent,
+  approveContact,
+  rejectContact,
+  promoteToMember,
+};

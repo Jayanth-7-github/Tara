@@ -18,20 +18,28 @@ export default function AllRegistrations() {
           return;
         }
 
-        // Fetch events. The backend now populates `registeredStudents` if we are admin/manager.
+        // Fetch events
         const evData = await fetchEvents();
         if (!mounted) return;
 
         const allEvents = evData.events || evData || [];
-        const list = [];
+        const userEmail = (auth.user.email || "").toLowerCase().trim();
+        const isAdmin = auth.user.role === "admin";
 
-        // Iterate all events (the backend handles permission filtering for the registeredStudents field)
-        allEvents.forEach((ev) => {
+        // Filter events managed by this user
+        const myEvents = allEvents.filter(ev => {
+          const managerEmail = (ev.managerEmail || "").toLowerCase().trim();
+          return managerEmail === userEmail;
+        });
+
+        const list = [];
+        // Iterate only my events
+        myEvents.forEach((ev) => {
           if (ev.registeredStudents && Array.isArray(ev.registeredStudents)) {
             ev.registeredStudents.forEach((student) => {
               list.push({
                 regNo: student.regno,
-                name: student.name, // now we have name!
+                name: student.name,
                 email: student.email,
                 department: student.department,
                 year: student.year,

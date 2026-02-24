@@ -52,12 +52,18 @@ export default function EventForm({
   mode = "create",
   eventId = null,
   onSuccess = null,
+  currentUser = null,
 }) {
   const navigate = useNavigate();
   const [title, setTitle] = useState(initialData?.title || "");
   const [venue, setVenue] = useState(initialData?.venue || "");
+
+  // If creating and user is member, lock managerEmail to their email
+  const isMember = currentUser && currentUser.role === "member";
+  const userEmail = currentUser?.email || "";
+
   const [managerEmail, setManagerEmail] = useState(
-    initialData?.managerEmail || "",
+    mode === "create" && isMember ? userEmail : (initialData?.managerEmail || "")
   );
   const [price, setPrice] = useState(
     initialData?.price !== undefined && initialData?.price !== null
@@ -235,7 +241,7 @@ export default function EventForm({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <label className="block group/input">
           <span className="text-sm font-medium text-gray-300 mb-1.5 block group-focus-within/input:text-blue-400 transition-colors">
-            Manager Email
+            Manager Email {isMember && <span className="text-gray-500 text-xs">(Locked to your account)</span>}
           </span>
           <div className="relative">
             <input
@@ -243,7 +249,8 @@ export default function EventForm({
               value={managerEmail}
               onChange={(e) => setManagerEmail(e.target.value)}
               required
-              className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all"
+              readOnly={isMember}
+              className={`w-full ${isMember ? 'bg-gray-800/20 text-gray-500 cursor-not-allowed' : 'bg-gray-800/50 text-white'} border border-gray-700 rounded-xl px-4 py-3 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all`}
               placeholder="manager@example.com"
             />
           </div>
@@ -322,10 +329,9 @@ export default function EventForm({
           className={`
             w-full py-3.5 rounded-xl font-bold text-white shadow-lg transition-all duration-300
             flex items-center justify-center gap-2
-            ${
-              loading
-                ? "bg-gray-700 cursor-not-allowed"
-                : "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 hover:shadow-blue-500/25 active:scale-[0.98]"
+            ${loading
+              ? "bg-gray-700 cursor-not-allowed"
+              : "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 hover:shadow-blue-500/25 active:scale-[0.98]"
             }
           `}
         >

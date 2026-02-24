@@ -2,6 +2,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const passport = require("passport");
 const User = require("../models/User");
+const Event = require("../models/Event");
 const path = require("path");
 const RoleConfig = require("../models/RoleConfig");
 // roles file: list of admin and student identifiers (emails or regnos)
@@ -302,11 +303,11 @@ exports.googleAuthCallback = async (req, res) => {
       typeof user.toSafeJSON === "function"
         ? user.toSafeJSON()
         : {
-            id: user._id || user.id,
-            email: user.email,
-            name: user.name,
-            role: user.role,
-          };
+          id: user._id || user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+        };
 
     const token = signToken(user._id);
     res.cookie("token", token, cookieOptions());
@@ -352,3 +353,39 @@ exports.handleGoogleCallback = (req, res, next) => {
 
 // Expose determineRole for other modules (middleware) to consult the roles mapping.
 exports.determineRole = determineRole;
+
+exports.verifyEventKey = async (req, res) => {
+  try {
+    const { key } = req.body || {};
+    if (!key) return res.status(400).json({ error: "Access key is required" });
+
+    const event = await Event.findOne({ accessKey: String(key).trim() }).lean();
+    if (!event) return res.status(404).json({ error: "Invalid access key" });
+
+    // For public access, we don't need a user ID in the token, 
+    // but we can sign a token with the event ID or a special payload.
+    const secret = process.env.JWT_SECRET || "dev_secret_change_me";
+    const token = jwt.sign(
+      {
+        eventId: event._id,
+        managerEmail: event.managerEmail,
+        isPublicAccess: true
+      },
+      secret,
+      { expiresIn: "1d" }
+    );
+
+    res.cookie("token", token, cookieOptions());
+
+    return res.json({
+      success: true,
+      eventId: event._id,
+      eventTitle: event.title,
+      managerEmail: event.managerEmail,
+      token,
+    });
+  } catch (err) {
+    console.error("verifyEventKey error", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};

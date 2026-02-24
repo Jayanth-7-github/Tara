@@ -5,7 +5,6 @@ const ContactSchema = new Schema(
     eventId: {
       type: Schema.Types.ObjectId,
       ref: "Event",
-      required: true,
       index: true,
     },
     eventTitle: {
@@ -57,6 +56,12 @@ const ContactSchema = new Schema(
     approved: {
       type: Boolean,
       default: false,
+      index: true,
+    },
+    type: {
+      type: String,
+      enum: ["general", "organizer_application"],
+      default: "general",
       index: true,
     },
   },

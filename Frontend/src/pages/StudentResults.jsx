@@ -49,32 +49,25 @@ export default function StudentResults() {
                     const allEvents = eventsResp.events || eventsResp || [];
 
                     // Filter logic based on role
+                    // Filter logic: Only see their own managed events
                     const userEmail = (user.email || "").toLowerCase().trim();
-                    const isAdmin = user.role === "admin";
 
-                    let visibleEvents = allEvents;
-                    let visibleResults = allResults;
+                    const visibleEvents = allEvents.filter(ev =>
+                        (ev.managerEmail || "").toLowerCase().trim() === userEmail
+                    );
 
-                    if (!isAdmin) {
-                        // Event Managers only see their own events
-                        visibleEvents = allEvents.filter(ev =>
-                            (ev.managerEmail || "").toLowerCase().trim() === userEmail
-                        );
+                    // Filter results to only those belonging to managed events
+                    const eventIds = new Set(visibleEvents.map(e => e._id || e.id));
+                    const eventTitles = new Set(visibleEvents.map(e => (e.title || "").toLowerCase().trim()));
 
-                        // Filter results to only those belonging to managed events
-                        const eventIds = new Set(visibleEvents.map(e => e._id || e.id));
-                        const eventTitles = new Set(visibleEvents.map(e => (e.title || "").toLowerCase().trim()));
-
-                        visibleResults = allResults.filter(r => {
-                            // Match by ID if available
-                            if (r.eventId && eventIds.has(r.eventId)) return true;
-                            // Fallback: Match by title
-                            const rTitle = (r.testTitle || "").toLowerCase().trim();
-                            // Only match if title is non-empty and in our set
-                            if (rTitle && eventTitles.has(rTitle)) return true;
-                            return false;
-                        });
-                    }
+                    const visibleResults = allResults.filter(r => {
+                        // Match by ID if available
+                        if (r.eventId && eventIds.has(r.eventId)) return true;
+                        // Fallback: Match by title
+                        const rTitle = (r.testTitle || "").toLowerCase().trim();
+                        if (rTitle && eventTitles.has(rTitle)) return true;
+                        return false;
+                    });
 
                     setResults(visibleResults);
                     setEvents(visibleEvents);

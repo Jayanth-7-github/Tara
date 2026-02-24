@@ -25,6 +25,7 @@ const SERVICE_MAP = {
   logout: "authService",
   getMe: "authService",
   checkLogin: "authService",
+  verifyEventKey: "authService",
 
   // Attendance
   markAttendance: "default",
@@ -38,10 +39,12 @@ const SERVICE_MAP = {
   sendContactMessage: "default",
   getMyContacts: "default",
   getMyContactRequests: "default",
+  getOrganizerApplications: "default",
   updateContactStatus: "default",
   approveContact: "default",
   rejectContact: "default",
   addContactAsStudent: "default",
+  promoteToMember: "default",
 
   // Events
   createEvent: "eventService",
@@ -50,6 +53,8 @@ const SERVICE_MAP = {
   registerEvent: "eventService",
   updateEvent: "eventService",
   deleteEvent: "eventService",
+  generateEventKey: "eventService",
+  revokeEventKey: "eventService",
 
   // Roles
   getRoles: "default",
@@ -88,6 +93,7 @@ const route = async (taskName, req, res) => {
   }
 
   const targetUrl = `${baseURL}${req.originalUrl}`;
+  console.debug(`[Engine] Routing '${taskName}' to: ${targetUrl}`);
 
   try {
     const response = await axios({
@@ -96,14 +102,20 @@ const route = async (taskName, req, res) => {
       data:
         req.method !== "GET" && req.method !== "HEAD" ? req.body : undefined,
       // params: req.query, // Removed to avoid duplicate query params since they are already in targetUrl
-      headers: {
-        ...req.headers,
-        "x-engine-routed": "true",
-      },
+      headers: (() => {
+        const h = { ...req.headers };
+        delete h["host"];
+        delete h["content-length"];
+        delete h["content-type"]; // axios will set it based on data
+        h["x-engine-routed"] = "true";
+        return h;
+      })(),
       // Use arraybuffer so we can faithfully proxy both JSON and binary (images, files)
       responseType: "arraybuffer",
       validateStatus: () => true,
     });
+
+    console.debug(`[Engine] Received response for '${taskName}': Status ${response.status}`);
 
     Object.keys(response.headers).forEach((key) => {
       if (key !== "content-length" && key !== "transfer-encoding") {
@@ -112,6 +124,7 @@ const route = async (taskName, req, res) => {
     });
 
     if (response.data == null) {
+      console.debug(`[Engine] Response data is null for '${taskName}'`);
       return res.status(response.status).end();
     }
 
@@ -119,6 +132,7 @@ const route = async (taskName, req, res) => {
       ? response.data
       : Buffer.from(response.data);
 
+    console.debug(`[Engine] Sending response for '${taskName}': Status ${response.status}, Body Length ${body.length}`);
     res.status(response.status).send(body);
   } catch (error) {
     console.error(`[Engine] Error forwarding '${taskName}':`, error.message);

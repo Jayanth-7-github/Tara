@@ -96,7 +96,11 @@ export default function CreateEvent() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10 items-start">
           <div className="order-1">
-            <EventForm mode="create" onSuccess={() => loadEvents()} />
+            <EventForm
+              mode="create"
+              currentUser={me}
+              onSuccess={() => loadEvents()}
+            />
           </div>
 
           <div className="order-2 lg:order-none lg:max-h-[70vh] lg:overflow-y-auto">
@@ -106,6 +110,7 @@ export default function CreateEvent() {
                 events={events}
                 editingId={editingEvent?._id}
                 onEdit={(ev) => setEditingEvent(ev)}
+                currentUser={me}
                 onEditDone={async () => {
                   await loadEvents();
                   setEditingEvent(null);
@@ -164,6 +169,7 @@ export default function CreateEvent() {
                     events={mgrEvents}
                     editingId={editingEvent?._id}
                     onEdit={(ev) => setEditingEvent(ev)}
+                    currentUser={me}
                     onEditDone={async () => {
                       await loadEvents();
                       setEditingEvent(null);

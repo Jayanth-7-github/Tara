@@ -35,6 +35,7 @@ import TestCompiler from "./Exam/pages/testcompailer";
 import PublicNavbar from "./components/PublicNavbar";
 import GoogleSuccess from "./components/GoogleSuccess";
 import DevToolsRestriction from "./components/DevToolsRestriction";
+import BecomeOrganizer from "./pages/BecomeOrganizer";
 
 function App() {
   return (
@@ -46,6 +47,7 @@ function App() {
         <main>
           <Routes>
             <Route path="/" element={<PublicHome />} />
+            <Route path="/become-organizer" element={<BecomeOrganizer />} />
 
             {/* attendance and summary pages */}
             <Route path="/member/secret" element={<Secret />} />

@@ -12,7 +12,7 @@ export default function AuthEntry() {
 
   return (
     <div className="relative min-h-screen bg-linear-to-br from-gray-950 via-black to-gray-900 text-white flex items-center justify-center px-4 py-10 font-sans overflow-hidden">
-      <BackgroundRippleEffect rows={8} cols={24} cellSize={52} />
+      <BackgroundRippleEffect rows={20} cols={40} cellSize={52} />
 
       <div className="relative z-10 w-full max-w-xl rounded-3xl bg-black/70 border border-white/10 shadow-[0_18px_60px_rgba(0,0,0,0.75)] backdrop-blur-2xl px-6 py-8 sm:px-10 sm:py-10">
         <div className="flex items-center gap-3 mb-8">

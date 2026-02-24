@@ -68,7 +68,7 @@ export default function Signup() {
       setSuccess("Account created successfully");
       try {
         await getMe();
-      } catch {}
+      } catch { }
       // Redirect to login or member area; choose member secret for now
       setTimeout(() => navigate("/login"), 800);
     } catch (err) {
@@ -80,7 +80,7 @@ export default function Signup() {
 
   return (
     <div className="relative min-h-screen bg-linear-to-br from-gray-950 via-black to-gray-900 text-white flex items-center justify-center px-4 py-12 font-sans overflow-hidden">
-      <BackgroundRippleEffect rows={8} cols={24} cellSize={52} />
+      <BackgroundRippleEffect rows={20} cols={40} cellSize={52} />
 
       <CardSpotlight className="relative z-10 w-full max-w-lg shadow-2xl">
         <div className="mb-8 text-center sm:text-left">

@@ -10,8 +10,8 @@ export default function PublicNavbar() {
   if (isExamPage) return null;
 
   return (
-    <header className="bg-linear-to-r from-gray-950 via-gray-900 to-gray-950 text-white shadow-lg border-b border-gray-800">
-      <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+    <header className="sticky top-0 z-50 bg-[#020617] shadow-[0_4px_30px_rgba(30,58,138,0.2)] border-b border-blue-900/30 text-white">
+      <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
         <h2 className="text-xl sm:text-2xl font-bold tracking-wide bg-linear-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">
           Tara
         </h2>

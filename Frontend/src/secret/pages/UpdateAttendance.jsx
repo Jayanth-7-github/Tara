@@ -241,13 +241,12 @@ export default function UpdateAttendance() {
                   <p className="text-sm text-gray-400">Reg: {regno}</p>
                 </div>
                 <div
-                  className={`px-3 py-1 rounded-full text-xs font-bold ${
-                    currentStatus.isNew
+                  className={`px-3 py-1 rounded-full text-xs font-bold ${currentStatus.isNew
                       ? "bg-gray-700 text-gray-300"
                       : currentStatus.isPresent
                         ? "bg-green-900/40 text-green-400 border border-green-800"
                         : "bg-red-900/40 text-red-400 border border-red-800"
-                  }`}
+                    }`}
                 >
                   {currentStatus.isNew
                     ? "NOT MARKED"

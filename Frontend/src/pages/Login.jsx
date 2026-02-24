@@ -75,8 +75,8 @@ export default function Login() {
         // notify other components that auth state changed (hamburger, nav, etc.)
         try {
           window.dispatchEvent(new Event("auth-changed"));
-        } catch (e) {}
-      } catch {}
+        } catch (e) { }
+      } catch { }
 
       // Debug: confirm server sees you as logged-in and show role in console
       try {
@@ -99,7 +99,7 @@ export default function Login() {
 
   return (
     <div className="relative min-h-screen bg-linear-to-br from-gray-950 via-black to-gray-900 text-white flex items-center justify-center px-4 py-10 font-sans overflow-hidden">
-      <BackgroundRippleEffect rows={8} cols={24} cellSize={52} />
+      <BackgroundRippleEffect rows={20} cols={40} cellSize={52} />
 
       <CardSpotlight className="relative z-10 w-full max-w-md shadow-2xl">
         <div className="mb-8">

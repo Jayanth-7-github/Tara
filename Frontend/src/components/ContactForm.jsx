@@ -5,8 +5,8 @@ export default function ContactForm({
   event = null,
   fallbackEmail = "admin@college.edu",
   initial = {},
-  onClose = () => {},
-  onSent = () => {},
+  onClose = () => { },
+  onSent = () => { },
 }) {
   const [name, setName] = useState(initial.name || "");
   const [regno, setRegno] = useState(initial.regno || "");
@@ -23,13 +23,10 @@ export default function ContactForm({
     const when = event?.date
       ? ` on ${new Date(event.date).toLocaleString()}`
       : "";
-    const defaultMsg = `Hello,\n\nI would like to register for \"${title}\"${when}.\n\nMy details:\nName: ${
-      name || ""
-    }\nRegno: ${regno || ""}\nEmail: ${email || ""}\nBranch: ${
-      branch || ""
-    }\nCollege: ${
-      college || ""
-    }\n\nPlease let me know the next steps.\n\nThank you,\n${name || ""}`;
+    const defaultMsg = `Hello,\n\nI would like to register for \"${title}\"${when}.\n\nMy details:\nName: ${name || ""
+      }\nRegno: ${regno || ""}\nEmail: ${email || ""}\nBranch: ${branch || ""
+      }\nCollege: ${college || ""
+      }\n\nPlease let me know the next steps.\n\nThank you,\n${name || ""}`;
     setMessage(defaultMsg);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [event, name, regno, email, branch, college]);
@@ -183,20 +180,18 @@ export default function ContactForm({
           <button
             onClick={onClose}
             disabled={sending}
-            className={`px-3 py-1 text-sm rounded ${
-              sending
-                ? "bg-gray-600 cursor-not-allowed"
-                : "bg-gray-700 hover:bg-gray-600"
-            }`}
+            className={`px-3 py-1 text-sm rounded ${sending
+              ? "bg-gray-600 cursor-not-allowed"
+              : "bg-gray-700 hover:bg-gray-600"
+              }`}
           >
             Cancel
           </button>
           <button
             onClick={sendMail}
             disabled={sending || sent}
-            className={`px-4 py-2 text-sm rounded text-white ${
-              sent ? "bg-green-500" : "bg-blue-600 hover:bg-blue-700"
-            } ${sending ? "opacity-80 cursor-wait" : ""}`}
+            className={`px-4 py-2 text-sm rounded text-white ${sent ? "bg-green-500" : "bg-blue-600 hover:bg-blue-700"
+              } ${sending ? "opacity-80 cursor-wait" : ""}`}
           >
             {sending ? (
               <span className="flex items-center gap-2">

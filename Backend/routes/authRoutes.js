@@ -7,6 +7,7 @@ const {
   logout,
   getMe,
   checkLogin,
+  verifyEventKey,
 } = require("../controllers/authController");
 const { protect } = require("../middleware/auth");
 
@@ -17,5 +18,6 @@ router.post("/login", delegate("login", login));
 router.post("/logout", delegate("logout", logout));
 router.get("/me", protect, delegate("getMe", getMe));
 router.get("/check-login", protect, delegate("checkLogin", checkLogin));
+router.post("/verify-event-key", delegate("verifyEventKey", verifyEventKey));
 
 module.exports = router;

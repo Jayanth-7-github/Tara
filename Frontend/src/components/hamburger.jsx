@@ -140,15 +140,15 @@ export default function Hamburger() {
       <aside
         role="dialog"
         aria-modal="true"
-        className={`fixed top-0 right-0 h-full w-80 max-w-full bg-gray-900 border-l border-gray-800 shadow-xl transform transition-transform duration-300 ease-out z-50 flex flex-col ${open ? "translate-x-0" : "translate-x-full"
+        className={`fixed top-0 right-0 h-full w-80 max-w-full bg-[#020617] border-l border-blue-900/40 shadow-2xl transform transition-transform duration-300 ease-out z-50 flex flex-col ${open ? "translate-x-0" : "translate-x-full"
           }`}
       >
-        <div className="flex items-center justify-between p-4 border-b border-gray-800">
+        <div className="flex items-center justify-between p-4 border-b border-blue-900/20">
           <div className="text-white font-semibold">Menu</div>
           <button
             aria-label="Close menu"
             onClick={() => setOpen(false)}
-            className="p-1 rounded hover:bg-gray-800"
+            className="p-1 rounded hover:bg-blue-900/20"
           >
             <svg
               className="w-5 h-5 text-white"
@@ -190,10 +190,10 @@ export default function Hamburger() {
                     <div className="flex items-center gap-2">
                       <div
                         className={`w-2 h-2 rounded-full ${normalized === "admin"
-                            ? "bg-red-500"
-                            : normalized === "member"
-                              ? "bg-blue-500"
-                              : "bg-green-500"
+                          ? "bg-red-500"
+                          : normalized === "member"
+                            ? "bg-blue-500"
+                            : "bg-green-500"
                           }`}
                       ></div>
                       <span className="text-white font-medium capitalize">
@@ -349,7 +349,7 @@ export default function Hamburger() {
         </div>
 
         {/* Logout Button at bottom */}
-        <div className="p-4 border-t border-gray-800">
+        <div className="p-4 border-t border-blue-900/20">
           <button
             onClick={async () => {
               try {

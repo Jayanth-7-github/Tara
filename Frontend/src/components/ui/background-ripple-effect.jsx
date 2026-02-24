@@ -3,8 +3,8 @@ import React, { useMemo, useRef, useState } from "react";
 import { cn } from "../../lib/utils";
 
 export const BackgroundRippleEffect = ({
-  rows = 8,
-  cols = 27,
+  rows = 20,
+  cols = 40,
   cellSize = 56,
 }) => {
   const [clickedCell, setClickedCell] = useState(null);
@@ -15,7 +15,7 @@ export const BackgroundRippleEffect = ({
     <div
       ref={ref}
       className={cn(
-        "absolute inset-0 h-full w-full",
+        "fixed inset-0 h-full w-full",
         "[--cell-border-color:var(--color-neutral-300)] [--cell-fill-color:var(--color-neutral-100)] [--cell-shadow-color:var(--color-neutral-500)]",
         "dark:[--cell-border-color:var(--color-neutral-700)] dark:[--cell-fill-color:var(--color-neutral-900)] dark:[--cell-shadow-color:var(--color-neutral-800)]",
       )}
@@ -50,7 +50,7 @@ const DivGrid = ({
   borderColor = "#3f3f46",
   fillColor = "rgba(37,99,235,0.35)",
   clickedCell = null,
-  onCellClick = () => {},
+  onCellClick = () => { },
   interactive = true,
 }) => {
   const cells = useMemo(
@@ -80,9 +80,9 @@ const DivGrid = ({
 
         const style = clickedCell
           ? {
-              "--delay": `${delay}ms`,
-              "--duration": `${duration}ms`,
-            }
+            "--delay": `${delay}ms`,
+            "--duration": `${duration}ms`,
+          }
           : {};
 
         return (

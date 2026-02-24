@@ -7,6 +7,7 @@ export default function ManageApprovals() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [userRole, setUserRole] = useState("");
+  const [userEmail, setUserEmail] = useState("");
   const [filterStatus, setFilterStatus] = useState("pending"); // pending, approved, rejected
   const [actionInProgress, setActionInProgress] = useState({});
 
@@ -15,11 +16,11 @@ export default function ManageApprovals() {
     (async () => {
       try {
         const me = await getMe();
-        const role = me?.user?.role || me?.role || "";
+        const userObj = me?.user || me || {};
+        const role = userObj.role || "";
+        const email = (userObj.email || "").toLowerCase().trim();
         setUserRole(role);
-        if (role !== "admin") {
-          // Non-admins can still see their own managed events' contacts
-        }
+        setUserEmail(email);
       } catch (err) {
         setError("Please log in to manage approvals");
       }
@@ -85,8 +86,12 @@ export default function ManageApprovals() {
     }
   };
 
-  // Filter contacts based on approval status
+  // Filter contacts based on approval status and manager email
   const filteredContacts = contacts.filter((c) => {
+    // Strict filtering: Only show requests for events managed by this user
+    const managerEmail = (c.recipientEmail || "").toLowerCase().trim();
+    if (managerEmail !== userEmail) return false;
+
     if (filterStatus === "pending")
       return c.status === "unread" || c.status === "read";
     if (filterStatus === "approved") return c.approved === true;
@@ -143,7 +148,7 @@ export default function ManageApprovals() {
             Pending (
             {
               contacts.filter(
-                (c) => c.status === "unread" || c.status === "read",
+                (c) => (c.recipientEmail || "").toLowerCase().trim() === userEmail && (c.status === "unread" || c.status === "read"),
               ).length
             }
             )
@@ -155,7 +160,7 @@ export default function ManageApprovals() {
               : "text-gray-400 hover:text-gray-200"
               }`}
           >
-            Approved ({contacts.filter((c) => c.approved === true).length})
+            Approved ({contacts.filter((c) => (c.recipientEmail || "").toLowerCase().trim() === userEmail && c.approved === true).length})
           </button>
           <button
             onClick={() => setFilterStatus("rejected")}
@@ -167,7 +172,7 @@ export default function ManageApprovals() {
             Rejected (
             {
               contacts.filter(
-                (c) => c.approved === false && c.status === "handled",
+                (c) => (c.recipientEmail || "").toLowerCase().trim() === userEmail && c.approved === false && c.status === "handled",
               ).length
             }
             )

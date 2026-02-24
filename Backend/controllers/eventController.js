@@ -645,6 +645,66 @@ async function deleteEvent(req, res) {
   }
 }
 
+async function generateEventKey(req, res) {
+  try {
+    const id = req.params.id;
+    if (!id) return res.status(400).json({ error: "Missing event id" });
+    const ev = await Event.findById(id);
+    if (!ev) return res.status(404).json({ error: "Event not found" });
+
+    // Permission: only admins or the event manager can generate keys
+    let actor = null;
+    if (req.user && req.user.id) actor = await User.findById(req.user.id).lean();
+    const isAdmin = actor && actor.role === "admin";
+    const userEmail = actor && actor.email ? String(actor.email).toLowerCase().trim() : null;
+
+    if (!isAdmin && (!userEmail || String(ev.managerEmail).toLowerCase().trim() !== userEmail)) {
+      return res.status(403).json({ error: "Forbidden: Only event managers can generate keys" });
+    }
+
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    let key = "";
+    for (let i = 0; i < 6; i++) {
+      key += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+
+    ev.accessKey = key;
+    await ev.save();
+
+    return res.json({ success: true, accessKey: key });
+  } catch (err) {
+    console.error("generateEventKey error", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+async function revokeEventKey(req, res) {
+  try {
+    const id = req.params.id;
+    if (!id) return res.status(400).json({ error: "Missing event id" });
+    const ev = await Event.findById(id);
+    if (!ev) return res.status(404).json({ error: "Event not found" });
+
+    // Permission check
+    let actor = null;
+    if (req.user && req.user.id) actor = await User.findById(req.user.id).lean();
+    const isAdmin = actor && actor.role === "admin";
+    const userEmail = actor && actor.email ? String(actor.email).toLowerCase().trim() : null;
+
+    if (!isAdmin && (!userEmail || String(ev.managerEmail).toLowerCase().trim() !== userEmail)) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    ev.accessKey = undefined;
+    await ev.save();
+
+    return res.json({ success: true, message: "Key revoked" });
+  } catch (err) {
+    console.error("revokeEventKey error", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+}
+
 module.exports = {
   createEvent,
   getEvents,
@@ -652,4 +712,6 @@ module.exports = {
   registerEvent,
   updateEvent,
   deleteEvent,
+  generateEventKey,
+  revokeEventKey,
 };

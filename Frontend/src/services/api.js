@@ -173,6 +173,38 @@ export async function getMyTestResults() {
   return resp.json();
 }
 
+export async function generateEventKey(eventId) {
+  const resp = await fetch(`${API_BASE}/events/${eventId}/generate-key`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({}),
+  });
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(body.error || "Failed to generate key");
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}
+
+export async function revokeEventKey(eventId) {
+  const resp = await fetch(`${API_BASE}/events/${eventId}/revoke-key`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({}),
+  });
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(body.error || "Failed to revoke key");
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}
+
 export async function checkTestTaken(testTitle) {
   const url = new URL(`${API_BASE.replace(/\/$/, "")}/test-results/check`);
   if (testTitle) url.searchParams.set("testTitle", testTitle);
@@ -366,6 +398,21 @@ export async function getMyContacts() {
   return resp.json();
 }
 
+// Get all organizer applications (admin only)
+export async function getOrganizerApplications() {
+  const resp = await fetch(
+    `${API_BASE.replace(/\/$/, "")}/contact/organizer-applications`,
+    { credentials: "include" },
+  );
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => ({}));
+    const err = new Error(body.error || "Failed to fetch organizer applications");
+    err.status = resp.status;
+    throw err;
+  }
+  return resp.json();
+}
+
 // Get contact requests created by the logged-in user (their interests)
 export async function getMyContactRequests() {
   const resp = await fetch(
@@ -461,6 +508,43 @@ export async function rejectContact(contactId) {
   const body = await resp.json().catch(() => ({}));
   if (!resp.ok) {
     const err = new Error(body.error || "Failed to reject contact");
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}
+
+// Promote contact user to member role (Admin only)
+export async function promoteToMember(contactId) {
+  const resp = await fetch(
+    `${API_BASE.replace(/\/$/, "")}/contact/${encodeURIComponent(
+      contactId,
+    )}/promote-member`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+      credentials: "include",
+    },
+  );
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(body.error || "Failed to promote user to member");
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}
+
+export async function verifyEventKey(key) {
+  const resp = await fetch(`${API_BASE}/auth/verify-event-key`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key }),
+  });
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(body.error || "Invalid access key");
     err.status = resp.status;
     throw err;
   }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { fetchEventById } from "../services/api";
+import { checkLogin } from "../services/auth";
 
 export default function EventRegistrations() {
     const { eventId } = useParams();
@@ -13,8 +14,36 @@ export default function EventRegistrations() {
         let mounted = true;
         const load = async () => {
             try {
+                // 1. Check Auth
+                const auth = await checkLogin();
+                if (!mounted) return;
+                if (!auth.authenticated) {
+                    navigate("/login", { replace: true });
+                    return;
+                }
+
+                const user = auth.user || {};
+                const isAdmin = user.role === "admin";
+                const userEmail = (user.email || "").toLowerCase().trim();
+
+                // 2. Load Event
                 const ev = await fetchEventById(eventId);
                 if (!mounted) return;
+
+                if (!ev) {
+                    setEvent(null);
+                    setLoading(false);
+                    return;
+                }
+
+                // 3. Authorization Check: Only admin or the assigned manager can see registrations
+                const managerEmail = (ev.managerEmail || "").toLowerCase().trim();
+                if (!isAdmin && managerEmail !== userEmail) {
+                    // Not authorized to view this event's registrations
+                    navigate("/events/dashboard", { replace: true });
+                    return;
+                }
+
                 setEvent(ev);
 
                 if (ev && ev.registeredStudents && Array.isArray(ev.registeredStudents)) {
@@ -31,7 +60,7 @@ export default function EventRegistrations() {
         };
         load();
         return () => (mounted = false);
-    }, [eventId]);
+    }, [eventId, navigate]);
 
     if (loading) {
         return (
