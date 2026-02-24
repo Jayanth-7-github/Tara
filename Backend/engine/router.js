@@ -25,7 +25,6 @@ const SERVICE_MAP = {
   logout: "authService",
   getMe: "authService",
   checkLogin: "authService",
-  verifyEventKey: "authService",
 
   // Attendance
   markAttendance: "default",
@@ -53,8 +52,6 @@ const SERVICE_MAP = {
   registerEvent: "eventService",
   updateEvent: "eventService",
   deleteEvent: "eventService",
-  generateEventKey: "eventService",
-  revokeEventKey: "eventService",
 
   // Roles
   getRoles: "default",
@@ -93,7 +90,6 @@ const route = async (taskName, req, res) => {
   }
 
   const targetUrl = `${baseURL}${req.originalUrl}`;
-  console.debug(`[Engine] Routing '${taskName}' to: ${targetUrl}`);
 
   try {
     const response = await axios({
@@ -102,14 +98,10 @@ const route = async (taskName, req, res) => {
       data:
         req.method !== "GET" && req.method !== "HEAD" ? req.body : undefined,
       // params: req.query, // Removed to avoid duplicate query params since they are already in targetUrl
-      headers: (() => {
-        const h = { ...req.headers };
-        delete h["host"];
-        delete h["content-length"];
-        delete h["content-type"]; // axios will set it based on data
-        h["x-engine-routed"] = "true";
-        return h;
-      })(),
+      headers: {
+        ...req.headers,
+        "x-engine-routed": "true",
+      },
       // Use arraybuffer so we can faithfully proxy both JSON and binary (images, files)
       responseType: "arraybuffer",
       validateStatus: () => true,
