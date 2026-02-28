@@ -71,31 +71,80 @@ export default function CreateEvent() {
     return () => (mounted = false);
   }, []);
 
-  if (loading) return <div className="p-6">Checking permissions...</div>;
+  if (loading)
+    return (
+      <div className="min-h-screen bg-neutral-950 text-white flex items-center justify-center">
+        <p className="text-neutral-400 text-sm">Checking permissions...</p>
+      </div>
+    );
+
   if (!authorizedCreate)
     return (
-      <div className="min-h-screen bg-linear-to-br from-gray-950 via-black to-gray-900 text-white px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
-        <div className="max-w-xl sm:max-w-2xl mx-auto text-center">
-          <h2 className="text-xl font-semibold mb-4">Unauthorized</h2>
-          <p className="text-gray-400">
-            You must be a member or admin to create events.
+      <div className="min-h-screen bg-neutral-950 text-white px-4 sm:px-6 lg:px-8 py-10 flex items-center justify-center">
+        <div className="max-w-xl sm:max-w-2xl mx-auto text-center rounded-2xl border border-neutral-800 bg-neutral-900/80 px-6 py-8 backdrop-blur">
+          <h2 className="text-2xl font-semibold mb-3 bg-gradient-to-r from-red-400 to-orange-300 bg-clip-text text-transparent">
+            Access Restricted
+          </h2>
+          <p className="text-neutral-400 text-sm">
+            You must be a{" "}
+            <span className="font-medium text-neutral-200">member</span> or
+            <span className="font-medium text-neutral-200"> admin</span> to
+            create and manage events.
           </p>
         </div>
       </div>
     );
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-gray-950 via-black to-gray-900 text-white px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
+    <div className="min-h-screen bg-neutral-950 text-white px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
       <div className="max-w-6xl mx-auto">
-        <header className="mb-6 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold">Create Event</h1>
-          <p className="text-sm sm:text-base text-gray-400">
-            Add event details and upload an image (optional).
-          </p>
+        <header className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-neutral-500 mb-1">
+              Event Manager
+            </p>
+            <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">
+              Create New Event
+            </h1>
+            <p className="text-sm sm:text-base text-neutral-400 mt-1">
+              Add event details, upload an image, and manage your upcoming
+              sessions.
+            </p>
+          </div>
+          <div className="flex flex-col items-end gap-2 text-right">
+            {me && (
+              <p className="text-xs text-neutral-500">
+                Signed in as{" "}
+                <span className="text-neutral-200">{me.name || me.email}</span>
+                {me.role && (
+                  <span className="ml-1 rounded-full border border-neutral-700 bg-neutral-900 px-2 py-0.5 text-[10px] uppercase tracking-wide text-neutral-400">
+                    {me.role}
+                  </span>
+                )}
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={() => navigate("/events/dashboard")}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-700 bg-neutral-900/70 px-3 py-1.5 text-xs font-medium text-neutral-200 hover:bg-neutral-800 transition"
+            >
+              Back to Dashboard
+            </button>
+          </div>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10 items-start">
-          <div className="order-1">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-start">
+          <div className="order-1 rounded-2xl border border-neutral-800 bg-neutral-900/70 p-5 sm:p-6 backdrop-blur">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-semibold text-white">
+                  Event Details
+                </h2>
+                <p className="text-xs text-neutral-500 mt-0.5">
+                  Basic information, schedule, and visibility.
+                </p>
+              </div>
+            </div>
             <EventForm
               mode="create"
               currentUser={me}
@@ -103,7 +152,22 @@ export default function CreateEvent() {
             />
           </div>
 
-          <div className="order-2 lg:order-none lg:max-h-[70vh] lg:overflow-y-auto">
+          <div className="order-2 lg:order-none lg:max-h-[70vh] lg:overflow-y-auto rounded-2xl border border-neutral-800 bg-neutral-900/70 p-5 sm:p-6 backdrop-blur">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-semibold text-white">
+                  Your Events
+                </h2>
+                <p className="text-xs text-neutral-500 mt-0.5">
+                  Quickly review and manage existing events.
+                </p>
+              </div>
+              {eventsLoading && (
+                <span className="text-[10px] text-neutral-500">
+                  Refreshing…
+                </span>
+              )}
+            </div>
             {/* Show manage list only to admins or event-managers (events they manage) */}
             {isAdmin ? (
               <EventsAdminList

@@ -41,7 +41,8 @@ export default function EventsList({
   const [approvalStatus, setApprovalStatus] = useState({}); // Track approval status of expressed interests
   const [userContacts, setUserContacts] = useState({}); // Map eventId to contact object
   const [imageError, setImageError] = useState({});
-  const [isTogglingTest, setIsTogglingTest] = useState(false);
+  const [isTogglingMcq, setIsTogglingMcq] = useState(false);
+  const [isTogglingCoding, setIsTogglingCoding] = useState(false);
   const navigate = useNavigate();
   const contactEmail =
     import.meta.env.VITE_CONTACT_EMAIL || "99240041378@klu.ac.in";
@@ -173,35 +174,42 @@ export default function EventsList({
         const entries = Object.keys(registered).filter((id) => registered[id]);
         if (!entries.length) return;
 
-        // Since ExamPage currently uses hardcoded titles, we check these titles globally
-        // In a real app, these titles should probably include the event ID.
-        const mcqTitle = "Module Practice Assessment | Polymorphism";
-        const codingTitle = "Module Practice Assessment | Coding Round";
-
-        // We can batch check or just check once if titles are global.
-        // But to keep structure ready for event-specific checks, let's keep the loop or mapping.
-        // Assuming for now the tests are linked to these specific titles regardless of event.
-
-        const mcqResp = await checkTestTaken(mcqTitle).catch(() => ({
-          taken: false,
-        }));
-        const codingResp = await checkTestTaken(codingTitle).catch(() => ({
-          taken: false,
-        }));
-
-        if (!mounted) return;
-
-        const status = {
-          mcq: Boolean(mcqResp?.taken),
-          coding: Boolean(codingResp?.taken),
-        };
-
         const newTestTaken = {};
-        entries.forEach((id) => {
-          newTestTaken[id] = status;
-        });
 
-        setTestTaken(newTestTaken);
+        for (const id of entries) {
+          const ev = events.find((e) => e._id === id || e.id === id);
+          const base = (ev && ev.title) || "";
+          // function to attach suffix only if not already present
+          const makeTitle = (suffix) => {
+            if (!base) {
+              return suffix === "coding"
+                ? "Module Practice Assessment | coding"
+                : "Module Practice Assessment | mcq";
+            }
+            if (base.toLowerCase().includes(suffix.toLowerCase())) {
+              return base;
+            }
+            return `${base} | ${suffix}`;
+          };
+          const mcqTitle = makeTitle("mcq");
+          const codingTitle = makeTitle("coding");
+
+          const mcqResp = await checkTestTaken(mcqTitle).catch(() => ({
+            taken: false,
+          }));
+          const codingResp = await checkTestTaken(codingTitle).catch(() => ({
+            taken: false,
+          }));
+
+          newTestTaken[id] = {
+            mcq: Boolean(mcqResp?.taken),
+            coding: Boolean(codingResp?.taken),
+          };
+        }
+
+        if (mounted) {
+          setTestTaken(newTestTaken);
+        }
       } catch (err) {
         // no-op
       }
@@ -329,20 +337,23 @@ export default function EventsList({
                   </p>
                 </div>
 
-                {registered[id] && ev.isTestEnabled !== false && (
-                  <div className="mt-3 text-[11px] text-slate-300 flex items-center justify-between">
-                    <span className="uppercase tracking-[0.18em] text-slate-400">
-                      Tests
-                    </span>
-                    <span className="font-semibold">
-                      {tests?.coding
-                        ? "All tests completed"
-                        : tests?.mcq
-                          ? "Test 1 done • Test 2 left"
-                          : "Not started yet"}
-                    </span>
-                  </div>
-                )}
+                {registered[id] &&
+                  (ev.isMcqEnabled === true || ev.isCodingEnabled === true) && (
+                    <div className="mt-3 text-[11px] text-slate-300 flex items-center justify-between">
+                      <span className="uppercase tracking-[0.18em] text-slate-400">
+                        Tests
+                      </span>
+                      <span className="font-semibold">
+                        {tests?.coding
+                          ? "All tests completed"
+                          : tests?.mcq
+                            ? ev.isCodingEnabled
+                              ? "Test 1 done • Test 2 left"
+                              : "Test 1 done"
+                            : "Not started yet"}
+                      </span>
+                    </div>
+                  )}
 
                 <button
                   type="button"
@@ -448,7 +459,7 @@ export default function EventsList({
 
           return (
             <div
-              className="fixed inset-0 z-40 flex items-center justify-center bg-black/80 backdrop-blur-md px-3 sm:px-0"
+              className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-md px-3 sm:px-0"
               onClick={() => setShowDetailsFor(null)}
             >
               <div
@@ -557,56 +568,119 @@ export default function EventsList({
                             </span>
                           </div>
 
-                          <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 flex items-center justify-between">
-                            <div>
-                              <h4 className="text-white font-semibold text-sm">
-                                Test Availability
-                              </h4>
-                              <p className="text-gray-400 text-xs mt-1">
-                                {ev.isTestEnabled !== false
-                                  ? "Tests are visible to students."
-                                  : "Tests are hidden from students."}
-                              </p>
-                            </div>
-                            <button
-                              onClick={async (e) => {
-                                e.stopPropagation();
-                                try {
-                                  if (isTogglingTest) return;
-                                  setIsTogglingTest(true);
-                                  const newStatus =
-                                    ev.isTestEnabled === false ? true : false;
-                                  await updateEvent(id, {
-                                    isTestEnabled: newStatus,
-                                  });
-                                  // Update local state immediately for UI response
-                                  setLocalEvents((prev) =>
-                                    prev.map((item) =>
-                                      (item._id || item.id) === id
-                                        ? { ...item, isTestEnabled: newStatus }
-                                        : item,
-                                    ),
-                                  );
-                                } catch (err) {
-                                  console.error("Failed to toggle test", err);
-                                } finally {
-                                  setIsTogglingTest(false);
-                                }
-                              }}
-                              disabled={isTogglingTest}
-                              className={`px-4 py-2 rounded-lg font-bold text-xs transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${ev.isTestEnabled !== false
-                                ? "bg-red-500/10 text-red-400 border border-red-500/50 hover:bg-red-500/20"
-                                : "bg-green-500/10 text-green-400 border border-green-500/50 hover:bg-green-500/20"
+                          {/* separate toggles for MCQ (Test1) and Coding (Test2) */}
+                          <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 space-y-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <h4 className="text-white font-semibold text-sm">
+                                  Test 1 (MCQ)
+                                </h4>
+                                <p className="text-gray-400 text-xs mt-1">
+                                  {ev.isMcqEnabled
+                                    ? "Enabled for students"
+                                    : "Disabled for students"}
+                                </p>
+                              </div>
+                              <button
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  try {
+                                    if (isTogglingMcq) return;
+                                    setIsTogglingMcq(true);
+                                    const newStatus =
+                                      ev.isMcqEnabled === true ? false : true;
+                                    await updateEvent(id, {
+                                      isMcqEnabled: newStatus,
+                                    });
+                                    setLocalEvents((prev) =>
+                                      prev.map((item) =>
+                                        (item._id || item.id) === id
+                                          ? { ...item, isMcqEnabled: newStatus }
+                                          : item,
+                                      ),
+                                    );
+                                  } catch (err) {
+                                    console.error("Failed to toggle MCQ", err);
+                                  } finally {
+                                    setIsTogglingMcq(false);
+                                  }
+                                }}
+                                disabled={isTogglingMcq}
+                                className={`px-4 py-2 rounded-lg font-bold text-xs transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
+                                  ev.isMcqEnabled === true
+                                    ? "bg-red-500/10 text-red-400 border border-red-500/50 hover:bg-red-500/20"
+                                    : "bg-green-500/10 text-green-400 border border-green-500/50 hover:bg-green-500/20"
                                 }`}
-                            >
-                              {isTogglingTest
-                                ? ev.isTestEnabled !== false
-                                  ? "Disabling..."
-                                  : "Enabling..."
-                                : ev.isTestEnabled !== false
-                                  ? "Disable Tests"
-                                  : "Enable Tests"}
-                            </button>
+                              >
+                                {isTogglingMcq
+                                  ? ev.isMcqEnabled === true
+                                    ? "Disabling..."
+                                    : "Enabling..."
+                                  : ev.isMcqEnabled === true
+                                    ? "Disable MCQ"
+                                    : "Enable MCQ"}
+                              </button>
+                            </div>
+
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <h4 className="text-white font-semibold text-sm">
+                                  Test 2 (Coding)
+                                </h4>
+                                <p className="text-gray-400 text-xs mt-1">
+                                  {ev.isCodingEnabled
+                                    ? "Enabled for students"
+                                    : "Disabled for students"}
+                                </p>
+                              </div>
+                              <button
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  try {
+                                    if (isTogglingCoding) return;
+                                    setIsTogglingCoding(true);
+                                    const newStatus =
+                                      ev.isCodingEnabled === true
+                                        ? false
+                                        : true;
+                                    await updateEvent(id, {
+                                      isCodingEnabled: newStatus,
+                                    });
+                                    setLocalEvents((prev) =>
+                                      prev.map((item) =>
+                                        (item._id || item.id) === id
+                                          ? {
+                                              ...item,
+                                              isCodingEnabled: newStatus,
+                                            }
+                                          : item,
+                                      ),
+                                    );
+                                  } catch (err) {
+                                    console.error(
+                                      "Failed to toggle Coding",
+                                      err,
+                                    );
+                                  } finally {
+                                    setIsTogglingCoding(false);
+                                  }
+                                }}
+                                disabled={isTogglingCoding}
+                                className={`px-4 py-2 rounded-lg font-bold text-xs transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
+                                  ev.isCodingEnabled === true
+                                    ? "bg-red-500/10 text-red-400 border border-red-500/50 hover:bg-red-500/20"
+                                    : "bg-green-500/10 text-green-400 border border-green-500/50 hover:bg-green-500/20"
+                                }`}
+                              >
+                                {isTogglingCoding
+                                  ? ev.isCodingEnabled === true
+                                    ? "Disabling..."
+                                    : "Enabling..."
+                                  : ev.isCodingEnabled === true
+                                    ? "Disable Coding"
+                                    : "Enable Coding"}
+                              </button>
+                            </div>
                           </div>
                         </div>
                       )}
@@ -679,40 +753,93 @@ export default function EventsList({
                     <div className="flex gap-3">
                       {registered[id] ? (
                         <>
-                          {ev.isTestEnabled !== false ? (
+                          {ev.isMcqEnabled === true ||
+                          ev.isCodingEnabled === true ? (
                             <>
-                              {testTaken[id]?.coding ? (
-                                <button
-                                  disabled
-                                  className="px-6 py-3 rounded-xl bg-gray-800 text-gray-500 font-bold cursor-not-allowed"
-                                >
-                                  All Tests Completed
-                                </button>
-                              ) : testTaken[id]?.mcq ? (
-                                <button
-                                  onClick={() =>
-                                    window.open(
-                                      `/test/coding?eventId=${id}&eventName=${encodeURIComponent(ev.title)}`,
-                                      "_blank",
-                                    )
+                              {/* compute titles locally so they’re available here */}
+                              {(() => {
+                                const base = ev?.title || "";
+                                const makeTitle = (suffix) => {
+                                  if (!base) {
+                                    return suffix === "coding"
+                                      ? "Module Practice Assessment | coding"
+                                      : "Module Practice Assessment | mcq";
                                   }
-                                  className="px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold shadow-lg shadow-purple-900/20 transition-all hover:scale-105"
-                                >
-                                  Take Test 2 (Coding)
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() =>
-                                    window.open(
-                                      `/test?eventId=${id}&eventName=${encodeURIComponent(ev.title)}`,
-                                      "_blank",
-                                    )
+                                  if (
+                                    base
+                                      .toLowerCase()
+                                      .includes(suffix.toLowerCase())
+                                  ) {
+                                    return base;
                                   }
-                                  className="px-6 py-3 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold shadow-lg shadow-green-900/20 transition-all hover:scale-105"
-                                >
-                                  Take Test 1 (MCQ)
-                                </button>
-                              )}
+                                  return `${base} | ${suffix}`;
+                                };
+                                const mcqTitleLocal = makeTitle("mcq");
+                                const codingTitleLocal = makeTitle("coding");
+
+                                const mcqEnabled = ev.isMcqEnabled === true;
+                                const codingEnabled =
+                                  ev.isCodingEnabled === true;
+
+                                if (testTaken[id]?.coding) {
+                                  return (
+                                    <button
+                                      disabled
+                                      className="px-6 py-3 rounded-xl bg-gray-800 text-gray-500 font-bold cursor-not-allowed"
+                                    >
+                                      All Tests Completed
+                                    </button>
+                                  );
+                                }
+
+                                if (testTaken[id]?.mcq) {
+                                  // Test 1 done — only allow Test 2 if manager enabled it
+                                  if (codingEnabled) {
+                                    return (
+                                      <button
+                                        onClick={() =>
+                                          window.open(
+                                            `/test/coding?eventId=${id}&eventName=${encodeURIComponent(ev.title)}&testTitle=${encodeURIComponent(codingTitleLocal)}`,
+                                            "_blank",
+                                          )
+                                        }
+                                        className="px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold shadow-lg shadow-purple-900/20 transition-all hover:scale-105"
+                                      >
+                                        Take Test 2 (Coding)
+                                      </button>
+                                    );
+                                  }
+
+                                  // if coding is disabled, don't render any action button; summary text already indicates status
+                                  return null;
+                                }
+
+                                // Not started yet
+                                if (mcqEnabled) {
+                                  return (
+                                    <button
+                                      onClick={() =>
+                                        window.open(
+                                          `/test?eventId=${id}&eventName=${encodeURIComponent(ev.title)}&testTitle=${encodeURIComponent(mcqTitleLocal)}`,
+                                          "_blank",
+                                        )
+                                      }
+                                      className="px-6 py-3 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold shadow-lg shadow-green-900/20 transition-all hover:scale-105"
+                                    >
+                                      Take Test 1 (MCQ)
+                                    </button>
+                                  );
+                                }
+
+                                return (
+                                  <button
+                                    disabled
+                                    className="px-6 py-3 rounded-xl bg-gray-800 text-gray-500 font-bold cursor-not-allowed"
+                                  >
+                                    Test 1 disabled — ask manager to enable
+                                  </button>
+                                );
+                              })()}
                             </>
                           ) : null}
                         </>
@@ -726,9 +853,9 @@ export default function EventsList({
                               Request Pending...
                             </button>
                           ) : !userEmail
-                            ?.toLowerCase()
-                            .trim()
-                            .endsWith("@klu.ac.in") &&
+                              ?.toLowerCase()
+                              .trim()
+                              .endsWith("@klu.ac.in") &&
                             !allowedToRegister &&
                             !isApproved ? (
                             <button
@@ -756,16 +883,16 @@ export default function EventsList({
                       {(userRole === "admin" ||
                         isAdminByRoles ||
                         isEventManager) && (
-                          <button
-                            onClick={() => {
-                              setShowDetailsFor(null);
-                              setShowEditFor(id);
-                            }}
-                            className="px-4 py-3 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium transition-colors"
-                          >
-                            Edit
-                          </button>
-                        )}
+                        <button
+                          onClick={() => {
+                            setShowDetailsFor(null);
+                            setShowEditFor(id);
+                          }}
+                          className="px-4 py-3 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium transition-colors"
+                        >
+                          Edit
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -777,7 +904,7 @@ export default function EventsList({
       {/* Contact modal */}
       {showContactFor && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm"
           onClick={() => setShowContactFor(null)}
         >
           <div
@@ -822,7 +949,7 @@ export default function EventsList({
       {/* Edit modal */}
       {showEditFor && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-2 sm:p-4"
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-2 sm:p-4"
           onClick={() => setShowEditFor(null)}
         >
           <div

@@ -21,12 +21,15 @@ function formatLocalYMDHM(d) {
   return `${y}-${m}-${day} ${hh}:${mm}`;
 }
 
-const SessionDataSchema = new Schema({
-  sessionName: { type: String, required: true },
-  timestamp: { type: Date },
-  timestampText: { type: String },
-  isPresent: { type: Boolean, default: true }
-}, { _id: false });
+const SessionDataSchema = new Schema(
+  {
+    sessionName: { type: String, required: true },
+    timestamp: { type: Date },
+    timestampText: { type: String },
+    isPresent: { type: Boolean, default: true },
+  },
+  { _id: false },
+);
 
 const AttendanceSchema = new Schema(
   {
@@ -42,10 +45,12 @@ const AttendanceSchema = new Schema(
     sessions: {
       type: Map,
       of: SessionDataSchema,
-      default: {}
+      default: {},
     },
     // Optional reference to Student
     student: { type: Types.ObjectId, ref: "Student", required: false },
+    // Track if all sessions have been marked (for attendedCount increment)
+    allSessionsMarked: { type: Boolean, default: false },
   },
   { timestamps: true },
 );

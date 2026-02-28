@@ -19,6 +19,9 @@ async function createEvent(req, res) {
       imageBase64,
       imageType,
       isTestEnabled,
+      isMcqEnabled,
+      isCodingEnabled,
+      examSecurityCode,
       sessions,
     } = req.body;
     let managerEmail = req.body.managerEmail;
@@ -106,6 +109,9 @@ async function createEvent(req, res) {
       price: normalizedPrice,
       managerEmail: String(managerEmail).toLowerCase().trim(),
       isTestEnabled: isTestEnabled !== undefined ? isTestEnabled : false,
+      isMcqEnabled: isMcqEnabled !== undefined ? isMcqEnabled : false,
+      isCodingEnabled: isCodingEnabled !== undefined ? isCodingEnabled : false,
+      examSecurityCode: examSecurityCode || undefined,
       sessions: sessions || [],
     });
 
@@ -114,8 +120,12 @@ async function createEvent(req, res) {
       // strip data URI prefix if present
       const matches = imageBase64.match(/^data:(.+);base64,(.*)$/);
       const base64Data = matches ? matches[2] : imageBase64;
+      const buffer = Buffer.from(base64Data, "base64");
+      if (buffer.length > 5 * 1024 * 1024) {
+        return res.status(400).json({ error: "Image size exceeds 5MB limit" });
+      }
       ev.image = {
-        data: Buffer.from(base64Data, "base64"),
+        data: buffer,
         contentType: imageType,
       };
     } else if (imageUrl) {
@@ -457,8 +467,11 @@ async function updateEvent(req, res) {
       imageType,
       imageUrl,
       isTestEnabled,
+      isMcqEnabled,
+      isCodingEnabled,
       questions,
       sessions,
+      examSecurityCode,
     } = req.body || {};
 
     const ev = await Event.findById(id);
@@ -523,7 +536,11 @@ async function updateEvent(req, res) {
     }
 
     if (isTestEnabled !== undefined) $set.isTestEnabled = isTestEnabled;
+    if (isMcqEnabled !== undefined) $set.isMcqEnabled = isMcqEnabled;
+    if (isCodingEnabled !== undefined) $set.isCodingEnabled = isCodingEnabled;
     if (questions !== undefined) $set.questions = questions;
+    if (examSecurityCode !== undefined)
+      $set.examSecurityCode = examSecurityCode || "";
 
     if (sessions !== undefined) {
       console.log(
@@ -545,8 +562,12 @@ async function updateEvent(req, res) {
     if (imageBase64 && imageType) {
       const matches = imageBase64.match(/^data:(.+);base64,(.*)$/);
       const base64Data = matches ? matches[2] : imageBase64;
+      const buffer = Buffer.from(base64Data, "base64");
+      if (buffer.length > 5 * 1024 * 1024) {
+        return res.status(400).json({ error: "Image size exceeds 5MB limit" });
+      }
       $set.image = {
-        data: Buffer.from(base64Data, "base64"),
+        data: buffer,
         contentType: imageType,
       };
       $unset.imageUrl = 1;
@@ -654,12 +675,19 @@ async function generateEventKey(req, res) {
 
     // Permission: only admins or the event manager can generate keys
     let actor = null;
-    if (req.user && req.user.id) actor = await User.findById(req.user.id).lean();
+    if (req.user && req.user.id)
+      actor = await User.findById(req.user.id).lean();
     const isAdmin = actor && actor.role === "admin";
-    const userEmail = actor && actor.email ? String(actor.email).toLowerCase().trim() : null;
+    const userEmail =
+      actor && actor.email ? String(actor.email).toLowerCase().trim() : null;
 
-    if (!isAdmin && (!userEmail || String(ev.managerEmail).toLowerCase().trim() !== userEmail)) {
-      return res.status(403).json({ error: "Forbidden: Only event managers can generate keys" });
+    if (
+      !isAdmin &&
+      (!userEmail || String(ev.managerEmail).toLowerCase().trim() !== userEmail)
+    ) {
+      return res
+        .status(403)
+        .json({ error: "Forbidden: Only event managers can generate keys" });
     }
 
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -687,11 +715,16 @@ async function revokeEventKey(req, res) {
 
     // Permission check
     let actor = null;
-    if (req.user && req.user.id) actor = await User.findById(req.user.id).lean();
+    if (req.user && req.user.id)
+      actor = await User.findById(req.user.id).lean();
     const isAdmin = actor && actor.role === "admin";
-    const userEmail = actor && actor.email ? String(actor.email).toLowerCase().trim() : null;
+    const userEmail =
+      actor && actor.email ? String(actor.email).toLowerCase().trim() : null;
 
-    if (!isAdmin && (!userEmail || String(ev.managerEmail).toLowerCase().trim() !== userEmail)) {
+    if (
+      !isAdmin &&
+      (!userEmail || String(ev.managerEmail).toLowerCase().trim() !== userEmail)
+    ) {
       return res.status(403).json({ error: "Forbidden" });
     }
 

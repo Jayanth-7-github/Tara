@@ -95,6 +95,14 @@ export default function EventForm({
 
   const handleFile = (e) => {
     const f = e.target.files && e.target.files[0];
+    if (f && f.size > 5 * 1024 * 1024) {
+      setError("Image size must be less than 5MB");
+      setFile(null);
+      setPreview(initialData?.imageUrl || null);
+      e.target.value = ""; // Clear input
+      return;
+    }
+    setError(null);
     setFile(f);
     if (f) setPreview(URL.createObjectURL(f));
     else setPreview(initialData?.imageUrl || null);
@@ -121,6 +129,11 @@ export default function EventForm({
       let imageBase64 = null;
       let imageType = null;
       if (file) {
+        if (file.size > 5 * 1024 * 1024) {
+          setError("Image size must be less than 5MB");
+          setLoading(false);
+          return;
+        }
         const resized = await resizeImage(file, 1200, 0.8);
         imageBase64 = resized;
         imageType = "image/jpeg";
@@ -288,7 +301,7 @@ export default function EventForm({
 
       <label className="block">
         <span className="text-sm font-medium text-gray-300 mb-1.5 block">
-          Event Image (Optional)
+          Event Image (Optional, Max 5MB)
         </span>
         <div className="relative group/image">
           <input

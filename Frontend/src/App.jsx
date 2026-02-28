@@ -1,5 +1,5 @@
 import "./App.css";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import AttendancePage from "./secret/pages/AttendancePage";
 import AttendanceSummary from "./secret/pages/AttendanceSummary";
 import Secret from "./secret/pages/Secret";
@@ -18,9 +18,13 @@ import UpdateAttendance from "./secret/pages/UpdateAttendance";
 import AdminSecret from "./secret/pages/AdminSecret";
 import AddRoles from "./secret/pages/AddRoles";
 import EventContacts from "./pages/EventContacts";
-import EventManagerDashboard from "./pages/EventManagerDashboard";
+// import EventManagerDashboard from "./pages/EventManagerDashboard";
+import EventManagerDashboard from "./pages/EventManagerDash";
+//this is for testing
 import StudentDashboard from "./pages/StudentDashboard";
-import AdminDashboard from "./pages/AdminDashboard";
+// import AdminDashboard from "./pages/AdminDashboard";
+import AdminDashboard from "./pages/AdminDash";
+//this is for testing
 import ManageApprovals from "./pages/ManageApprovals";
 import EventRegister from "./pages/EventRegister";
 import EventRegistrations from "./pages/EventRegistrations";
@@ -36,13 +40,29 @@ import PublicNavbar from "./components/PublicNavbar";
 import GoogleSuccess from "./components/GoogleSuccess";
 import DevToolsRestriction from "./components/DevToolsRestriction";
 import BecomeOrganizer from "./pages/BecomeOrganizer";
+import NotFound from "./pages/NotFound";
+
+
+// this is for hidding navbar on specific routes, you can add more routes to the hideOn array if needed
+function ConditionalNavbar() {
+  const location = useLocation();
+  const hideOn = [
+    "/events/dashboard",
+    "/dashboard/admin",
+    "/dashboard/student"
+
+  ];
+
+  if (hideOn.includes(location.pathname)) return null;
+  return <PublicNavbar />;
+}
 
 function App() {
   return (
     <BrowserRouter>
-      <DevToolsRestriction />
+      {/* <DevToolsRestriction /> */}
       <div>
-        <PublicNavbar />
+        <ConditionalNavbar />
 
         <main>
           <Routes>
@@ -102,6 +122,7 @@ function App() {
             <Route path="/signup" element={<Signup />} />
             <Route path="/testcompiler" element={<TestCompiler />} />
             <Route path="/google-success" element={<GoogleSuccess />} />
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </main>
       </div>

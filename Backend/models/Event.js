@@ -48,6 +48,11 @@ const EventSchema = new Schema(
     registeredCount: { type: Number, default: 0 },
     attendedCount: { type: Number, default: 0 },
     isTestEnabled: { type: Boolean, default: false },
+    // Per-test enable flags: allow manager to enable/disable Test 1 (MCQ) and Test 2 (Coding)
+    isMcqEnabled: { type: Boolean, default: false },
+    isCodingEnabled: { type: Boolean, default: false },
+    // Optional per-event exam security code used to gate online tests
+    examSecurityCode: { type: String, trim: true },
     questions: [QuestionSchema],
     sessions: [
       {

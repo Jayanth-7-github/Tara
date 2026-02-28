@@ -1,11 +1,39 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { getQuestionsForUser, getCorrectAnswers } from "../services/questions";
 import { checkLogin } from "../services/auth";
-import { submitTestResult } from "../services/api";
+import { submitTestResult, checkTestTaken } from "../services/api";
 
 export default function Test() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+
+  // determine event/test names when present in state or query params, then defaults
+  const {
+    eventNameForResult: defaultEventName,
+    testTitleForResult: defaultTestTitle,
+  } = (() => {
+    const baseName =
+      location.state?.eventName || queryParams.get("eventName") || "";
+    const overrideTitle =
+      location.state?.testTitle || queryParams.get("testTitle") || "";
+    let computedTestTitle = overrideTitle;
+    if (!computedTestTitle) {
+      if (baseName) {
+        const suffix = "mcq"; // Test.jsx only handles mcq for now
+        if (baseName.toLowerCase().includes(suffix.toLowerCase())) {
+          computedTestTitle = baseName;
+        } else {
+          computedTestTitle = `${baseName} | ${suffix}`;
+        }
+      } else {
+        computedTestTitle = "Module Practice Assessment | mcq";
+      }
+    }
+    const eventNameForResult = baseName || computedTestTitle;
+    return { eventNameForResult, testTitleForResult: computedTestTitle };
+  })();
 
   // Lobby / test mode state
   const [isCameraOn, setIsCameraOn] = useState(false);
@@ -30,6 +58,8 @@ export default function Test() {
   const [showConfirmSubmit, setShowConfirmSubmit] = useState(false);
   const [unansweredCount, setUnansweredCount] = useState(0);
   const [lives, setLives] = useState(3);
+  const [alreadyTaken, setAlreadyTaken] = useState(false);
+  const [takingCheckFinished, setTakingCheckFinished] = useState(false);
   const [showLifeLost, setShowLifeLost] = useState(false);
 
   // Refs for media elements & container (fullscreen)
@@ -268,7 +298,8 @@ export default function Test() {
         : 3600 - timeRemaining;
 
       const testData = {
-        testTitle: "Module Practice Assessment | Polymorphism",
+        testTitle: defaultTestTitle,
+        eventName: defaultEventName,
         answers,
         markedForReview,
         correctAnswers: getCorrectAnswers(), // Send correct answers for backend validation
@@ -323,6 +354,28 @@ export default function Test() {
 
     verifyAuth();
   }, [navigate]);
+
+  // block access if already taken
+  useEffect(() => {
+    if (loading) return;
+    const check = async () => {
+      try {
+        const res = await checkTestTaken(defaultTestTitle);
+        if (res && res.taken) {
+          setAlreadyTaken(true);
+          alert(
+            "You have already completed this assessment and cannot retake it.",
+          );
+          navigate("/main");
+        }
+      } catch (e) {
+        console.error("Test taken check failed", e);
+      } finally {
+        setTakingCheckFinished(true);
+      }
+    };
+    check();
+  }, [loading, navigate]);
 
   useEffect(() => {
     // Cleanup on unmount
@@ -492,7 +545,7 @@ export default function Test() {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  if (loading) {
+  if (loading || !takingCheckFinished) {
     return (
       <div className="w-full h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">

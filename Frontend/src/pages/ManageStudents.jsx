@@ -269,12 +269,6 @@ export default function ManageStudents() {
                                 </svg>
                                 Add Student
                             </button>
-                            <button
-                                onClick={() => navigate("/events/dashboard")}
-                                className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-all text-sm font-medium border border-gray-700"
-                            >
-                                Dashboard
-                            </button>
                         </div>
                     </div>
                 </div>

@@ -49,8 +49,9 @@ exports.submitTest = async (req, res) => {
         const userAnswer = answers[questionId];
         const correctAnswer = correctAnswers[questionId];
         console.log(
-          `Q${questionId}: User=${userAnswer}, Correct=${correctAnswer}, Match=${Number(userAnswer) === Number(correctAnswer)
-          }`
+          `Q${questionId}: User=${userAnswer}, Correct=${correctAnswer}, Match=${
+            Number(userAnswer) === Number(correctAnswer)
+          }`,
         );
         // Convert both to numbers for comparison (in case they're strings)
         if (
@@ -68,19 +69,41 @@ exports.submitTest = async (req, res) => {
     const finalTotalMaxScore = (totalQuestions || 0) * marks;
 
     let finalEventId = eventId;
-    let finalEventName = eventName || testTitle || "Event Assessment";
+    let finalEventName = eventName || "";
+
+    // if we have an eventId, override whatever eventName was sent with the real title
+    if (finalEventId) {
+      try {
+        const ev = await Event.findById(finalEventId).select("title");
+        if (ev && ev.title) {
+          finalEventName = ev.title;
+        }
+      } catch (err) {
+        console.warn("Could not fetch event title for id", finalEventId, err);
+      }
+    }
+
+    // if no eventName yet, fall back to testTitle or defaults
+    if (!finalEventName) {
+      finalEventName = testTitle || "Event Assessment";
+    }
 
     // Smart Event Linking: If eventId is missing, try to find an event with matching title
     // This fixes cases where frontend doesn't send eventId but testTitle matches event title
     if (!finalEventId && testTitle) {
       try {
+        // try exact match or prefix match (e.g. "Event Title | ...")
+        const escaped = testTitle.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&");
+        const prefix = escaped.split("\\|")[0].trim();
         const linkedEvent = await Event.findOne({
-          title: { $regex: new RegExp(`^${testTitle}$`, 'i') }
+          title: { $regex: new RegExp(`^${prefix}(\\s*\\||$)`, "i") },
         });
         if (linkedEvent) {
           finalEventId = linkedEvent._id;
           finalEventName = linkedEvent.title;
-          console.log(`Auto-linked test "${testTitle}" to event "${linkedEvent.title}" (${linkedEvent._id})`);
+          console.log(
+            `Auto-linked test "${testTitle}" to event "${linkedEvent.title}" (${linkedEvent._id})`,
+          );
         }
       } catch (err) {
         console.warn("Failed to auto-link event:", err);
@@ -164,7 +187,7 @@ exports.getMyStats = async (req, res) => {
       userId: targetUserId,
     });
     const results = await TestResult.find({ userId: targetUserId }).select(
-      "score totalQuestions"
+      "score totalQuestions",
     );
 
     let totalScore = 0;

@@ -15,9 +15,9 @@ import {
   submitTestResult,
   fetchEventById,
   fetchEvents,
+  checkTestTaken,
 } from "../../services/api";
 import { checkLogin } from "../../services/auth";
-import { SECURITY_CODE } from "../../services/constants";
 
 export default function ExamPage({ mode = "mcq" }) {
   const navigate = useNavigate();
@@ -35,6 +35,7 @@ export default function ExamPage({ mode = "mcq" }) {
   const [answers, setAnswers] = useState({});
   const [markedForReview, setMarkedForReview] = useState({});
   const [securityCode, setSecurityCode] = useState(["", "", "", "", "", ""]);
+  const [expectedSecurityCode, setExpectedSecurityCode] = useState("");
   const [canResume, setCanResume] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(60 * 60);
@@ -46,9 +47,9 @@ export default function ExamPage({ mode = "mcq" }) {
   const [submitError, setSubmitError] = useState("");
   const [showConfirmSubmit, setShowConfirmSubmit] = useState(false);
   const [unansweredCount, setUnansweredCount] = useState(0);
-  const [answeredSummary, setAnsweredSummary] = useState(0);
-  const [unansweredSummary, setUnansweredSummary] = useState(0);
   const [lives, setLives] = useState(3);
+  const [alreadyTaken, setAlreadyTaken] = useState(false);
+  const [takingCheckFinished, setTakingCheckFinished] = useState(false);
   const [showLifeLost, setShowLifeLost] = useState(false);
   const [isFinishing, setIsFinishing] = useState(false);
 
@@ -56,8 +57,36 @@ export default function ExamPage({ mode = "mcq" }) {
   const queryParams = new URLSearchParams(location.search);
   const [examContext, setExamContext] = useState({
     eventId: location.state?.eventId || queryParams.get("eventId") || null,
-    eventName: location.state?.eventName || null,
+    eventName:
+      location.state?.eventName || queryParams.get("eventName") || null,
+    testTitle:
+      location.state?.testTitle || queryParams.get("testTitle") || null,
   });
+
+  // helper to compute eventName/testTitle according to new rules
+  const computeNames = () => {
+    const baseName = examContext.eventName || "";
+    const overrideTitle = examContext.testTitle || "";
+    let computedTestTitle = overrideTitle;
+    if (!computedTestTitle) {
+      if (baseName) {
+        const suffix = mode === "coding" ? "coding" : "mcq";
+        // avoid duplicating suffix if event title already contains it
+        if (baseName.toLowerCase().includes(suffix.toLowerCase())) {
+          computedTestTitle = baseName;
+        } else {
+          computedTestTitle = `${baseName} | ${suffix}`;
+        }
+      } else {
+        computedTestTitle =
+          mode === "coding"
+            ? "Module Practice Assessment | coding"
+            : "Module Practice Assessment | mcq";
+      }
+    }
+    const eventNameForResult = baseName || computedTestTitle;
+    return { eventNameForResult, testTitleForResult: computedTestTitle };
+  };
 
   // Load questions dynamically if eventId is present
   useEffect(() => {
@@ -72,6 +101,18 @@ export default function ExamPage({ mode = "mcq" }) {
             "Questions:",
             ev?.questions?.length,
           );
+          if (ev && ev.title) {
+            // keep event title up to date; do not overwrite a manual testTitle
+            setExamContext((prev) => ({
+              ...prev,
+              eventName: ev.title || prev.eventName,
+            }));
+          }
+          if (ev && ev.examSecurityCode) {
+            setExpectedSecurityCode(String(ev.examSecurityCode || ""));
+          } else {
+            setExpectedSecurityCode("");
+          }
           if (ev && ev.questions && ev.questions.length > 0) {
             // Filter questions based on mode: MCQ-only for test 1, coding-only for test 2
             const filtered = ev.questions.filter((q) =>
@@ -265,7 +306,8 @@ export default function ExamPage({ mode = "mcq" }) {
     );
     const fullscreenOk = !!document.fullscreenElement;
     const codeString = securityCode.join("");
-    const codeOk = codeString === SECURITY_CODE;
+    const codeRequired = !!expectedSecurityCode;
+    const codeOk = !codeRequired || codeString === expectedSecurityCode;
     if (
       !(
         compatibilityOk &&
@@ -277,7 +319,7 @@ export default function ExamPage({ mode = "mcq" }) {
         codeOk
       )
     ) {
-      if (!codeOk) {
+      if (codeRequired && !codeOk) {
         setError("Please enter the correct security code.");
       } else {
         setError(
@@ -428,9 +470,8 @@ export default function ExamPage({ mode = "mcq" }) {
     ).length;
     const unanswered = questions.length - answeredCount;
 
-    // Store summary counts for post-submit display
-    setAnsweredSummary(answeredCount);
-    setUnansweredSummary(unanswered);
+    // store count for confirmation modal
+    // (success banner no longer shows these totals)
 
     // Always show confirmation for manual submit (even if all answered)
     if (!options.auto && !showConfirmSubmit) {
@@ -448,10 +489,8 @@ export default function ExamPage({ mode = "mcq" }) {
         ? Math.floor((Date.now() - testStartTime) / 1000)
         : 3600 - timeRemaining;
 
-      const title =
-        mode === "coding"
-          ? "Module Practice Assessment | Coding Round"
-          : "Module Practice Assessment | Polymorphism";
+      // determine eventName/testTitle using helper
+      const { eventNameForResult, testTitleForResult } = computeNames();
 
       // Calculate score
       let calculatedScore = 0;
@@ -497,9 +536,9 @@ export default function ExamPage({ mode = "mcq" }) {
       console.log("Final Calculated Score:", calculatedScore);
 
       const testData = {
-        testTitle: examContext.eventName || title, // Use Event Name if available
-        eventId: examContext.eventId, // Send Event ID
-        eventName: examContext.eventName || title,
+        testTitle: testTitleForResult,
+        eventId: examContext.eventId,
+        eventName: eventNameForResult,
         answers,
         markedForReview,
         correctAnswers: correctMap,
@@ -574,6 +613,31 @@ export default function ExamPage({ mode = "mcq" }) {
     verifyAuth();
   }, [navigate]);
 
+  // once loading/auth completed we verify whether the user already took this test
+  useEffect(() => {
+    if (loading) return;
+    const check = async () => {
+      try {
+        // replicate the same name logic used at submission
+        const { testTitleForResult } = computeNames();
+        const res = await checkTestTaken(testTitleForResult);
+        if (res && res.taken) {
+          setAlreadyTaken(true);
+          alert(
+            "You have already completed this assessment and cannot retake it.",
+          );
+          navigate("/main");
+        }
+      } catch (e) {
+        console.error("Failed to check test taken status", e);
+        // if the check fails we don't want to block the user unconditionally; they can proceed
+      } finally {
+        setTakingCheckFinished(true);
+      }
+    };
+    check();
+  }, [loading, examContext.eventName, mode, navigate]);
+
   useEffect(() => {
     return () => {
       stopTracks(cameraStreamRef);
@@ -618,7 +682,7 @@ export default function ExamPage({ mode = "mcq" }) {
 
       // Force exit fullscreen if valid
       if (document.fullscreenElement) {
-        document.exitFullscreen().catch(() => { });
+        document.exitFullscreen().catch(() => {});
       }
 
       setLives((prevLives) => {
@@ -641,7 +705,8 @@ export default function ExamPage({ mode = "mcq" }) {
             setIsTestStarted(false);
             setCanResume(true);
             setInfo(
-              `Violation: ${reason}! ${newLives} ${newLives === 1 ? "life" : "lives"
+              `Violation: ${reason}! ${newLives} ${
+                newLives === 1 ? "life" : "lives"
               } remaining. Test paused.`,
             );
           }
@@ -836,7 +901,7 @@ export default function ExamPage({ mode = "mcq" }) {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  if (loading) {
+  if (loading || !takingCheckFinished) {
     return (
       <div className="w-full h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -852,13 +917,7 @@ export default function ExamPage({ mode = "mcq" }) {
       ref={containerRef}
       className="w-full h-full min-h-screen bg-gray-50 text-gray-900 flex flex-col overflow-y-auto"
     >
-      {submitSuccess && (
-        <ExamSuccessToast
-          totalQuestions={questions.length}
-          answeredCount={answeredSummary}
-          unansweredCount={unansweredSummary}
-        />
-      )}
+      {submitSuccess && <ExamSuccessToast />}
       <ExamErrorToast
         message={submitError}
         onClose={() => setSubmitError("")}
@@ -879,6 +938,7 @@ export default function ExamPage({ mode = "mcq" }) {
             lobbyCameraRef={lobbyCameraRef}
             lobbyScreenRef={lobbyScreenRef}
             securityCode={securityCode}
+            expectedSecurityCode={expectedSecurityCode}
             handleToggleCamera={handleToggleCamera}
             handleToggleScreenShare={handleToggleScreenShare}
             handleToggleFullscreen={handleToggleFullscreen}
@@ -911,7 +971,6 @@ export default function ExamPage({ mode = "mcq" }) {
               show={showConfirmSubmit}
               unansweredCount={unansweredCount}
               totalQuestions={questions.length}
-              answeredCount={answeredSummary}
               onCancel={() => {
                 setShowConfirmSubmit(false);
                 setIsFinishing(false);

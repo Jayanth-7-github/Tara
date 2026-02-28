@@ -1,5 +1,4 @@
 import React from "react";
-import { SECURITY_CODE } from "../../services/constants";
 
 export default function ExamEnvironment({
   isCameraOn,
@@ -9,6 +8,7 @@ export default function ExamEnvironment({
   lobbyCameraRef,
   lobbyScreenRef,
   securityCode,
+  expectedSecurityCode,
   handleToggleCamera,
   handleToggleScreenShare,
   handleToggleFullscreen,
@@ -64,10 +64,11 @@ export default function ExamEnvironment({
           </div>
           <button
             onClick={handleToggleCamera}
-            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-full font-medium shadow-sm border transition-all text-sm ${isCameraOn
-              ? "bg-white text-blue-700 border-blue-300 hover:bg-blue-50"
-              : "bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
-              }`}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-full font-medium shadow-sm border transition-all text-sm ${
+              isCameraOn
+                ? "bg-white text-blue-700 border-blue-300 hover:bg-blue-50"
+                : "bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
+            }`}
           >
             <svg
               className="w-4 h-4"
@@ -120,10 +121,11 @@ export default function ExamEnvironment({
           </div>
           <button
             onClick={handleToggleScreenShare}
-            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-full font-medium shadow-sm border transition-all text-sm ${isScreenSharing
-              ? "bg-white text-indigo-700 border-indigo-300 hover:bg-indigo-50"
-              : "bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700"
-              }`}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-full font-medium shadow-sm border transition-all text-sm ${
+              isScreenSharing
+                ? "bg-white text-indigo-700 border-indigo-300 hover:bg-indigo-50"
+                : "bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700"
+            }`}
           >
             <svg
               className="w-4 h-4"
@@ -143,19 +145,19 @@ export default function ExamEnvironment({
         </div>
       </div>
 
-
-
       <div className="space-y-6 mt-6">
         {/* Fullscreen check */}
         <div
-          className={`flex items-start gap-4 p-4 rounded-lg border-2 ${isFullscreen
-            ? "bg-green-50 border-green-300"
-            : "bg-red-50 border-red-300"
-            }`}
+          className={`flex items-start gap-4 p-4 rounded-lg border-2 ${
+            isFullscreen
+              ? "bg-green-50 border-green-300"
+              : "bg-red-50 border-red-300"
+          }`}
         >
           <div
-            className={`mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0 shadow-sm ${isFullscreen ? "bg-green-500" : "bg-red-500"
-              }`}
+            className={`mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0 shadow-sm ${
+              isFullscreen ? "bg-green-500" : "bg-red-500"
+            }`}
           >
             {isFullscreen ? (
               <svg
@@ -194,10 +196,11 @@ export default function ExamEnvironment({
             </div>
             <button
               onClick={handleToggleFullscreen}
-              className={`hidden md:inline-flex items-center gap-2 px-4 py-2 rounded-full transition-colors font-medium shadow-sm border text-xs ${isFullscreen
-                ? "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                : "bg-gray-800 text-white border-gray-900 hover:bg-black"
-                }`}
+              className={`hidden md:inline-flex items-center gap-2 px-4 py-2 rounded-full transition-colors font-medium shadow-sm border text-xs ${
+                isFullscreen
+                  ? "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                  : "bg-gray-800 text-white border-gray-900 hover:bg-black"
+              }`}
             >
               <svg
                 className="w-3 h-3"
@@ -221,7 +224,9 @@ export default function ExamEnvironment({
                   />
                 )}
               </svg>
-              <span>{isFullscreen ? "Exit Fullscreen" : "Enable Fullscreen"}</span>
+              <span>
+                {isFullscreen ? "Exit Fullscreen" : "Enable Fullscreen"}
+              </span>
             </button>
           </div>
         </div>
@@ -241,7 +246,7 @@ export default function ExamEnvironment({
                 onChange={(e) =>
                   handleCodeChange(
                     i,
-                    e.target.value.replace(/\s/g, "").slice(-1)
+                    e.target.value.replace(/\s/g, "").slice(-1),
                   )
                 }
                 onKeyDown={(e) => handleCodeKeyDown(i, e)}
@@ -253,61 +258,59 @@ export default function ExamEnvironment({
         </div>
       </div>
 
-      {
-        error && (
-          <div className="mt-6 text-red-800 bg-red-100 border-2 border-red-300 rounded-lg px-5 py-3 text-sm font-medium shadow-sm flex items-start gap-3">
-            <svg
-              className="w-5 h-5 shrink-0 mt-0.5"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                clipRule="evenodd"
-              />
-            </svg>
-            {error}
-          </div>
-        )
-      }
+      {error && (
+        <div className="mt-6 text-red-800 bg-red-100 border-2 border-red-300 rounded-lg px-5 py-3 text-sm font-medium shadow-sm flex items-start gap-3">
+          <svg
+            className="w-5 h-5 shrink-0 mt-0.5"
+            fill="currentColor"
+            viewBox="0 0 20 20"
+          >
+            <path
+              fillRule="evenodd"
+              d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+              clipRule="evenodd"
+            />
+          </svg>
+          {error}
+        </div>
+      )}
 
-      {
-        !error && info && (
-          <div className="mt-6 text-blue-800 bg-blue-100 border-2 border-blue-300 rounded-lg px-5 py-3 text-sm font-medium shadow-sm flex items-start gap-3">
-            <svg
-              className="w-5 h-5 shrink-0 mt-0.5"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fillRule="evenodd"
-                d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                clipRule="evenodd"
-              />
-            </svg>
-            {info}
-          </div>
-        )
-      }
+      {!error && info && (
+        <div className="mt-6 text-blue-800 bg-blue-100 border-2 border-blue-300 rounded-lg px-5 py-3 text-sm font-medium shadow-sm flex items-start gap-3">
+          <svg
+            className="w-5 h-5 shrink-0 mt-0.5"
+            fill="currentColor"
+            viewBox="0 0 20 20"
+          >
+            <path
+              fillRule="evenodd"
+              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+              clipRule="evenodd"
+            />
+          </svg>
+          {info}
+        </div>
+      )}
 
       <div className="mt-8 flex items-center gap-3 border-t border-gray-200 pt-6">
         <button
           onClick={handleStartTest}
-          className={`ml-auto px-8 py-3.5 rounded-lg text-white font-bold text-base shadow-lg transition-all ${isCameraOn &&
+          className={`ml-auto px-8 py-3.5 rounded-lg text-white font-bold text-base shadow-lg transition-all ${
+            isCameraOn &&
             isScreenSharing &&
             isFullscreen &&
             cameraStreamRef.current &&
             cameraStreamRef.current.getAudioTracks &&
             cameraStreamRef.current.getAudioTracks().length > 0 &&
-            securityCode.join("") === SECURITY_CODE
-            ? "bg-linear-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 hover:shadow-xl transform hover:scale-105"
-            : "bg-gray-400 cursor-not-allowed opacity-60"
-            }`}
+            (!expectedSecurityCode ||
+              securityCode.join("") === expectedSecurityCode)
+              ? "bg-linear-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 hover:shadow-xl transform hover:scale-105"
+              : "bg-gray-400 cursor-not-allowed opacity-60"
+          }`}
         >
           {canResume ? "Resume Assessment" : "Begin Assessment"}
         </button>
       </div>
-    </section >
+    </section>
   );
 }

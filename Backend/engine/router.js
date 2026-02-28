@@ -107,7 +107,7 @@ const route = async (taskName, req, res) => {
       validateStatus: () => true,
     });
 
-    console.debug(`[Engine] Received response for '${taskName}': Status ${response.status}`);
+    // console.debug(`[Engine] Received response for '${taskName}': Status ${response.status}`);
 
     Object.keys(response.headers).forEach((key) => {
       if (key !== "content-length" && key !== "transfer-encoding") {
@@ -116,7 +116,7 @@ const route = async (taskName, req, res) => {
     });
 
     if (response.data == null) {
-      console.debug(`[Engine] Response data is null for '${taskName}'`);
+      // console.debug(`[Engine] Response data is null for '${taskName}'`);
       return res.status(response.status).end();
     }
 
@@ -124,7 +124,7 @@ const route = async (taskName, req, res) => {
       ? response.data
       : Buffer.from(response.data);
 
-    console.debug(`[Engine] Sending response for '${taskName}': Status ${response.status}, Body Length ${body.length}`);
+    // console.debug(`[Engine] Sending response for '${taskName}': Status ${response.status}, Body Length ${body.length}`);
     res.status(response.status).send(body);
   } catch (error) {
     console.error(`[Engine] Error forwarding '${taskName}':`, error.message);

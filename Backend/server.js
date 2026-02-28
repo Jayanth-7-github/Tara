@@ -1,5 +1,4 @@
 require("dotenv").config();
-// triggering restart for schema updates
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
@@ -7,17 +6,6 @@ const path = require("path");
 const passport = require("passport");
 
 const app = express();
-
-// If QUIET=1 is set, suppress non-error console output so the terminal stays empty.
-// This silences console.log/info/debug/warn across the app. Errors (console.error)
-// will still be emitted so critical failures are visible unless you also
-// redirect stderr when launching the process.
-if (process.env.QUIET === "1") {
-  console.log = () => { };
-  console.info = () => { };
-  console.debug = () => { };
-  console.warn = () => { };
-}
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 
@@ -29,18 +17,9 @@ const corsOptions = {
   credentials: true,
 };
 app.use(cors(corsOptions));
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
 app.use(cookieParser());
 app.use(passport.initialize());
-
-// Simple logger: disabled by default to keep the backend terminal quiet.
-// To enable request logging set the environment variable SHOW_REQUEST_LOGS=1
-app.use((req, res, next) => {
-  if (process.env.SHOW_REQUEST_LOGS === "1") {
-    console.log(new Date().toISOString(), req.method, req.url);
-  }
-  next();
-});
 
 // Passport configuration (Google OAuth strategy, etc.)
 require(path.join(__dirname, "config", "passport"));
@@ -67,18 +46,12 @@ app.use("/api/events", eventRoutes);
 app.use("/api/contact", contactRoutes);
 // Google OAuth and other user-facing auth flows (non-API)
 app.use("/user", userRoutes);
-// Mount roles routes at an obscure numeric path to make discovery harder.
-// The number used here matches the example identifier in `data/roles.json`.
 app.use("/api/roles/secret8181", rolesRoutes);
 
 // Health
-app.get("/api/tara", (req, res) =>
-  res.json({ status: "ok", timestamp: Date.now() }),
-);
-
-app.get("/health", (req, res) =>
-  res.json({ status: "ok", timestamp: Date.now() }),
-);
+app.get("/health", (req, res) => {
+  res.json({ status: "ok", timestamp: Date.now() });
+});
 
 // Fallback
 app.use((req, res) => res.status(404).json({ error: "Not found" }));

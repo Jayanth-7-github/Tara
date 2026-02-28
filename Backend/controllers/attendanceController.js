@@ -1,6 +1,7 @@
 const path = require("path");
 const Student = require(path.join(__dirname, "..", "models", "Student"));
 const Attendance = require(path.join(__dirname, "..", "models", "Attendance"));
+const Event = require(path.join(__dirname, "..", "models", "Event"));
 
 // Helper: format date as local "YYYY-MM-DD HH:mm"
 function formatLocalYMDHM(d) {
@@ -94,6 +95,39 @@ exports.markAttendance = async (req, res) => {
 
     attendanceDoc.sessions.set(sName, newSession);
     await attendanceDoc.save();
+
+    // Check if all sessions are now marked as present
+    const eventDoc = await Event.findOne({ title: event });
+    const totalSessions = eventDoc ? eventDoc.sessions.length : 0;
+    const markedSessions = attendanceDoc.sessions.size;
+
+    // Verify that all sessions are marked AND all are marked as present
+    let allSessionsPresent = true;
+    if (markedSessions === totalSessions && totalSessions > 0) {
+      for (const sessionData of attendanceDoc.sessions.values()) {
+        if (!sessionData.isPresent) {
+          allSessionsPresent = false;
+          break;
+        }
+      }
+    } else {
+      allSessionsPresent = false;
+    }
+
+    // If all sessions are marked as present and this is the first time, increment attendedCount
+    if (allSessionsPresent && !attendanceDoc.allSessionsMarked) {
+      attendanceDoc.allSessionsMarked = true;
+      await attendanceDoc.save();
+
+      // Increment Event's attendedCount
+      if (eventDoc) {
+        await Event.findByIdAndUpdate(
+          eventDoc._id,
+          { $inc: { attendedCount: 1 } },
+          { new: true },
+        );
+      }
+    }
 
     res.json({
       message: `Attendance marked successfully for ${student.name}.`,
@@ -410,6 +444,8 @@ exports.updateAttendance = async (req, res) => {
 
     // Always allow creating a session if updating attendance
     let sess = doc.sessions.get(sName);
+    const wasPresent = sess ? sess.isPresent : false;
+
     if (!sess) {
       // Create if not exists (allows manual marking from admin panel)
       sess = {
@@ -422,11 +458,55 @@ exports.updateAttendance = async (req, res) => {
 
     if (isPresent !== undefined) sess.isPresent = isPresent;
 
-    // If unchecking attendance (isPresent=false), technically we should remove the session or set false?
-    // Let's set false.
-
     doc.sessions.set(sName, sess);
     await doc.save();
+
+    // Handle attendedCount changes
+    const eventDoc = await Event.findOne({ title: eventName });
+    const totalSessions = eventDoc ? eventDoc.sessions.length : 0;
+
+    // Check if all sessions are currently marked as present
+    let allSessionsPresent = true;
+    if (doc.sessions.size === totalSessions && totalSessions > 0) {
+      for (const sessionData of doc.sessions.values()) {
+        if (!sessionData.isPresent) {
+          allSessionsPresent = false;
+          break;
+        }
+      }
+    } else {
+      allSessionsPresent = false;
+    }
+
+    // Case 1: Session changed from present to absent
+    if (wasPresent && !sess.isPresent && doc.allSessionsMarked && eventDoc) {
+      doc.allSessionsMarked = false;
+      await doc.save();
+      // Decrement attendedCount
+      await Event.findByIdAndUpdate(
+        eventDoc._id,
+        { $inc: { attendedCount: -1 } },
+        { new: true },
+      );
+    }
+    // Case 2: Session changed from absent to present, and now all are present
+    else if (
+      !wasPresent &&
+      sess.isPresent &&
+      allSessionsPresent &&
+      !doc.allSessionsMarked &&
+      eventDoc
+    ) {
+      doc.allSessionsMarked = true;
+      await doc.save();
+      // Increment attendedCount
+      await Event.findByIdAndUpdate(
+        eventDoc._id,
+        { $inc: { attendedCount: 1 } },
+        { new: true },
+      );
+    }
+
     return res.json({ message: "Updated", attendance: doc });
   } catch (err) {
     console.error("update error", err);
