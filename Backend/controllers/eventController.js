@@ -23,6 +23,9 @@ async function createEvent(req, res) {
       isCodingEnabled,
       examSecurityCode,
       sessions,
+      participationType,
+      minTeamSize,
+      maxTeamSize,
     } = req.body;
     let managerEmail = req.body.managerEmail;
 
@@ -101,6 +104,18 @@ async function createEvent(req, res) {
       managerEmail = userEmail;
     }
 
+    // Validate team configuration
+    let teamType = participationType === "team" ? "team" : "solo";
+    let minTeam = teamType === "team" ? Number(minTeamSize) : 1;
+    let maxTeam = teamType === "team" ? Number(maxTeamSize) : 1;
+    if (teamType === "team") {
+      if (!minTeam || !maxTeam || minTeam < 1 || maxTeam < minTeam) {
+        return res
+          .status(400)
+          .json({ error: "Invalid team size configuration" });
+      }
+    }
+
     const ev = new Event({
       title,
       description,
@@ -113,6 +128,9 @@ async function createEvent(req, res) {
       isCodingEnabled: isCodingEnabled !== undefined ? isCodingEnabled : false,
       examSecurityCode: examSecurityCode || undefined,
       sessions: sessions || [],
+      participationType: teamType,
+      minTeamSize: minTeam,
+      maxTeamSize: maxTeam,
     });
 
     // If frontend uploaded image as base64, store it in MongoDB
@@ -472,6 +490,9 @@ async function updateEvent(req, res) {
       questions,
       sessions,
       examSecurityCode,
+      participationType,
+      minTeamSize,
+      maxTeamSize,
     } = req.body || {};
 
     const ev = await Event.findById(id);
@@ -549,6 +570,11 @@ async function updateEvent(req, res) {
       );
       $set.sessions = sessions;
     }
+
+    if (participationType !== undefined)
+      $set.participationType = participationType;
+    if (minTeamSize !== undefined) $set.minTeamSize = Number(minTeamSize);
+    if (maxTeamSize !== undefined) $set.maxTeamSize = Number(maxTeamSize);
 
     if (managerEmail !== undefined) {
       if (!managerEmail)

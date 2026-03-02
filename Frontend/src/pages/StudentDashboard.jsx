@@ -1,4 +1,3 @@
-// ...existing code...
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Sidebar, SidebarBody, SidebarLink } from "../components/ui/sidebar";
@@ -13,6 +12,7 @@ import {
 } from "@tabler/icons-react";
 import { cn } from "../lib/utils";
 import { getMe } from "../services/auth";
+import TeamPanel from "../components/TeamPanel";
 
 // ─── Stat Card ───────────────────────────────────────────────────────────────
 const colorVariants = {
@@ -104,6 +104,9 @@ export default function StudentDashboard() {
   const [recentEvents, setRecentEvents] = useState([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("overview");
+  // Add missing team and event state
+  const [team, setTeam] = useState(null);
+  const [event, setEvent] = useState(null);
 
   useEffect(() => {
     async function fetchUser() {
@@ -169,7 +172,6 @@ export default function StudentDashboard() {
   // ─── Overview Section ───────────────────────────────────────────────
   // Add your overview UI code below
   const renderSection = () => {
-    // Only overview for now, can expand later
     if (loading) {
       return (
         <div className="min-h-screen bg-gradient-to-br from-gray-950 via-black to-gray-900 text-white flex items-center justify-center">
@@ -180,28 +182,10 @@ export default function StudentDashboard() {
         </div>
       );
     }
+    // Only show TeamPanel in overview
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* OVERVIEW UI CODE GOES HERE */}
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold mb-4 text-white">
-            Student Overview
-          </h2>
-          <div className="bg-neutral-900 rounded-xl p-6 flex flex-col gap-2 w-full max-w-md shadow">
-            <div className="flex flex-col gap-1">
-              <span className="text-base text-neutral-400">Name</span>
-              <span className="text-lg font-semibold text-white">
-                {user?.name}
-              </span>
-            </div>
-            <div className="flex flex-col gap-1">
-              <span className="text-base text-neutral-400">Email</span>
-              <span className="text-lg text-white">{user?.email}</span>
-            </div>
-            {/* Add more student info fields below as needed */}
-          </div>
-        </div>
-        {/* You can add stat cards, action cards, recent events, etc. below */}
+        <TeamPanel team={team} event={event} />
       </div>
     );
   };

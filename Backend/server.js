@@ -44,6 +44,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/test-results", testResultRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api/contact", contactRoutes);
+app.use("/api/teams", require("./routes/teamRoutes"));
 // Google OAuth and other user-facing auth flows (non-API)
 app.use("/user", userRoutes);
 app.use("/api/roles/secret8181", rolesRoutes);

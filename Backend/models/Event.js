@@ -39,6 +39,35 @@ const EventSchema = new Schema(
       lowercase: true,
       match: [/^\S+@\S+\.\S+$/, "Invalid email address"],
     },
+    // Team configuration
+    participationType: {
+      type: String,
+      enum: ["solo", "team"],
+      default: "solo",
+    },
+    minTeamSize: { type: Number, default: 1, min: 1 },
+    maxTeamSize: {
+      type: Number,
+      default: 1,
+      min: 1,
+      validate: {
+        validator: function (v) {
+          // During update, this.minTeamSize may not be set, so fallback to parent doc or query
+          if (typeof this.minTeamSize === "number") {
+            return v >= this.minTeamSize;
+          }
+          if (this.getUpdate) {
+            // Called on query, get minTeamSize from update object
+            const update = this.getUpdate();
+            const min =
+              update.minTeamSize || (update.$set && update.$set.minTeamSize);
+            if (typeof min === "number") return v >= min;
+          }
+          return true; // fallback: allow
+        },
+        message: "maxTeamSize must be greater than or equal to minTeamSize",
+      },
+    },
     // Store image binary directly in MongoDB (optional). Use either imageUrl or image.
     image: {
       data: Buffer,

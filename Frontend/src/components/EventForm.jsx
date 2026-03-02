@@ -2,6 +2,9 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { createEvent, updateEvent } from "../services/api";
 
+// Team configuration state
+// (moved below imports)
+
 function toBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -63,7 +66,7 @@ export default function EventForm({
   const userEmail = currentUser?.email || "";
 
   const [managerEmail, setManagerEmail] = useState(
-    mode === "create" && isMember ? userEmail : (initialData?.managerEmail || "")
+    mode === "create" && isMember ? userEmail : initialData?.managerEmail || "",
   );
   const [price, setPrice] = useState(
     initialData?.price !== undefined && initialData?.price !== null
@@ -78,6 +81,13 @@ export default function EventForm({
   const [preview, setPreview] = useState(initialData?.imageUrl || null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  // Team configuration state
+  const [participationType, setParticipationType] = useState(
+    initialData?.participationType || "solo",
+  );
+  const [minTeamSize, setMinTeamSize] = useState(initialData?.minTeamSize || 1);
+  const [maxTeamSize, setMaxTeamSize] = useState(initialData?.maxTeamSize || 1);
+  const [teamConfigError, setTeamConfigError] = useState(null);
 
   useEffect(() => {
     setTitle(initialData?.title || "");
@@ -108,6 +118,25 @@ export default function EventForm({
     else setPreview(initialData?.imageUrl || null);
   };
 
+  const validateTeamConfig = () => {
+    if (participationType === "team") {
+      if (
+        !minTeamSize ||
+        !maxTeamSize ||
+        minTeamSize < 1 ||
+        maxTeamSize < 1 ||
+        maxTeamSize < minTeamSize
+      ) {
+        setTeamConfigError(
+          "Team size must be at least 1 and max must be greater than or equal to min.",
+        );
+        return false;
+      }
+    }
+    setTeamConfigError(null);
+    return true;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
@@ -121,6 +150,12 @@ export default function EventForm({
     if (!managerEmail || !emailRegex.test(String(managerEmail))) {
       setError("Please provide a valid manager email");
       setLoading(false);
+      return;
+    }
+
+    // Validate team config
+    if (!validateTeamConfig()) {
+      setError("Please fix team configuration errors.");
       return;
     }
 
@@ -155,6 +190,9 @@ export default function EventForm({
         price: numericPrice,
         imageBase64,
         imageType,
+        participationType,
+        minTeamSize,
+        maxTeamSize,
       };
 
       if (mode === "create") {
@@ -254,7 +292,12 @@ export default function EventForm({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <label className="block group/input">
           <span className="text-sm font-medium text-gray-300 mb-1.5 block group-focus-within/input:text-blue-400 transition-colors">
-            Manager Email {isMember && <span className="text-gray-500 text-xs">(Locked to your account)</span>}
+            Manager Email{" "}
+            {isMember && (
+              <span className="text-gray-500 text-xs">
+                (Locked to your account)
+              </span>
+            )}
           </span>
           <div className="relative">
             <input
@@ -263,7 +306,7 @@ export default function EventForm({
               onChange={(e) => setManagerEmail(e.target.value)}
               required
               readOnly={isMember}
-              className={`w-full ${isMember ? 'bg-gray-800/20 text-gray-500 cursor-not-allowed' : 'bg-gray-800/50 text-white'} border border-gray-700 rounded-xl px-4 py-3 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all`}
+              className={`w-full ${isMember ? "bg-gray-800/20 text-gray-500 cursor-not-allowed" : "bg-gray-800/50 text-white"} border border-gray-700 rounded-xl px-4 py-3 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all`}
               placeholder="manager@example.com"
             />
           </div>
@@ -282,6 +325,50 @@ export default function EventForm({
             />
           </div>
         </label>
+      </div>
+
+      {/* Team Configuration Section */}
+      <div className="block group/input">
+        <span className="text-sm font-medium text-gray-300 mb-1.5 block group-focus-within/input:text-blue-400 transition-colors">
+          Participation Type
+        </span>
+        <div className="relative flex gap-4 items-center">
+          <select
+            value={participationType}
+            onChange={(e) => setParticipationType(e.target.value)}
+            className="bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500"
+          >
+            <option value="solo">Solo</option>
+            <option value="team">Team</option>
+          </select>
+          {participationType === "team" && (
+            <div className="flex gap-2 items-center">
+              <label className="text-xs text-gray-400">Min Team Size</label>
+              <input
+                type="number"
+                min={1}
+                value={minTeamSize}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  setMinTeamSize(val);
+                  if (val > maxTeamSize) setMaxTeamSize(val); // auto-adjust max if needed
+                }}
+                className="w-16 bg-gray-800/50 border border-gray-700 rounded px-2 py-1 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500"
+              />
+              <label className="text-xs text-gray-400">Max Team Size</label>
+              <input
+                type="number"
+                min={minTeamSize}
+                value={maxTeamSize}
+                onChange={(e) => setMaxTeamSize(Number(e.target.value))}
+                className="w-16 bg-gray-800/50 border border-gray-700 rounded px-2 py-1 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500"
+              />
+            </div>
+          )}
+        </div>
+        {teamConfigError && (
+          <div className="text-xs text-red-400 mt-1">{teamConfigError}</div>
+        )}
       </div>
 
       <label className="block group/input">
@@ -342,9 +429,10 @@ export default function EventForm({
           className={`
             w-full py-3.5 rounded-xl font-bold text-white shadow-lg transition-all duration-300
             flex items-center justify-center gap-2
-            ${loading
-              ? "bg-gray-700 cursor-not-allowed"
-              : "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 hover:shadow-blue-500/25 active:scale-[0.98]"
+            ${
+              loading
+                ? "bg-gray-700 cursor-not-allowed"
+                : "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 hover:shadow-blue-500/25 active:scale-[0.98]"
             }
           `}
         >
