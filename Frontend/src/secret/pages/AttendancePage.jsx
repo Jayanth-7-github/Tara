@@ -35,6 +35,8 @@ export default function AttendancePage() {
   const [keyError, setKeyError] = useState("");
   const [checkingAuth, setCheckingAuth] = useState(true);
 
+  const isTeamEvent = selectedEvent?.participationType === "team";
+
   // Auth check on mount
   useEffect(() => {
     const runCheck = async () => {
@@ -144,7 +146,7 @@ export default function AttendancePage() {
     setAttendanceRecords([]);
     setLoading(true);
     try {
-      const s = await fetchStudent(regno);
+      const s = await fetchStudent(regno, selectedEvent?._id);
       setStudent(s);
       setShowManualSearch(false); // Close modal when student is found
 
@@ -362,6 +364,12 @@ export default function AttendancePage() {
             {message}
           </motion.div>
         )}
+
+        {student && selectedEvent && isTeamEvent ? (
+          <div className="mb-4 text-sm text-gray-300 max-w-full wrap-break-word whitespace-pre-wrap">
+            Team: <span className="text-white font-medium">{student.teamName || "—"}</span>
+          </div>
+        ) : null}
 
         {/* Student Info */}
         {loading ? (

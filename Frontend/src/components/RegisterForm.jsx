@@ -35,6 +35,23 @@ export default function RegisterForm({
   eventTitle,
 }) {
   // Event config state
+  const [authenticated, setAuthenticated] = useState(null);
+  // Check login status on mount
+  useEffect(() => {
+    let mounted = true;
+    import("../services/auth").then(({ checkLogin }) => {
+      checkLogin()
+        .then((resp) => {
+          if (mounted) setAuthenticated(resp.authenticated);
+        })
+        .catch(() => {
+          if (mounted) setAuthenticated(false);
+        });
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
   const [eventConfig, setEventConfig] = useState(null);
   const [teamName, setTeamName] = useState("");
   const [leader, setLeader] = useState({
@@ -863,6 +880,13 @@ export default function RegisterForm({
       </form>
     );
 
+  // If not authenticated, redirect to login
+  if (authenticated === false) {
+    if (typeof window !== "undefined") {
+      window.location.replace("/login");
+    }
+    return null;
+  }
   if (!fullPage) return form;
 
   return (

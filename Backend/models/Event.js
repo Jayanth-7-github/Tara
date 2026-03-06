@@ -89,6 +89,13 @@ const EventSchema = new Schema(
         isActive: { type: Boolean, default: false },
       },
     ],
+    // Separate sessions used by Student Attendance (photo + approval)
+    studentSessions: [
+      {
+        name: { type: String, required: true },
+        isActive: { type: Boolean, default: false },
+      },
+    ],
     accessKey: { type: String, trim: true, index: true },
   },
   { timestamps: true },

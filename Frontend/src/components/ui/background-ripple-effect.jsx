@@ -3,9 +3,9 @@ import React, { useMemo, useRef, useState } from "react";
 import { cn } from "../../lib/utils";
 
 export const BackgroundRippleEffect = ({
-  rows = 20,
-  cols = 40,
-  cellSize = 56,
+  rows = 24,
+  cols = 48,
+  cellSize = 52,
 }) => {
   const [clickedCell, setClickedCell] = useState(null);
   const [rippleKey, setRippleKey] = useState(0);
@@ -15,16 +15,18 @@ export const BackgroundRippleEffect = ({
     <div
       ref={ref}
       className={cn(
-        "fixed inset-0 h-full w-full",
-        "[--cell-border-color:var(--color-neutral-300)] [--cell-fill-color:var(--color-neutral-100)] [--cell-shadow-color:var(--color-neutral-500)]",
-        "dark:[--cell-border-color:var(--color-neutral-700)] dark:[--cell-fill-color:var(--color-neutral-900)] dark:[--cell-shadow-color:var(--color-neutral-800)]",
+        "fixed inset-0 h-full w-full bg-black",
+        "[--cell-border-color:#2a2a2f]",
+        "[--cell-fill-color:#0c0c10]",
+        "[--cell-shadow-color:#16161a]",
       )}
     >
       <div className="relative h-auto w-auto overflow-hidden">
         <div className="pointer-events-none absolute inset-0 z-[2] h-full w-full overflow-hidden" />
+
         <DivGrid
           key={`base-${rippleKey}`}
-          className="mask-radial-from-20% mask-radial-at-top opacity-80"
+          className="mask-radial-from-20% mask-radial-at-top opacity-85"
           rows={rows}
           cols={cols}
           cellSize={cellSize}
@@ -47,10 +49,10 @@ const DivGrid = ({
   rows = 7,
   cols = 30,
   cellSize = 56,
-  borderColor = "#3f3f46",
-  fillColor = "rgba(37,99,235,0.35)",
+  borderColor = "#2a2a2f",
+  fillColor = "#0c0c10",
   clickedCell = null,
-  onCellClick = () => { },
+  onCellClick = () => {},
   interactive = true,
 }) => {
   const cells = useMemo(
@@ -72,24 +74,28 @@ const DivGrid = ({
       {cells.map((idx) => {
         const rowIdx = Math.floor(idx / cols);
         const colIdx = idx % cols;
+
         const distance = clickedCell
           ? Math.hypot(clickedCell.row - rowIdx, clickedCell.col - colIdx)
           : 0;
-        const delay = clickedCell ? Math.max(0, distance * 55) : 0; // ms
-        const duration = 200 + distance * 80; // ms
+
+        const delay = clickedCell ? Math.max(0, distance * 25) : 0;
+        const duration = 120 + distance * 180;
 
         const style = clickedCell
           ? {
-            "--delay": `${delay}ms`,
-            "--duration": `${duration}ms`,
-          }
+              "--delay": `${delay}ms`,
+              "--duration": `${duration}ms`,
+            }
           : {};
 
         return (
           <div
             key={idx}
             className={cn(
-              "cell relative border-[0.75px] opacity-60 transition-opacity duration-150 will-change-transform hover:opacity-90 dark:shadow-[0px_0px_40px_1px_var(--cell-shadow-color)_inset]",
+              "cell relative border opacity-65 transition-all duration-200 will-change-transform",
+              "hover:opacity-90 hover:bg-[#121216]",
+              "shadow-[0px_0px_35px_1px_var(--cell-shadow-color)_inset]",
               clickedCell && "animate-cell-ripple [animation-fill-mode:none]",
               !interactive && "pointer-events-none",
             )}

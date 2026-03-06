@@ -13,8 +13,18 @@ export async function searchStudents(query, eventId) {
   return resp.json();
 }
 
-export async function fetchStudent(regno) {
-  const resp = await fetch(`${API_BASE}/students/${encodeURIComponent(regno)}`);
+// fetch student by regno. Optional eventId helps backend derive teamName for team events.
+export async function fetchStudent(regno, eventIdOrOptions) {
+  let eventId = "";
+  if (typeof eventIdOrOptions === "string") eventId = eventIdOrOptions;
+  else if (eventIdOrOptions && typeof eventIdOrOptions === "object") {
+    eventId = eventIdOrOptions.eventId || "";
+  }
+
+  const url = new URL(`${API_BASE}/students/${encodeURIComponent(regno)}`);
+  if (eventId) url.searchParams.set("eventId", eventId);
+
+  const resp = await fetch(url.toString());
   if (!resp.ok) {
     const body = await resp.json().catch(() => ({}));
     const err = new Error(body.error || "Failed to fetch student");
@@ -115,11 +125,14 @@ export async function createStudentsBulk(students) {
 
 // Update non-attendance student data (name, email, etc.)
 export async function updateStudent(regno, body) {
-  const resp = await fetch(`${API_BASE}/students/${encodeURIComponent(regno)}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  const resp = await fetch(
+    `${API_BASE}/students/${encodeURIComponent(regno)}`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+  );
   const respBody = await resp.json().catch(() => ({}));
   if (!resp.ok) {
     const err = new Error(respBody.error || "Failed to update student");
@@ -218,6 +231,142 @@ export async function checkTestTaken(testTitle) {
   return body; // { taken: boolean }
 }
 
+// Teams API
+export async function fetchTeams(eventId) {
+  const url = new URL(`${API_BASE.replace(/\/$/, "")}/teams`);
+  if (eventId) url.searchParams.set("eventId", eventId);
+  const resp = await fetch(url.toString(), { credentials: "include" });
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(body.error || "Failed to fetch teams");
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}
+
+// Student Attendance (photo + approval)
+export async function submitStudentAttendance({
+  eventId,
+  teamId,
+  studentId,
+  sessionName,
+  photoDataUrl,
+}) {
+  const resp = await fetch(
+    `${API_BASE.replace(/\/$/, "")}/student-attendance/mark`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        eventId,
+        teamId,
+        studentId,
+        sessionName,
+        photoDataUrl,
+      }),
+    },
+  );
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(body.error || "Failed to submit attendance");
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}
+
+export async function fetchStudentAttendanceRecords({
+  eventId,
+  teamId,
+  sessionName,
+  status,
+}) {
+  const url = new URL(
+    `${API_BASE.replace(/\/$/, "")}/student-attendance/records`,
+  );
+  if (eventId) url.searchParams.set("eventId", eventId);
+  if (teamId) url.searchParams.set("teamId", teamId);
+  if (sessionName) url.searchParams.set("sessionName", sessionName);
+  if (status) url.searchParams.set("status", status);
+
+  const resp = await fetch(url.toString(), { credentials: "include" });
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(body.error || "Failed to fetch attendance records");
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}
+
+export async function fetchManagerAttendanceSubmissions({
+  eventId,
+  status,
+  sessionName,
+  teamId,
+}) {
+  const url = new URL(
+    `${API_BASE.replace(/\/$/, "")}/student-attendance/manager/submissions`,
+  );
+  if (eventId) url.searchParams.set("eventId", eventId);
+  if (status) url.searchParams.set("status", status);
+  if (sessionName) url.searchParams.set("sessionName", sessionName);
+  if (teamId) url.searchParams.set("teamId", teamId);
+
+  const resp = await fetch(url.toString(), { credentials: "include" });
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(body.error || "Failed to fetch manager submissions");
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}
+
+export async function reviewStudentAttendance({
+  attendanceId,
+  decision,
+  comment,
+}) {
+  const resp = await fetch(
+    `${API_BASE.replace(/\/$/, "")}/student-attendance/${encodeURIComponent(attendanceId)}/review`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ decision, comment }),
+    },
+  );
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(body.error || "Failed to review attendance");
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}
+
+export async function allowStudentAttendanceResubmit({ attendanceId }) {
+  const resp = await fetch(
+    `${API_BASE.replace(/\/$/, "")}/student-attendance/${encodeURIComponent(attendanceId)}/allow-resubmit`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({}),
+    },
+  );
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(body.error || "Failed to allow re-marking");
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}
+
 export async function getMyTestStats() {
   const resp = await fetch(`${API_BASE}/test-results/my-stats`, {
     credentials: "include",
@@ -240,22 +389,29 @@ export async function getAllTestResults(filters = {}) {
 
 // Events API
 export async function fetchEvents() {
-  const resp = await fetch(`${API_BASE.replace(/\/$/, "")}/events?t=${Date.now()}`, {
-    credentials: "include",
-    headers: { "Cache-Control": "no-cache" },
-  });
+  const resp = await fetch(
+    `${API_BASE.replace(/\/$/, "")}/events?t=${Date.now()}`,
+    {
+      credentials: "include",
+      headers: { "Cache-Control": "no-cache" },
+    },
+  );
   if (!resp.ok) throw new Error("Failed to fetch events");
   return resp.json();
 }
 
 export async function fetchEventById(eventId) {
-  const resp = await fetch(`${API_BASE.replace(/\/$/, "")}/events`, {
-    credentials: "include",
-  });
+  const resp = await fetch(
+    `${API_BASE.replace(/\/$/, "")}/events?t=${Date.now()}`,
+    {
+      credentials: "include",
+      headers: { "Cache-Control": "no-cache" },
+    },
+  );
   if (!resp.ok) throw new Error("Failed to fetch events");
   const data = await resp.json();
   const events = data.events || data;
-  return events.find(e => e._id === eventId || e.id === eventId);
+  return events.find((e) => e._id === eventId || e.id === eventId);
 }
 
 export async function createEvent(eventPayload) {
@@ -281,7 +437,7 @@ export async function updateEvent(eventId, eventPayload) {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
-        "x-admin-token": ADMIN_TOKEN // Add secret token
+        "x-admin-token": ADMIN_TOKEN, // Add secret token
       },
       credentials: "include",
       body: JSON.stringify(eventPayload),
@@ -406,7 +562,9 @@ export async function getOrganizerApplications() {
   );
   if (!resp.ok) {
     const body = await resp.json().catch(() => ({}));
-    const err = new Error(body.error || "Failed to fetch organizer applications");
+    const err = new Error(
+      body.error || "Failed to fetch organizer applications",
+    );
     err.status = resp.status;
     throw err;
   }

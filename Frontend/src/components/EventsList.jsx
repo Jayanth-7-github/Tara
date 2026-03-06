@@ -852,28 +852,38 @@ export default function EventsList({
                             >
                               Request Pending...
                             </button>
-                          ) : !userEmail
-                              ?.toLowerCase()
-                              .trim()
-                              .endsWith("@klu.ac.in") &&
-                            !allowedToRegister &&
-                            !isApproved ? (
-                            <button
-                              onClick={() => setShowContactFor(id)}
-                              className="px-6 py-3 rounded-xl bg-yellow-600 hover:bg-yellow-700 text-white font-bold shadow-lg shadow-yellow-900/20 transition-all hover:scale-105"
-                            >
-                              Express Interest
-                            </button>
-                          ) : (
+                          ) : // Use ternary operator for button rendering
+                          !userEmail ? (
                             <button
                               onClick={() =>
                                 navigate(`/event-registration/${id}`, {
                                   state: { eventTitle: ev.title },
                                 })
                               }
-                              className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-900/20 transition-all hover:scale-105"
+                              className="px-6 py-3 rounded-xl font-bold shadow-lg transition-all hover:scale-105 bg-blue-600 hover:bg-blue-700 text-white shadow-blue-900/20"
                             >
                               Register Now
+                            </button>
+                          ) : userEmail
+                              .toLowerCase()
+                              .trim()
+                              .endsWith("@klu.ac.in") ? (
+                            <button
+                              onClick={() =>
+                                navigate(`/event-registration/${id}`, {
+                                  state: { eventTitle: ev.title },
+                                })
+                              }
+                              className="px-6 py-3 rounded-xl font-bold shadow-lg transition-all hover:scale-105 bg-blue-600 hover:bg-blue-700 text-white shadow-blue-900/20"
+                            >
+                              Register Now
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => setShowContactFor(id)}
+                              className="px-6 py-3 rounded-xl font-bold shadow-lg transition-all hover:scale-105 bg-yellow-600 hover:bg-yellow-700 text-white shadow-yellow-900/20"
+                            >
+                              Express Interest
                             </button>
                           )}
                         </>

@@ -29,6 +29,9 @@ const studentRoutes = require(path.join(__dirname, "routes", "studentRoutes"));
 const attendanceRoutes = require(
   path.join(__dirname, "routes", "attendanceRoutes"),
 );
+const studentAttendanceRoutes = require(
+  path.join(__dirname, "routes", "studentAttendanceRoutes"),
+);
 const authRoutes = require(path.join(__dirname, "routes", "authRoutes"));
 const testResultRoutes = require(
   path.join(__dirname, "routes", "testResultRoutes"),
@@ -40,6 +43,7 @@ const userRoutes = require(path.join(__dirname, "routes", "userRoutes"));
 
 app.use("/api/students", studentRoutes);
 app.use("/api/attendance", attendanceRoutes);
+app.use("/api/student-attendance", studentAttendanceRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/test-results", testResultRoutes);
 app.use("/api/events", eventRoutes);

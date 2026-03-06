@@ -1,5 +1,6 @@
 const Event = require("../models/Event");
 const Student = require("../models/Student");
+const Team = require("../models/Team");
 const RoleConfig = require("../models/RoleConfig");
 const User = require("../models/User");
 
@@ -283,12 +284,50 @@ async function getEvents(req, res) {
 
     if (eventsToPopulate.size > 0) {
       const studentFields =
-        "name regno email department college year registrations";
+        "name regno email department college year hostelName teamName registrations";
       const students = await Student.find({
         "registrations.event": { $in: Array.from(eventsToPopulate) },
       })
         .select(studentFields)
         .lean();
+
+      // For TEAM events, compute team name per student from Team collection.
+      // This is event-scoped and more accurate than Student.teamName (which is global).
+      const teamEventIds = events
+        .filter(
+          (e) =>
+            e &&
+            e._id &&
+            eventsToPopulate.has(e._id.toString()) &&
+            e.participationType === "team",
+        )
+        .map((e) => e._id);
+
+      const teamNameByEventAndStudentId = {};
+      if (teamEventIds.length > 0) {
+        const teams = await Team.find({ event: { $in: teamEventIds } })
+          .select("event name leader members")
+          .lean();
+
+        for (const t of teams) {
+          const eId = t.event ? t.event.toString() : null;
+          if (!eId) continue;
+          if (!teamNameByEventAndStudentId[eId])
+            teamNameByEventAndStudentId[eId] = {};
+
+          const teamName = t.name || "";
+          if (!teamName) continue;
+
+          const leaderId = t.leader ? t.leader.toString() : null;
+          if (leaderId) teamNameByEventAndStudentId[eId][leaderId] = teamName;
+
+          const members = Array.isArray(t.members) ? t.members : [];
+          for (const m of members) {
+            const mId = m ? m.toString() : null;
+            if (mId) teamNameByEventAndStudentId[eId][mId] = teamName;
+          }
+        }
+      }
 
       const studentsByEvent = {};
 
@@ -303,6 +342,11 @@ async function getEvents(req, res) {
                 name: s.name,
                 regno: s.regno,
                 email: s.email,
+                hostelName: s.hostelName,
+                teamName:
+                  (teamNameByEventAndStudentId[eId] &&
+                    teamNameByEventAndStudentId[eId][s._id.toString()]) ||
+                  s.teamName,
                 department: s.department,
                 college: s.college,
                 year: s.year,
@@ -489,6 +533,7 @@ async function updateEvent(req, res) {
       isCodingEnabled,
       questions,
       sessions,
+      studentSessions,
       examSecurityCode,
       participationType,
       minTeamSize,
@@ -569,6 +614,14 @@ async function updateEvent(req, res) {
         JSON.stringify(sessions),
       );
       $set.sessions = sessions;
+    }
+
+    if (studentSessions !== undefined) {
+      console.log(
+        `[updateEvent] Updating studentSessions for ${id}:`,
+        JSON.stringify(studentSessions),
+      );
+      $set.studentSessions = studentSessions;
     }
 
     if (participationType !== undefined)

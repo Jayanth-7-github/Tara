@@ -21,7 +21,7 @@ function Avatar({ name, size = 48 }) {
     : "?";
   return (
     <div
-      className={`flex items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-cyan-400 text-white font-bold text-xl shadow-lg`}
+      className={`flex items-center justify-center rounded-full bg-linear-to-br from-blue-600 to-cyan-400 text-white font-bold text-xl shadow-lg`}
       style={{ width: size, height: size }}
     >
       {initials}
@@ -56,7 +56,8 @@ function TeamHeader({ team, event }) {
     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-6">
       <div>
         <h2 className="text-2xl font-bold text-blue-300 mb-1 flex items-center gap-2">
-          <FaUsers className="text-blue-400" /> {team?.teamName || "Team"}
+          <FaUsers className="text-blue-400" />{" "}
+          {team?.name || team?.teamName || "Team"}
         </h2>
         <div className="flex gap-4 flex-wrap text-sm text-neutral-300">
           <span>
@@ -127,28 +128,38 @@ function LeaderCard({ leader }) {
 // Member Card
 function MemberCard({ member, idx }) {
   return (
-    <div className="rounded-xl border border-neutral-700 bg-neutral-900/70 p-5 shadow hover:shadow-xl transition-all duration-200 mb-4">
-      <div className="flex items-center gap-2 mb-2">
-        <Avatar name={member?.name} size={40} />
-        <h4 className="font-semibold text-blue-200">Member {idx + 1}</h4>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <Field label="Full Name" value={member?.name} icon={<FaUser />} />
-        <Field label="Reg No" value={member?.regno} icon={<FaHashtag />} copy />
-        <Field
-          label="Email"
-          value={member?.email}
-          icon={<FaEnvelope />}
-          email
-        />
-        <Field label="Phone" value={member?.phone} icon={<FaPhone />} phone />
-        <Field label="Branch" value={member?.branch} icon={<FaBuilding />} />
-        <Field
-          label="College"
-          value={member?.college}
-          icon={<FaUniversity />}
-        />
-        <Field label="Year" value={member?.year} icon={<FaUniversity />} />
+    <div className="rounded-xl border border-neutral-700 bg-neutral-900/80 p-6 shadow-lg flex flex-col md:flex-row items-center gap-6">
+      <Avatar name={member?.name} size={56} />
+      <div className="flex-1 w-full">
+        <div className="flex items-center gap-2 mb-2">
+          <h3 className="text-lg font-bold text-blue-200">Member {idx + 1}</h3>
+          <span className="px-2 py-0.5 rounded-full bg-neutral-800 text-neutral-200 text-xs font-semibold">
+            Member
+          </span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Field label="Full Name" value={member?.name} icon={<FaUser />} />
+          <Field
+            label="Reg No"
+            value={member?.regno}
+            icon={<FaHashtag />}
+            copy
+          />
+          <Field
+            label="Email"
+            value={member?.email}
+            icon={<FaEnvelope />}
+            email
+          />
+          <Field label="Phone" value={member?.phone} icon={<FaPhone />} phone />
+          <Field label="Branch" value={member?.branch} icon={<FaBuilding />} />
+          <Field
+            label="College"
+            value={member?.college}
+            icon={<FaUniversity />}
+          />
+          <Field label="Year" value={member?.year} icon={<FaUniversity />} />
+        </div>
       </div>
     </div>
   );
@@ -157,37 +168,41 @@ function MemberCard({ member, idx }) {
 // Field with icon, copy/email/phone actions
 function Field({ label, value, icon, copy, email, phone }) {
   return (
-    <div className="flex items-center gap-2 text-sm text-neutral-300">
-      <span className="text-blue-400">{icon}</span>
-      <span className="font-semibold text-neutral-400 w-24">{label}:</span>
-      <span className="text-white">{value}</span>
-      {copy && value && (
-        <button
-          className="ml-2 px-2 py-0.5 rounded bg-blue-800/40 text-blue-200 text-xs hover:bg-blue-700/60"
-          title="Copy"
-          onClick={() => navigator.clipboard.writeText(value)}
-        >
-          Copy
-        </button>
-      )}
-      {email && value && (
-        <a
-          href={`mailto:${value}`}
-          className="ml-2 px-2 py-0.5 rounded bg-blue-800/40 text-blue-200 text-xs hover:bg-blue-700/60"
-          title="Send Email"
-        >
-          Email
-        </a>
-      )}
-      {phone && value && (
-        <a
-          href={`tel:${value}`}
-          className="ml-2 px-2 py-0.5 rounded bg-blue-800/40 text-blue-200 text-xs hover:bg-blue-700/60"
-          title="Call"
-        >
-          Call
-        </a>
-      )}
+    <div className="flex items-start gap-2 text-sm text-neutral-300 flex-wrap">
+      <span className="text-blue-400 mt-0.5 shrink-0">{icon}</span>
+      <span className="font-semibold text-neutral-400 w-24 shrink-0">
+        {label}:
+      </span>
+      <span className="text-white min-w-0 flex-1 break-all">{value}</span>
+      <span className="flex items-center gap-2 shrink-0">
+        {copy && value && (
+          <button
+            className="px-2 py-0.5 rounded bg-blue-800/40 text-blue-200 text-xs hover:bg-blue-700/60"
+            title="Copy"
+            onClick={() => navigator.clipboard.writeText(value)}
+          >
+            Copy
+          </button>
+        )}
+        {email && value && (
+          <a
+            href={`mailto:${value}`}
+            className="px-2 py-0.5 rounded bg-blue-800/40 text-blue-200 text-xs hover:bg-blue-700/60"
+            title="Send Email"
+          >
+            Email
+          </a>
+        )}
+        {phone && value && (
+          <a
+            href={`tel:${value}`}
+            className="px-2 py-0.5 rounded bg-blue-800/40 text-blue-200 text-xs hover:bg-blue-700/60"
+            title="Call"
+          >
+            Call
+          </a>
+        )}
+      </span>
     </div>
   );
 }
@@ -219,7 +234,7 @@ export default function TeamPanel({ team, event }) {
       />
       {hasLeader && <LeaderCard leader={team.leader} />}
       {hasMembers && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-2">
+        <div className="mt-2 space-y-6">
           {team.members.map((member, idx) => (
             <MemberCard key={member._id || idx} member={member} idx={idx} />
           ))}

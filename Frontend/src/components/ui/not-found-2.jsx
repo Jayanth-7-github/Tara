@@ -29,7 +29,7 @@ export default function NotFoundUi() {
               asChild
               className="rounded-full bg-neutral-200 px-7 py-3 text-black shadow-[0_0_0_1px_rgba(255,255,255,0.02)] hover:bg-neutral-100 transition-colors"
             >
-              <a href="/">
+              <a href="/events">
                 <IconHome className="size-4 mr-2" />
                 Go Home
               </a>
@@ -40,7 +40,7 @@ export default function NotFoundUi() {
               variant="outline"
               className="rounded-full border border-neutral-600 px-7 py-3 text-white hover:border-neutral-400 bg-transparent"
             >
-              <a href="/events">
+              <a href="/explore">
                 <IconCompass className="size-4 mr-2" />
                 Explore
               </a>

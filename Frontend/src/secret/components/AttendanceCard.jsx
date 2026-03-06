@@ -17,6 +17,8 @@ export default function AttendanceCard({
   const hostelName = student.hostelName ?? "";
   const roomNo = student.roomNo ?? "";
 
+  const isTeamEvent = selectedEvent?.participationType === "team";
+
   const isDayScholar =
     String(hostelName || "")
       .trim()
@@ -43,10 +45,12 @@ export default function AttendanceCard({
           <span className="font-semibold text-gray-400">Role:</span>{" "}
           <span className="text-white">{teamRole}</span>
         </p>
-        <p className="text-gray-300">
-          <span className="font-semibold text-gray-400">Team Name:</span>{" "}
-          <span className="text-white">{teamName || "—"}</span>
-        </p>
+        {isTeamEvent ? (
+          <p className="text-gray-300">
+            <span className="font-semibold text-gray-400">Team Name:</span>{" "}
+            <span className="text-white">{teamName || "—"}</span>
+          </p>
+        ) : null}
         <p className="text-gray-300">
           <span className="font-semibold text-gray-400">Hostel Name:</span>{" "}
           <span className="text-white">{hostelName || "—"}</span> •

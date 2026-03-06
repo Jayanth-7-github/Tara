@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { PISTON_API_BASE } from "../../services/constants";
 
 export default function ExamCompiler({
   questionId = "default",
@@ -55,8 +56,6 @@ export default function ExamCompiler({
     localStorage.setItem("exam_language", selectedLanguage);
   }, [selectedLanguage]);
 
-
-
   const templates = {
     c: `#include <stdio.h>\n\nint main() {\n    printf("Hello World");\n    return 0;\n}`,
     "c++": `#include <iostream>\n\nint main() {\n    std::cout << "Hello World!";\n    return 0;\n}`,
@@ -98,7 +97,7 @@ export default function ExamCompiler({
     const timeoutId = setTimeout(() => controller.abort(), EXEC_TIMEOUT_MS);
 
     try {
-      const response = await fetch("https://emkc.org/api/v2/piston/execute", {
+      const response = await fetch(PISTON_API_BASE, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: controller.signal,
@@ -410,22 +409,22 @@ export default function ExamCompiler({
             allowCopyPaste
               ? undefined
               : (e) => {
-                e.preventDefault();
-              }
+                  e.preventDefault();
+                }
           }
           onCopy={
             allowCopyPaste
               ? undefined
               : (e) => {
-                e.preventDefault();
-              }
+                  e.preventDefault();
+                }
           }
           onCut={
             allowCopyPaste
               ? undefined
               : (e) => {
-                e.preventDefault();
-              }
+                  e.preventDefault();
+                }
           }
           onKeyDown={(e) => {
             // 1. Allow undo/redo (let browser handle it)
@@ -740,10 +739,11 @@ export default function ExamCompiler({
                   setActiveFooterTab(tab);
                   setIsFooterExpanded(true);
                 }}
-                className={`px-4 h-full text-xs font-bold uppercase tracking-wide border-r border-gray-700 transition-colors ${activeFooterTab === tab
-                  ? "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-200 border-t-2 border-t-blue-500"
-                  : "text-gray-500 hover:text-gray-300 hover:bg-gray-800"
-                  }`}
+                className={`px-4 h-full text-xs font-bold uppercase tracking-wide border-r border-gray-700 transition-colors ${
+                  activeFooterTab === tab
+                    ? "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-200 border-t-2 border-t-blue-500"
+                    : "text-gray-500 hover:text-gray-300 hover:bg-gray-800"
+                }`}
               >
                 {tab === "run"
                   ? "Run"
@@ -782,10 +782,11 @@ export default function ExamCompiler({
                 <button
                   onClick={handleRun}
                   disabled={isRunning}
-                  className={`flex items-center gap-2 px-4 py-1.5 rounded-sm text-sm font-bold shadow-md transition-all ${isRunning
-                    ? "bg-gray-700 text-gray-400 cursor-not-allowed"
-                    : "bg-[#7c3aed] text-white hover:bg-[#6d28d9]"
-                    }`}
+                  className={`flex items-center gap-2 px-4 py-1.5 rounded-sm text-sm font-bold shadow-md transition-all ${
+                    isRunning
+                      ? "bg-gray-700 text-gray-400 cursor-not-allowed"
+                      : "bg-[#7c3aed] text-white hover:bg-[#6d28d9]"
+                  }`}
                 >
                   {isRunning ? "Running..." : "Run Code"}
                 </button>
@@ -806,22 +807,22 @@ export default function ExamCompiler({
                     allowCopyPaste
                       ? undefined
                       : (e) => {
-                        e.preventDefault();
-                      }
+                          e.preventDefault();
+                        }
                   }
                   onCopy={
                     allowCopyPaste
                       ? undefined
                       : (e) => {
-                        e.preventDefault();
-                      }
+                          e.preventDefault();
+                        }
                   }
                   onCut={
                     allowCopyPaste
                       ? undefined
                       : (e) => {
-                        e.preventDefault();
-                      }
+                          e.preventDefault();
+                        }
                   }
                   placeholder="Enter your input here..."
                   className="w-full h-full bg-[#1e1e1e] border border-gray-700 rounded-sm p-3 text-sm text-gray-300 focus:outline-none focus:border-gray-500 font-mono resize-none"
@@ -867,10 +868,11 @@ export default function ExamCompiler({
               {/* Results Banner */}
               {Object.keys(testResults).length > 0 && (
                 <div
-                  className={`px-4 py-2 flex justify-between items-center text-sm font-bold border-b ${Object.values(testResults).every((r) => r.success)
-                    ? "bg-green-100 text-green-700 border-green-200"
-                    : "bg-red-100 text-red-700 border-red-200"
-                    }`}
+                  className={`px-4 py-2 flex justify-between items-center text-sm font-bold border-b ${
+                    Object.values(testResults).every((r) => r.success)
+                      ? "bg-green-100 text-green-700 border-green-200"
+                      : "bg-red-100 text-red-700 border-red-200"
+                  }`}
                 >
                   <span className="flex-1 text-center">
                     You have passed{" "}
@@ -893,10 +895,11 @@ export default function ExamCompiler({
                     <button
                       onClick={handleRunTestCases}
                       disabled={isRunning}
-                      className={`w-full py-2 rounded text-sm font-bold shadow-md transition-all flex items-center justify-center gap-2 ${isRunning
-                        ? "bg-gray-700 text-gray-400 cursor-not-allowed"
-                        : "bg-[#7c3aed] text-white hover:bg-[#6d28d9]"
-                        }`}
+                      className={`w-full py-2 rounded text-sm font-bold shadow-md transition-all flex items-center justify-center gap-2 ${
+                        isRunning
+                          ? "bg-gray-700 text-gray-400 cursor-not-allowed"
+                          : "bg-[#7c3aed] text-white hover:bg-[#6d28d9]"
+                      }`}
                     >
                       {isRunning ? (
                         <svg
@@ -945,10 +948,11 @@ export default function ExamCompiler({
                         <div
                           key={i}
                           onClick={() => setActiveTestCaseIndex(i)}
-                          className={`px-4 py-3 cursor-pointer flex justify-between items-center text-sm font-medium border-b border-gray-700/50 transition-colors ${isActive
-                            ? "bg-[#2d2d2d] text-white border-l-4 border-l-white"
-                            : "text-gray-400 hover:bg-[#252525]"
-                            }`}
+                          className={`px-4 py-3 cursor-pointer flex justify-between items-center text-sm font-medium border-b border-gray-700/50 transition-colors ${
+                            isActive
+                              ? "bg-[#2d2d2d] text-white border-l-4 border-l-white"
+                              : "text-gray-400 hover:bg-[#252525]"
+                          }`}
                         >
                           <span>Test Case {i + 1}</span>
                           {isPass && (
@@ -999,10 +1003,11 @@ export default function ExamCompiler({
                             Actual Output
                           </h4>
                           <div
-                            className={`border p-4 rounded text-sm font-mono whitespace-pre-wrap ${testResults[activeTestCaseIndex].success
-                              ? "bg-green-900/10 border-green-800 text-green-300"
-                              : "bg-red-900/10 border-red-800 text-red-300"
-                              }`}
+                            className={`border p-4 rounded text-sm font-mono whitespace-pre-wrap ${
+                              testResults[activeTestCaseIndex].success
+                                ? "bg-green-900/10 border-green-800 text-green-300"
+                                : "bg-red-900/10 border-red-800 text-red-300"
+                            }`}
                           >
                             {testResults[activeTestCaseIndex].actual ||
                               testResults[activeTestCaseIndex].error || (

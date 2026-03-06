@@ -34,6 +34,12 @@ const SERVICE_MAP = {
   updateAttendance: "default",
   deleteAttendance: "default",
 
+  // Student Attendance (photo + approval)
+  markStudentAttendance: "default",
+  reviewStudentAttendance: "default",
+  getStudentAttendanceRecords: "default",
+  getManagerStudentAttendance: "default",
+
   // Contact
   sendContactMessage: "default",
   getMyContacts: "default",

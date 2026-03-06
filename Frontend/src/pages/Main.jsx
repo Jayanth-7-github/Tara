@@ -42,7 +42,7 @@ export default function Main() {
       localStorage.removeItem("token");
       try {
         window.dispatchEvent(new Event("auth-changed"));
-      } catch (e) { }
+      } catch (e) {}
       navigate("/login");
     } catch (error) {
       console.error("Logout failed:", error);
@@ -50,30 +50,27 @@ export default function Main() {
       localStorage.removeItem("token");
       try {
         window.dispatchEvent(new Event("auth-changed"));
-      } catch (e) { }
+      } catch (e) {}
       navigate("/login");
     }
   };
 
+  // Remove forced login redirect. Optionally, you can still fetch user info if available.
   useEffect(() => {
-    const verifyAuth = async () => {
+    const fetchUser = async () => {
       try {
         const response = await checkLogin();
-        if (!response.authenticated) {
-          navigate("/login", { replace: true });
-        } else {
+        if (response.authenticated) {
           setUser(response.user);
         }
       } catch (error) {
-        console.error("Auth check failed:", error);
-        navigate("/login", { replace: true });
+        // Not logged in, ignore
       } finally {
         setLoading(false);
       }
     };
-
-    verifyAuth();
-  }, [navigate]);
+    fetchUser();
+  }, []);
 
   useEffect(() => {
     const fetchTestResults = async () => {
@@ -115,7 +112,6 @@ export default function Main() {
     return () => clearInterval(interval);
   }, [user]);
 
-
   // Loading animation on mainpage
   if (loading) {
     return (
@@ -123,7 +119,10 @@ export default function Main() {
         {/* Animated background gradient orbs */}
         <div className="absolute inset-0 overflow-hidden">
           <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl animate-pulse"></div>
-          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-cyan-600/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+          <div
+            className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-cyan-600/10 rounded-full blur-3xl animate-pulse"
+            style={{ animationDelay: "1s" }}
+          ></div>
         </div>
 
         {/* Main loading container */}
@@ -136,13 +135,24 @@ export default function Main() {
 
             {/* Animated dots */}
             <div className="flex items-center justify-center gap-1.5">
-              <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-              <div className="w-2 h-2 bg-cyan-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-              <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+              <div
+                className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"
+                style={{ animationDelay: "0ms" }}
+              ></div>
+              <div
+                className="w-2 h-2 bg-cyan-500 rounded-full animate-bounce"
+                style={{ animationDelay: "150ms" }}
+              ></div>
+              <div
+                className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"
+                style={{ animationDelay: "300ms" }}
+              ></div>
             </div>
 
             {/* Subtle message */}
-            <p className="text-sm text-gray-500 mt-4">Please wait a moment...</p>
+            <p className="text-sm text-gray-500 mt-4">
+              Please wait a moment...
+            </p>
           </div>
 
           {/* Progress bar */}
@@ -206,12 +216,21 @@ export default function Main() {
                 >
                   View Upcoming Events
                 </button>
-                <button
-                  onClick={handleLogout}
-                  className="px-8 py-3 rounded-full border border-slate-700 hover:bg-slate-800 text-slate-300 transition-all font-medium"
-                >
-                  Logout
-                </button>
+                {user ? (
+                  <button
+                    onClick={handleLogout}
+                    className="px-8 py-3 rounded-full border border-slate-700 hover:bg-slate-800 text-slate-300 transition-all font-medium"
+                  >
+                    Logout
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => navigate("/login")}
+                    className="px-8 py-3 rounded-full border border-slate-700 hover:bg-slate-800 text-slate-300 transition-all font-medium"
+                  >
+                    Login
+                  </button>
+                )}
               </div>
 
               <motion.div

@@ -2,6 +2,7 @@ const path = require("path");
 const Student = require(path.join(__dirname, "..", "models", "Student"));
 const Attendance = require(path.join(__dirname, "..", "models", "Attendance"));
 const Event = require(path.join(__dirname, "..", "models", "Event"));
+const Team = require(path.join(__dirname, "..", "models", "Team"));
 
 // Helper: format date as local "YYYY-MM-DD HH:mm"
 function formatLocalYMDHM(d) {
@@ -200,11 +201,73 @@ exports.getSummary = async (req, res) => {
 
     const query = eventFilter ? { eventName: eventFilter } : {};
 
+    // If requesting a single event and it's a team event, derive team names per regno.
+    let teamNameByRegnoLower = {};
+    let eventDocForTeam = null;
+    if (eventFilter) {
+      eventDocForTeam = await Event.findOne({ title: eventFilter })
+        .select("_id participationType")
+        .lean();
+    }
+
     // Fetch aggregated documents
     const attendanceDocs = await Attendance.find(query)
       .sort({ updatedAt: -1 })
       .limit(limit)
       .lean();
+
+    if (
+      eventDocForTeam &&
+      eventDocForTeam.participationType === "team" &&
+      attendanceDocs.length > 0
+    ) {
+      const regnos = attendanceDocs
+        .map((d) => (d && d.regno ? String(d.regno) : ""))
+        .filter(Boolean);
+
+      const stus = await Student.find({ regno: { $in: regnos } })
+        .select("_id regno")
+        .lean();
+
+      const studentIdByRegnoLower = {};
+      const studentIds = [];
+      for (const s of stus) {
+        const key = s && s.regno ? String(s.regno).toLowerCase() : null;
+        if (!key) continue;
+        studentIdByRegnoLower[key] = s._id;
+        studentIds.push(s._id);
+      }
+
+      if (studentIds.length > 0) {
+        const teams = await Team.find({
+          event: eventDocForTeam._id,
+          $or: [
+            { leader: { $in: studentIds } },
+            { members: { $in: studentIds } },
+          ],
+        })
+          .select("name leader members")
+          .lean();
+
+        const teamNameByStudentId = {};
+        for (const t of teams) {
+          const nm = t.name || "";
+          if (!nm) continue;
+          const leaderId = t.leader ? String(t.leader) : "";
+          if (leaderId) teamNameByStudentId[leaderId] = nm;
+          const members = Array.isArray(t.members) ? t.members : [];
+          for (const m of members) {
+            const mId = m ? String(m) : "";
+            if (mId) teamNameByStudentId[mId] = nm;
+          }
+        }
+
+        for (const [regnoLower, sid] of Object.entries(studentIdByRegnoLower)) {
+          const sIdStr = sid ? String(sid) : "";
+          teamNameByRegnoLower[regnoLower] = teamNameByStudentId[sIdStr] || "";
+        }
+      }
+    }
 
     // Flatten logic for summary
     const flattenedRecords = [];
@@ -228,6 +291,8 @@ exports.getSummary = async (req, res) => {
             ...sVal,
             regno: doc.regno,
             name: doc.name,
+            teamName:
+              teamNameByRegnoLower[String(doc.regno || "").toLowerCase()] || "",
             eventName: doc.eventName,
             sessionName: sVal.sessionName || sKey,
             _id: doc._id,
@@ -255,26 +320,40 @@ exports.getSummary = async (req, res) => {
 // Renamed from exportAttendance to exportCSV per route config
 exports.exportCSV = async (req, res) => {
   try {
-    const eventName = req.query.eventName;
+    const eventName =
+      typeof req.query.eventName === "string" ? req.query.eventName.trim() : "";
     const presentOnly = req.query.present === "1";
     const allStudents = req.query.allStudents === "1";
 
-    const query = eventName ? { eventName } : {};
+    const escapeRegExp = (s) =>
+      String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const toRegnoKey = (v) =>
+      String(v || "")
+        .trim()
+        .toLowerCase();
+
+    const eventNameRegex = eventName
+      ? new RegExp(`^${escapeRegExp(eventName)}$`, "i")
+      : null;
+    const query = eventNameRegex ? { eventName: eventNameRegex } : {};
 
     // Fetch attendance documents
     const docs = await Attendance.find(query).lean();
 
     // Fetch event configuration to get session names
-    const Event = require(path.join(__dirname, "..", "models", "Event"));
     let sessionNames = [];
     let eventDoc = null;
 
-    if (eventName) {
-      eventDoc = await Event.findOne({ title: eventName }).lean();
+    if (eventNameRegex) {
+      eventDoc = await Event.findOne({ title: eventNameRegex }).lean();
       if (eventDoc && eventDoc.sessions) {
         sessionNames = eventDoc.sessions.map((s) => s.name);
       }
     }
+
+    const includeTeamName = !!(
+      eventDoc && eventDoc.participationType === "team"
+    );
 
     // If no event or no sessions configured, extract unique session names from attendance data
     if (sessionNames.length === 0) {
@@ -290,7 +369,9 @@ exports.exportCSV = async (req, res) => {
     }
 
     // Build CSV header
-    const headers = ["Roll Number", "Name", "Email", "Hostel", "Event"];
+    const headers = ["Roll Number", "Name"];
+    if (includeTeamName) headers.push("Team Name");
+    headers.push("Email", "Hostel", "Event");
     sessionNames.forEach((sName) => {
       headers.push(sName); // Session attendance column
       headers.push(`${sName} - Time`); // Session timestamp column
@@ -299,26 +380,32 @@ exports.exportCSV = async (req, res) => {
     const lines = [];
     lines.push(headers.join(","));
 
-    // Group attendance by student (regno)
-    const attendanceByRegno = {};
+    // Group attendance by student (regno) using a normalized key to avoid casing/whitespace mismatches
+    const attendanceByRegnoKey = {};
     for (const doc of docs) {
-      if (!attendanceByRegno[doc.regno]) {
-        attendanceByRegno[doc.regno] = {
+      const key = toRegnoKey(doc && doc.regno);
+      if (!key) continue;
+
+      if (!attendanceByRegnoKey[key]) {
+        attendanceByRegnoKey[key] = {
           regno: doc.regno,
           name: doc.name,
           eventName: doc.eventName,
+          student: doc.student,
           sessions: {},
         };
+      } else if (!attendanceByRegnoKey[key].student && doc.student) {
+        attendanceByRegnoKey[key].student = doc.student;
       }
 
       if (doc.sessions) {
         for (const [sName, sVal] of Object.entries(doc.sessions)) {
-          attendanceByRegno[doc.regno].sessions[sName] = sVal;
+          attendanceByRegnoKey[key].sessions[sName] = sVal;
         }
       }
     }
 
-    let regnos = Object.keys(attendanceByRegno);
+    let regnoKeys = Object.keys(attendanceByRegnoKey);
     let students = [];
 
     if (allStudents && eventName && eventDoc) {
@@ -327,27 +414,181 @@ exports.exportCSV = async (req, res) => {
         "registrations.event": eventDoc._id,
       }).lean();
 
-      const registeredRegnos = students.map((s) => s.regno).filter(Boolean);
-      const regnoSet = new Set(regnos);
-      for (const r of registeredRegnos) regnoSet.add(r);
-      regnos = Array.from(regnoSet);
+      const regnoKeySet = new Set(regnoKeys);
+      for (const s of students) {
+        const k = toRegnoKey(s && s.regno);
+        if (k) regnoKeySet.add(k);
+      }
+      regnoKeys = Array.from(regnoKeySet);
     } else {
       // Default behaviour: only students who have attendance records
+      const attendanceRegnos = Object.values(attendanceByRegnoKey)
+        .map((x) => x && x.regno)
+        .filter(Boolean);
       students = await Student.find({
-        regno: { $in: regnos },
+        regno: { $in: attendanceRegnos },
       }).lean();
     }
 
-    const studentDetailsMap = {};
-    students.forEach((s) => {
-      studentDetailsMap[s.regno] = s;
-    });
+    const studentDetailsByRegnoKey = {};
+    const studentIdByRegnoKey = {};
+    for (const s of students) {
+      const k = toRegnoKey(s && s.regno);
+      if (!k) continue;
+      studentDetailsByRegnoKey[k] = s;
+      if (s && s._id) studentIdByRegnoKey[k] = String(s._id);
+    }
+
+    // Seed studentId map from attendance docs as a fallback
+    for (const [k, entry] of Object.entries(attendanceByRegnoKey)) {
+      if (!studentIdByRegnoKey[k] && entry && entry.student) {
+        studentIdByRegnoKey[k] = String(entry.student);
+      }
+    }
+
+    // If this is a team event, derive team name per regno from Team collection
+    const teamNameByRegnoKey = {};
+    let teamsForEvent = [];
+    if (includeTeamName && eventDoc) {
+      teamsForEvent = await Team.find({ event: eventDoc._id })
+        .select("name leader members")
+        .lean();
+
+      const teamNameByStudentId = {};
+      for (const t of teamsForEvent) {
+        const nm = (t && t.name) || "";
+        if (!nm) continue;
+        const leaderId = t && t.leader ? String(t.leader) : "";
+        if (leaderId) teamNameByStudentId[leaderId] = nm;
+        const members = Array.isArray(t && t.members) ? t.members : [];
+        for (const m of members) {
+          const mId = m ? String(m) : "";
+          if (mId) teamNameByStudentId[mId] = nm;
+        }
+      }
+
+      for (const k of regnoKeys) {
+        const studentId = studentIdByRegnoKey[k];
+        const fromTeam = studentId
+          ? teamNameByStudentId[String(studentId)] || ""
+          : "";
+        const fallback =
+          (studentDetailsByRegnoKey[k] &&
+            studentDetailsByRegnoKey[k].teamName) ||
+          "";
+        teamNameByRegnoKey[k] = fromTeam || fallback;
+      }
+    }
+
+    // For team events: order rows grouped by team (leader first, then members)
+    if (includeTeamName && eventDoc) {
+      const regnoKeySet = new Set(regnoKeys);
+      const regnoKeyByStudentId = {};
+      for (const s of students) {
+        if (s && s._id) {
+          regnoKeyByStudentId[String(s._id)] = toRegnoKey(s.regno);
+        }
+      }
+      for (const [k, entry] of Object.entries(attendanceByRegnoKey)) {
+        const sid = entry && entry.student ? String(entry.student) : "";
+        if (sid && !regnoKeyByStudentId[sid]) regnoKeyByStudentId[sid] = k;
+      }
+
+      const regnoDisplay = (k) =>
+        (studentDetailsByRegnoKey[k] && studentDetailsByRegnoKey[k].regno) ||
+        (attendanceByRegnoKey[k] && attendanceByRegnoKey[k].regno) ||
+        "";
+
+      if (!Array.isArray(teamsForEvent) || teamsForEvent.length === 0) {
+        teamsForEvent = await Team.find({ event: eventDoc._id })
+          .select("name leader members")
+          .lean();
+      }
+
+      // Fallback: if there are no Team docs for this event, still keep team members together
+      // by sorting using the derived team name values.
+      if (!Array.isArray(teamsForEvent) || teamsForEvent.length === 0) {
+        regnoKeys.sort((a, b) => {
+          const aTeam = String(teamNameByRegnoKey[a] || "").trim();
+          const bTeam = String(teamNameByRegnoKey[b] || "").trim();
+          const aTeamKey = aTeam ? aTeam.toLowerCase() : "~"; // blanks last
+          const bTeamKey = bTeam ? bTeam.toLowerCase() : "~";
+          if (aTeamKey !== bTeamKey) return aTeamKey.localeCompare(bTeamKey);
+
+          const ar = String(regnoDisplay(a) || "");
+          const br = String(regnoDisplay(b) || "");
+          if (ar !== br) return ar.localeCompare(br);
+
+          const an = String(
+            (studentDetailsByRegnoKey[a] && studentDetailsByRegnoKey[a].name) ||
+              (attendanceByRegnoKey[a] && attendanceByRegnoKey[a].name) ||
+              "",
+          );
+          const bn = String(
+            (studentDetailsByRegnoKey[b] && studentDetailsByRegnoKey[b].name) ||
+              (attendanceByRegnoKey[b] && attendanceByRegnoKey[b].name) ||
+              "",
+          );
+          return an.localeCompare(bn);
+        });
+      } else {
+        teamsForEvent.sort((a, b) => {
+          const an = String(a?.name || "").toLowerCase();
+          const bn = String(b?.name || "").toLowerCase();
+          return an.localeCompare(bn);
+        });
+
+        const ordered = [];
+        const added = new Set();
+
+        for (const t of teamsForEvent) {
+          const leaderKey =
+            t && t.leader ? regnoKeyByStudentId[String(t.leader)] : null;
+          const memberKeys = Array.isArray(t?.members)
+            ? t.members
+                .map((m) => regnoKeyByStudentId[String(m)])
+                .filter(Boolean)
+            : [];
+
+          // Only include students relevant to this export
+          if (
+            leaderKey &&
+            regnoKeySet.has(leaderKey) &&
+            !added.has(leaderKey)
+          ) {
+            ordered.push(leaderKey);
+            added.add(leaderKey);
+          }
+
+          memberKeys.sort((x, y) =>
+            String(regnoDisplay(x)).localeCompare(String(regnoDisplay(y))),
+          );
+          for (const k of memberKeys) {
+            if (regnoKeySet.has(k) && !added.has(k)) {
+              ordered.push(k);
+              added.add(k);
+            }
+          }
+        }
+
+        // Append any remaining students (no team / not found in teams)
+        const remaining = regnoKeys.filter((k) => !added.has(k));
+        remaining.sort((x, y) =>
+          String(regnoDisplay(x)).localeCompare(String(regnoDisplay(y))),
+        );
+        regnoKeys = ordered.concat(remaining);
+      }
+    }
 
     // Build CSV rows
-    for (const regno of regnos) {
-      const attendanceData = attendanceByRegno[regno];
-      const studentDetails = studentDetailsMap[regno] || {};
+    for (const regnoKey of regnoKeys) {
+      const attendanceData = attendanceByRegnoKey[regnoKey];
+      const studentDetails = studentDetailsByRegnoKey[regnoKey] || {};
 
+      const displayRegno =
+        (studentDetails && studentDetails.regno) ||
+        (attendanceData && attendanceData.regno) ||
+        "";
       const displayName =
         (studentDetails && studentDetails.name) ||
         (attendanceData && attendanceData.name) ||
@@ -356,8 +597,9 @@ exports.exportCSV = async (req, res) => {
         eventName || (attendanceData && attendanceData.eventName) || "";
 
       const row = [
-        regno,
+        displayRegno,
         displayName,
+        ...(includeTeamName ? [teamNameByRegnoKey[regnoKey] || ""] : []),
         studentDetails.email || "",
         studentDetails.hostelName || "",
         rowEventName,

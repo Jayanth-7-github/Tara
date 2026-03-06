@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { checkLogin } from "../services/auth";
-import { fetchEvents, updateEvent } from "../services/api";
+import { fetchEvents, getRoles, updateEvent } from "../services/api";
 
 export default function EventSessions() {
   const navigate = useNavigate();
@@ -12,6 +12,7 @@ export default function EventSessions() {
 
   const [events, setEvents] = useState([]);
   const [selectedEventId, setSelectedEventId] = useState("");
+  const [activeTab, setActiveTab] = useState("student");
   const [sessions, setSessions] = useState([]);
   const [newSessionName, setNewSessionName] = useState("");
   const [loading, setLoading] = useState(false);
@@ -58,20 +59,44 @@ export default function EventSessions() {
     if (selectedEventId) {
       const ev = events.find((e) => e._id === selectedEventId);
       if (ev) {
-        setSessions(ev.sessions ? JSON.parse(JSON.stringify(ev.sessions)) : []);
+        const list =
+          activeTab === "normal"
+            ? ev.sessions
+            : ev.studentSessions || ev.sessions; // fallback for older events
+        setSessions(list ? JSON.parse(JSON.stringify(list)) : []);
       }
     }
-  }, [selectedEventId, events]);
+  }, [selectedEventId, events, activeTab]);
 
   const loadEvents = async () => {
     try {
       const res = await fetchEvents();
       const allEvents = res.events || res || [];
 
+      const rc = await getRoles().catch(() => null);
+      const eventManagersByEvent = rc?.eventManagersByEvent || {};
+
       const userEmail = (user.email || "").toLowerCase().trim();
+
+      const isConfiguredManagerFor = (ev) => {
+        const titleKey = ev?.title ? String(ev.title).trim() : "";
+        const idKey = ev?._id ? String(ev._id).trim() : "";
+        const keys = [titleKey, idKey].filter(Boolean);
+
+        for (const k of keys) {
+          const list = Array.isArray(eventManagersByEvent?.[k])
+            ? eventManagersByEvent[k]
+            : [];
+          const normalized = list.map((x) => String(x).toLowerCase().trim());
+          if (normalized.includes(userEmail)) return true;
+        }
+        return false;
+      };
+
       const managedEvents = allEvents.filter((ev) => {
+        if (user?.role === "admin") return true;
         const managerEmail = (ev.managerEmail || "").toLowerCase().trim();
-        return managerEmail === userEmail;
+        return managerEmail === userEmail || isConfiguredManagerFor(ev);
       });
 
       setEvents(managedEvents);
@@ -81,6 +106,32 @@ export default function EventSessions() {
     } catch (err) {
       console.error("Failed to load events", err);
     }
+  };
+
+  const filterManagedEvents = (allEvents, rc) => {
+    const eventManagersByEvent = rc?.eventManagersByEvent || {};
+    const userEmail = (user?.email || "").toLowerCase().trim();
+
+    const isConfiguredManagerFor = (ev) => {
+      const titleKey = ev?.title ? String(ev.title).trim() : "";
+      const idKey = ev?._id ? String(ev._id).trim() : "";
+      const keys = [titleKey, idKey].filter(Boolean);
+
+      for (const k of keys) {
+        const list = Array.isArray(eventManagersByEvent?.[k])
+          ? eventManagersByEvent[k]
+          : [];
+        const normalized = list.map((x) => String(x).toLowerCase().trim());
+        if (normalized.includes(userEmail)) return true;
+      }
+      return false;
+    };
+
+    return (Array.isArray(allEvents) ? allEvents : []).filter((ev) => {
+      if (user?.role === "admin") return true;
+      const managerEmail = (ev?.managerEmail || "").toLowerCase().trim();
+      return managerEmail === userEmail || isConfiguredManagerFor(ev);
+    });
   };
 
   const handleToggle = (index) => {
@@ -170,7 +221,13 @@ export default function EventSessions() {
     setLoading(true);
     try {
       const cleanedSessions = currentSessions.map(({ _id, ...rest }) => rest);
-      await updateEvent(selectedEventId, { sessions: cleanedSessions });
+      if (activeTab === "normal") {
+        await updateEvent(selectedEventId, { sessions: cleanedSessions });
+      } else {
+        await updateEvent(selectedEventId, {
+          studentSessions: cleanedSessions,
+        });
+      }
 
       setMessage("Saved...");
       setTimeout(
@@ -180,12 +237,8 @@ export default function EventSessions() {
 
       const res = await fetchEvents();
       const allEvents = res.events || res || [];
-      const userEmail = (user.email || "").toLowerCase().trim();
-      const managedEvents = allEvents.filter((ev) => {
-        const managerEmail = (ev.managerEmail || "").toLowerCase().trim();
-        return managerEmail === userEmail;
-      });
-      setEvents(managedEvents);
+      const rc = await getRoles().catch(() => null);
+      setEvents(filterManagedEvents(allEvents, rc));
     } catch (err) {
       console.error(err);
       setMessage(err.message || "Auto-save failed");
@@ -240,7 +293,7 @@ export default function EventSessions() {
               Manage Event Sessions
             </h1>
             <p className="text-sm text-gray-400">
-              Enable, disable, or add attendance sessions for your events.
+              This page is only for Event Managers and Admins.
             </p>
           </div>
           <button
@@ -268,6 +321,50 @@ export default function EventSessions() {
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="mb-6">
+            <div className="inline-flex rounded-lg border border-gray-700 bg-gray-900/60 p-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab("normal");
+                  setMessage("");
+                  setEditingIdx(null);
+                  setEditingName("");
+                }}
+                className={
+                  "px-4 py-2 rounded-md text-sm transition " +
+                  (activeTab === "normal"
+                    ? "bg-gray-700 text-white"
+                    : "text-gray-300 hover:bg-gray-800")
+                }
+              >
+                Normal Sessions
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab("student");
+                  setMessage("");
+                  setEditingIdx(null);
+                  setEditingName("");
+                }}
+                className={
+                  "px-4 py-2 rounded-md text-sm transition " +
+                  (activeTab === "student"
+                    ? "bg-gray-700 text-white"
+                    : "text-gray-300 hover:bg-gray-800")
+                }
+              >
+                Student Sessions
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-gray-500">
+              {activeTab === "student"
+                ? "Student Sessions appear in the Student Dashboard attendance popup."
+                : "Normal Sessions are used for the regular attendance module."}
+            </p>
           </div>
 
           <div className="space-y-4 mb-8">

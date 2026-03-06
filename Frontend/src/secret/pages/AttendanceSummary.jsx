@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { getSummary, downloadCSV, fetchEvents, verifyEventKey } from "../../services/api";
+import {
+  getSummary,
+  downloadCSV,
+  fetchEvents,
+  verifyEventKey,
+} from "../../services/api";
 import { checkLogin } from "../../services/auth";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -23,7 +28,10 @@ export default function AttendanceSummary() {
     const runCheck = async () => {
       try {
         const auth = await checkLogin();
-        if (auth.authenticated && (auth.user.role === "admin" || auth.user.role === "member")) {
+        if (
+          auth.authenticated &&
+          (auth.user.role === "admin" || auth.user.role === "member")
+        ) {
           setIsAuthenticated(true);
           setUser(auth.user);
           setCheckingAuth(false);
@@ -57,19 +65,21 @@ export default function AttendanceSummary() {
           const stored = sessionStorage.getItem("temp_event_access");
           if (stored) {
             const data = JSON.parse(stored);
-            eventList = eventList.filter(ev => ev._id === data.eventId);
+            eventList = eventList.filter((ev) => ev._id === data.eventId);
           }
         } else if (isAuthenticated && user && user.role === "member") {
           // If logged in as member (manager), only show their events
           const userEmail = (user.email || "").toLowerCase().trim();
-          eventList = eventList.filter(ev => (ev.managerEmail || "").toLowerCase().trim() === userEmail);
+          eventList = eventList.filter(
+            (ev) => (ev.managerEmail || "").toLowerCase().trim() === userEmail,
+          );
         }
 
         setEvents(eventList);
 
         // Ensure selectedEventName is valid for the filtered list
         if (eventList.length > 0) {
-          const exists = eventList.find(ev => ev.title === selectedEventName);
+          const exists = eventList.find((ev) => ev.title === selectedEventName);
           if (!exists) {
             setSelectedEventName(eventList[0].title);
           }
@@ -132,13 +142,14 @@ export default function AttendanceSummary() {
   const rawRecords =
     summary && summary.records
       ? summary.records.filter(
-        (r) =>
-          (r.eventName || "default") === (selectedEventName || "default"),
-      )
+          (r) =>
+            (r.eventName || "default") === (selectedEventName || "default"),
+        )
       : [];
 
   // Determine columns based on Event Config
   const currentEventObj = events.find((e) => e.title === selectedEventName);
+  const isTeamEvent = currentEventObj?.participationType === "team";
   const sessionConfig = currentEventObj?.sessions || [];
   // Show ALL configured sessions, not just active ones
   const sessionColumns = sessionConfig;
@@ -180,22 +191,42 @@ export default function AttendanceSummary() {
   const studentRows =
     registeredStudents.length > 0
       ? registeredStudents.map((stu) => {
-        const attendance = attendanceByRegno[stu.regno] || {};
-        return {
-          regno: stu.regno,
-          name: stu.name || attendance.base?.name || "",
-          email: stu.email || attendance.base?.email,
-          hostelName: stu.hostelName || attendance.base?.hostelName,
-          sessions: attendance.sessions || {},
-        };
-      })
+          const attendance = attendanceByRegno[stu.regno] || {};
+          return {
+            regno: stu.regno,
+            name: stu.name || attendance.base?.name || "",
+            email: stu.email || attendance.base?.email,
+            hostelName: stu.hostelName || attendance.base?.hostelName,
+            teamName: stu.teamName || attendance.base?.teamName,
+            sessions: attendance.sessions || {},
+          };
+        })
       : Object.values(attendanceByRegno).map((entry) => ({
-        regno: entry.base.regno,
-        name: entry.base.name,
-        email: entry.base.email,
-        hostelName: entry.base.hostelName,
-        sessions: entry.sessions,
-      }));
+          regno: entry.base.regno,
+          name: entry.base.name,
+          email: entry.base.email,
+          hostelName: entry.base.hostelName,
+          teamName: entry.base.teamName,
+          sessions: entry.sessions,
+        }));
+
+  // For team events: keep team members together in UI
+  const sortedStudentRows = isTeamEvent
+    ? [...studentRows].sort((a, b) => {
+        const aTeam = String(a?.teamName || "").trim();
+        const bTeam = String(b?.teamName || "").trim();
+        const aTeamKey = aTeam ? aTeam.toLowerCase() : "~"; // put blanks last
+        const bTeamKey = bTeam ? bTeam.toLowerCase() : "~";
+
+        if (aTeamKey !== bTeamKey) return aTeamKey.localeCompare(bTeamKey);
+
+        const aReg = String(a?.regno || "");
+        const bReg = String(b?.regno || "");
+        if (aReg !== bReg) return aReg.localeCompare(bReg);
+
+        return String(a?.name || "").localeCompare(String(b?.name || ""));
+      })
+    : studentRows;
 
   const handleDownload = async (mode) => {
     try {
@@ -232,12 +263,15 @@ export default function AttendanceSummary() {
     try {
       const res = await verifyEventKey(inputKey);
       if (res.success) {
-        sessionStorage.setItem("temp_event_access", JSON.stringify({
-          eventId: res.eventId,
-          eventTitle: res.eventTitle,
-          managerEmail: res.managerEmail,
-          token: res.token
-        }));
+        sessionStorage.setItem(
+          "temp_event_access",
+          JSON.stringify({
+            eventId: res.eventId,
+            eventTitle: res.eventTitle,
+            managerEmail: res.managerEmail,
+            token: res.token,
+          }),
+        );
         setIsPublicAccess(true);
         setShowKeyModal(false);
         // Page level refresh to reload data with the key
@@ -288,21 +322,21 @@ export default function AttendanceSummary() {
                   {/* Show events from fetched list first for correctness, fallback to summary keys */}
                   {events.length > 0
                     ? events.map((ev) => (
-                      <option
-                        key={ev._id}
-                        value={ev.title}
-                        className="bg-gray-900"
-                      >
-                        {ev.title}
-                      </option>
-                    ))
+                        <option
+                          key={ev._id}
+                          value={ev.title}
+                          className="bg-gray-900"
+                        >
+                          {ev.title}
+                        </option>
+                      ))
                     : summary &&
-                    summary.byEvent &&
-                    Object.keys(summary.byEvent).map((ev) => (
-                      <option key={ev} value={ev} className="bg-gray-900">
-                        {ev}
-                      </option>
-                    ))}
+                      summary.byEvent &&
+                      Object.keys(summary.byEvent).map((ev) => (
+                        <option key={ev} value={ev} className="bg-gray-900">
+                          {ev}
+                        </option>
+                      ))}
                   {!events.length &&
                     (!summary ||
                       !summary.byEvent ||
@@ -373,7 +407,7 @@ export default function AttendanceSummary() {
 
             {/* Mobile list */}
             <div className="sm:hidden space-y-3">
-              {studentRows.map((s) => (
+              {sortedStudentRows.map((s) => (
                 <div
                   key={s.regno}
                   className="rounded-lg border border-gray-800 bg-gray-900/50 p-4 shadow-sm"
@@ -382,6 +416,14 @@ export default function AttendanceSummary() {
                     {s.name}
                   </div>
                   <div className="text-sm text-gray-400 mb-2">{s.regno}</div>
+                  {isTeamEvent ? (
+                    <div className="text-sm text-gray-400 mb-2">
+                      Team:{" "}
+                      <span className="text-gray-200 font-medium">
+                        {s.teamName || "—"}
+                      </span>
+                    </div>
+                  ) : null}
 
                   <div className="space-y-2">
                     {sessionColumns.map((sess) => {
@@ -430,6 +472,9 @@ export default function AttendanceSummary() {
                   <tr>
                     <th className="px-3 py-3 text-left">Roll No</th>
                     <th className="px-3 py-3 text-left">Name</th>
+                    {isTeamEvent ? (
+                      <th className="px-3 py-3 text-left">Team</th>
+                    ) : null}
                     <th className="px-3 py-3 text-left">Email</th>
                     <th className="px-3 py-3 text-left">Hostel</th>
                     {sessionColumns.map((sess) => (
@@ -440,14 +485,20 @@ export default function AttendanceSummary() {
                   </tr>
                 </thead>
                 <tbody>
-                  {studentRows.map((s, i) => (
+                  {sortedStudentRows.map((s, i) => (
                     <tr
                       key={s.regno}
-                      className={`${i % 2 === 0 ? "bg-gray-900/40" : "bg-gray-800/30"
-                        } border-t border-gray-800 hover:bg-gray-800/70 transition-colors`}
+                      className={`${
+                        i % 2 === 0 ? "bg-gray-900/40" : "bg-gray-800/30"
+                      } border-t border-gray-800 hover:bg-gray-800/70 transition-colors`}
                     >
                       <td className="px-3 py-3 text-gray-200">{s.regno}</td>
                       <td className="px-3 py-3 text-gray-200">{s.name}</td>
+                      {isTeamEvent ? (
+                        <td className="px-3 py-3 text-gray-200">
+                          {s.teamName || "—"}
+                        </td>
+                      ) : null}
                       <td className="px-3 py-3 text-gray-200 break-all">
                         {s.email || "—"}
                       </td>
@@ -513,12 +564,26 @@ export default function AttendanceSummary() {
             >
               <div className="text-center mb-8">
                 <div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-blue-500/20">
-                  <svg className="w-8 h-8 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                  <svg
+                    className="w-8 h-8 text-blue-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
+                    />
                   </svg>
                 </div>
-                <h2 className="text-2xl font-bold text-white mb-2">Summary Access</h2>
-                <p className="text-gray-400 text-sm">Please enter the access code provided by your event manager.</p>
+                <h2 className="text-2xl font-bold text-white mb-2">
+                  Summary Access
+                </h2>
+                <p className="text-gray-400 text-sm">
+                  Please enter the access code provided by your event manager.
+                </p>
               </div>
 
               <form onSubmit={handleVerifyKey} className="space-y-6">

@@ -41,6 +41,7 @@ import GoogleSuccess from "./components/GoogleSuccess";
 import DevToolsRestriction from "./components/DevToolsRestriction";
 import BecomeOrganizer from "./pages/BecomeOrganizer";
 import NotFound from "./pages/NotFound";
+import Explore from "./pages/Explore";
 
 
 // this is for hidding navbar on specific routes, you can add more routes to the hideOn array if needed
@@ -60,7 +61,7 @@ function ConditionalNavbar() {
 function App() {
   return (
     <BrowserRouter>
-      {/* <DevToolsRestriction /> */}
+      <DevToolsRestriction />
       <div>
         <ConditionalNavbar />
 
@@ -122,6 +123,7 @@ function App() {
             <Route path="/signup" element={<Signup />} />
             <Route path="/testcompiler" element={<TestCompiler />} />
             <Route path="/google-success" element={<GoogleSuccess />} />
+            <Route path="/explore" element={<Explore />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </main>

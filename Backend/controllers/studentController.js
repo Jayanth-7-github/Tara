@@ -1,5 +1,7 @@
 const path = require("path");
 const Student = require(path.join(__dirname, "..", "models", "Student"));
+const Team = require(path.join(__dirname, "..", "models", "Team"));
+const Event = require(path.join(__dirname, "..", "models", "Event"));
 
 function normalizeStudentInput(input) {
   const body = input || {};
@@ -85,6 +87,32 @@ exports.getStudentByRegNo = async (req, res) => {
       return res
         .status(404)
         .json({ error: "No student found for this registration number." });
+
+    // Optional: if eventId is provided and the event is a team event,
+    // derive team name from Team collection for accurate per-event display.
+    const eventId =
+      req.query && req.query.eventId ? String(req.query.eventId).trim() : "";
+    if (eventId) {
+      try {
+        const ev = await Event.findById(eventId)
+          .select("participationType")
+          .lean();
+        if (ev && ev.participationType === "team") {
+          const team = await Team.findOne({
+            event: eventId,
+            $or: [{ leader: student._id }, { members: student._id }],
+          })
+            .select("name")
+            .lean();
+          if (team && team.name) {
+            student.teamName = team.name;
+          }
+        }
+      } catch (e) {
+        // Do not fail the request if team lookup fails
+      }
+    }
+
     res.json(student);
   } catch (err) {
     console.error("getStudentByRegNo error:", err);

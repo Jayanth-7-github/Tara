@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { createEvent, updateEvent } from "../services/api";
 
@@ -79,6 +79,7 @@ export default function EventForm({
   );
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(initialData?.imageUrl || null);
+  const fileInputRef = useRef(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   // Team configuration state
@@ -89,10 +90,41 @@ export default function EventForm({
   const [maxTeamSize, setMaxTeamSize] = useState(initialData?.maxTeamSize || 1);
   const [teamConfigError, setTeamConfigError] = useState(null);
 
+  const resetCreateForm = () => {
+    // Clear selected file input (uncontrolled by React)
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    // Revoke blob preview URLs we created to avoid leaks
+    if (preview && typeof preview === "string" && preview.startsWith("blob:")) {
+      try {
+        URL.revokeObjectURL(preview);
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    setTitle("");
+    setVenue("");
+    // Keep member's email locked; otherwise clear it for fresh entry
+    if (isMember) setManagerEmail(userEmail);
+    else setManagerEmail("");
+    setPrice("");
+    setDate("");
+    setDescription("");
+    setFile(null);
+    setPreview(null);
+    setParticipationType("solo");
+    setMinTeamSize(1);
+    setMaxTeamSize(1);
+    setTeamConfigError(null);
+    setError(null);
+  };
+
   useEffect(() => {
     setTitle(initialData?.title || "");
     setVenue(initialData?.venue || "");
-    setManagerEmail(initialData?.managerEmail || "");
+    // Only hydrate managerEmail from initialData in edit mode.
+    // In create mode, managerEmail is managed by the member-locking effect below.
+    if (mode !== "create") setManagerEmail(initialData?.managerEmail || "");
     setDate(formatDateTimeLocal(initialData?.date));
     setDescription(initialData?.description || "");
     setPrice(
@@ -101,19 +133,45 @@ export default function EventForm({
         : "",
     );
     setPreview(initialData?.imageUrl || null);
-  }, [initialData]);
+  }, [initialData, mode]);
+
+  useEffect(() => {
+    // In create mode for members, managerEmail is locked to the logged-in email.
+    // This runs when currentUser is resolved without resetting other form fields.
+    if (mode === "create" && isMember) {
+      setManagerEmail(userEmail);
+    }
+  }, [mode, isMember, userEmail]);
 
   const handleFile = (e) => {
     const f = e.target.files && e.target.files[0];
     if (f && f.size > 5 * 1024 * 1024) {
       setError("Image size must be less than 5MB");
       setFile(null);
+      if (
+        preview &&
+        typeof preview === "string" &&
+        preview.startsWith("blob:")
+      ) {
+        try {
+          URL.revokeObjectURL(preview);
+        } catch (e) {
+          // ignore
+        }
+      }
       setPreview(initialData?.imageUrl || null);
       e.target.value = ""; // Clear input
       return;
     }
     setError(null);
     setFile(f);
+    if (preview && typeof preview === "string" && preview.startsWith("blob:")) {
+      try {
+        URL.revokeObjectURL(preview);
+      } catch (e) {
+        // ignore
+      }
+    }
     if (f) setPreview(URL.createObjectURL(f));
     else setPreview(initialData?.imageUrl || null);
   };
@@ -147,7 +205,8 @@ export default function EventForm({
 
     // basic client-side email validation
     const emailRegex = /^\S+@\S+\.\S+$/;
-    if (!managerEmail || !emailRegex.test(String(managerEmail))) {
+    const managerEmailNormalized = String(managerEmail || "").trim();
+    if (!managerEmailNormalized || !emailRegex.test(managerEmailNormalized)) {
       setError("Please provide a valid manager email");
       setLoading(false);
       return;
@@ -185,7 +244,7 @@ export default function EventForm({
         title,
         description,
         venue,
-        managerEmail,
+        managerEmail: managerEmailNormalized,
         date,
         price: numericPrice,
         imageBase64,
@@ -197,6 +256,8 @@ export default function EventForm({
 
       if (mode === "create") {
         await createEvent(payload);
+        // Clear the form after successful creation
+        resetCreateForm();
         if (onSuccess) return onSuccess();
         return navigate("/main");
       } else {
@@ -218,7 +279,7 @@ export default function EventForm({
       onSubmit={handleSubmit}
       className="w-full max-w-4xl mx-auto bg-gray-900/40 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-6 sm:p-8 space-y-8 shadow-2xl relative overflow-hidden group"
     >
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-transparent to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
+      <div className="absolute inset-0 bg-linear-to-br from-blue-500/10 via-transparent to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
 
       {error && (
         <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-xl flex items-center gap-2">
@@ -321,7 +382,7 @@ export default function EventForm({
               type="datetime-local"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all [color-scheme:dark]"
+              className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all scheme-dark"
             />
           </div>
         </label>
@@ -392,6 +453,7 @@ export default function EventForm({
         </span>
         <div className="relative group/image">
           <input
+            ref={fileInputRef}
             type="file"
             accept="image/*"
             onChange={handleFile}
@@ -432,7 +494,7 @@ export default function EventForm({
             ${
               loading
                 ? "bg-gray-700 cursor-not-allowed"
-                : "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 hover:shadow-blue-500/25 active:scale-[0.98]"
+                : "bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 hover:shadow-blue-500/25 active:scale-[0.98]"
             }
           `}
         >

@@ -26,6 +26,8 @@ import ManageStudents from "./ManageStudents";
 import StudentResults from "./StudentResults";
 import EventSessions from "./EventSessions";
 import ManageQuestions from "./ManageQuestions";
+import { StudentSnapSection } from "./StudentSnap";
+import ManageApprovals from "./ManageApprovals";
 
 // ─── Logo ────────────────────────────────────────────────────────────────────
 const Logo = () => (
@@ -298,6 +300,11 @@ export default function EventManagerDashboard() {
       ),
     },
     {
+      label: "Student Snap",
+      section: "studentSnap",
+      icon: <IconUserCheck size={20} className="text-neutral-300 shrink-0" />,
+    },
+    {
       label: "Sessions",
       section: "sessions",
       icon: (
@@ -319,12 +326,19 @@ export default function EventManagerDashboard() {
       section: "results",
       icon: <IconUserCheck size={20} className="text-neutral-300 shrink-0" />,
     },
+    {
+      label: "Approvals",
+      section: "approvals",
+      icon: <IconSettings size={20} className="text-neutral-300 shrink-0" />,
+    }
   ];
 
   const renderSection = () => {
     switch (activeSection) {
       case "attendance":
         return <AttendanceSection navigate={navigate} user={user} />;
+      case "studentSnap":
+        return <StudentSnapSection events={events} />;
       case "sessions":
         return <SessionsSection />;
       case "students":
@@ -333,6 +347,8 @@ export default function EventManagerDashboard() {
         return <ManageQuestions />;
       case "results":
         return <ManagerResultsSection />;
+      case "approvals":
+        return <ManageApprovals/>;
       default:
         return (
           <ManagerOverviewSection
