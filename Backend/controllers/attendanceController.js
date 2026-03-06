@@ -4,16 +4,44 @@ const Attendance = require(path.join(__dirname, "..", "models", "Attendance"));
 const Event = require(path.join(__dirname, "..", "models", "Event"));
 const Team = require(path.join(__dirname, "..", "models", "Team"));
 
-// Helper: format date as local "YYYY-MM-DD HH:mm"
-function formatLocalYMDHM(d) {
+// Helper: format date in IST (Asia/Kolkata) as "YYYY-MM-DD HH:mm"
+// Reason: servers often run in UTC; exporting "local" time becomes incorrect for IST users.
+function formatISTYMDHM(d) {
   const date = d instanceof Date ? d : new Date(d);
   if (isNaN(date.getTime())) return "";
+
+  // Prefer IANA time zone formatting when available.
+  try {
+    const fmt = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Kolkata",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+    const parts = fmt.formatToParts(date);
+    const get = (type) => parts.find((p) => p.type === type)?.value;
+    const y = get("year");
+    const m = get("month");
+    const day = get("day");
+    const hh = get("hour");
+    const mm = get("minute");
+    if (y && m && day && hh && mm) return `${y}-${m}-${day} ${hh}:${mm}`;
+  } catch (e) {
+    // fall back below
+  }
+
+  // Fallback: IST is fixed UTC+05:30 (no DST)
+  const IST_OFFSET_MINUTES = 330;
+  const shifted = new Date(date.getTime() + IST_OFFSET_MINUTES * 60 * 1000);
   const pad = (n) => String(n).padStart(2, "0");
-  const y = date.getFullYear();
-  const m = pad(date.getMonth() + 1);
-  const day = pad(date.getDate());
-  const hh = pad(date.getHours());
-  const mm = pad(date.getMinutes());
+  const y = shifted.getUTCFullYear();
+  const m = pad(shifted.getUTCMonth() + 1);
+  const day = pad(shifted.getUTCDate());
+  const hh = pad(shifted.getUTCHours());
+  const mm = pad(shifted.getUTCMinutes());
   return `${y}-${m}-${day} ${hh}:${mm}`;
 }
 
@@ -80,7 +108,7 @@ exports.markAttendance = async (req, res) => {
           regno: attendanceDoc.regno,
           eventName: attendanceDoc.eventName,
           sessionName: sName,
-          timestampText: formatLocalYMDHM(existingSession.timestamp),
+          timestampText: formatISTYMDHM(existingSession.timestamp),
           _id: attendanceDoc._id,
         },
       });
@@ -90,7 +118,7 @@ exports.markAttendance = async (req, res) => {
     const newSession = {
       sessionName: sName,
       timestamp: now,
-      timestampText: formatLocalYMDHM(now),
+      timestampText: formatISTYMDHM(now),
       isPresent: true,
     };
 
@@ -166,15 +194,22 @@ exports.checkAttendance = async (req, res) => {
     }
 
     // Flatten sessions map to array for frontend
-    const records = Object.values(attendanceDoc.sessions).map((s) => ({
-      ...s,
-      regno: attendanceDoc.regno,
-      eventName: attendanceDoc.eventName,
-      student: attendanceDoc.student,
-      timestamp:
-        s.timestamp instanceof Date ? s.timestamp.getTime() : s.timestamp,
-      // Fallbacks for checkIn/checkOut removed
-    }));
+    const records = Object.values(attendanceDoc.sessions).map((s) => {
+      const tsRaw = s ? s.timestamp : undefined;
+      const tsDate = tsRaw ? new Date(tsRaw) : null;
+      const isValid = tsDate && !isNaN(tsDate.getTime());
+      return {
+        ...s,
+        regno: attendanceDoc.regno,
+        eventName: attendanceDoc.eventName,
+        student: attendanceDoc.student,
+        // Keep backwards compatibility: if legacy data isn't a valid Date,
+        // preserve original value instead of forcing null.
+        timestamp: isValid ? tsDate.getTime() : tsRaw,
+        // Prefer IST derived from timestamp; fall back to stored string if needed.
+        timestampText: isValid ? formatISTYMDHM(tsDate) : s.timestampText || "",
+      };
+    });
 
     res.json({
       isMarked: records.length > 0,
@@ -295,6 +330,8 @@ exports.getSummary = async (req, res) => {
               teamNameByRegnoLower[String(doc.regno || "").toLowerCase()] || "",
             eventName: doc.eventName,
             sessionName: sVal.sessionName || sKey,
+            timestampText:
+              formatISTYMDHM(sVal.timestamp) || sVal.timestampText || "",
             _id: doc._id,
           });
 
@@ -617,7 +654,7 @@ exports.exportCSV = async (req, res) => {
           hasPresent = true;
           row.push("Present");
           row.push(
-            session.timestampText || formatLocalYMDHM(session.timestamp) || "",
+            formatISTYMDHM(session.timestamp) || session.timestampText || "",
           );
         } else {
           // When exporting all students, explicitly mark Absent
@@ -693,7 +730,7 @@ exports.updateAttendance = async (req, res) => {
       sess = {
         sessionName: sName,
         timestamp: new Date(),
-        timestampText: formatLocalYMDHM(new Date()),
+        timestampText: formatISTYMDHM(new Date()),
         isPresent: true,
       };
     }
