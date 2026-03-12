@@ -6,7 +6,9 @@ import { checkLogin } from "../services/auth";
 export default function AllRegistrations() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [managedEvents, setManagedEvents] = useState([]);
   const [registrations, setRegistrations] = useState([]);
+  const [selectedEventId, setSelectedEventId] = useState("all");
 
   useEffect(() => {
     let mounted = true;
@@ -24,13 +26,13 @@ export default function AllRegistrations() {
 
         const allEvents = evData.events || evData || [];
         const userEmail = (auth.user.email || "").toLowerCase().trim();
-        const isAdmin = auth.user.role === "admin";
-
         // Filter events managed by this user
-        const myEvents = allEvents.filter(ev => {
+        const myEvents = allEvents.filter((ev) => {
           const managerEmail = (ev.managerEmail || "").toLowerCase().trim();
           return managerEmail === userEmail;
         });
+        setManagedEvents(myEvents);
+        setSelectedEventId("all");
 
         const list = [];
         // Iterate only my events
@@ -63,6 +65,15 @@ export default function AllRegistrations() {
     return () => (mounted = false);
   }, [navigate]);
 
+  const visibleRegistrations =
+    selectedEventId === "all"
+      ? registrations
+      : registrations.filter((reg) => reg.eventId === selectedEventId);
+
+  const selectedEvent = managedEvents.find(
+    (event) => String(event._id || event.id) === selectedEventId,
+  );
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
@@ -83,7 +94,9 @@ export default function AllRegistrations() {
               All Registrations
             </h1>
             <p className="text-gray-400 mt-1">
-              Across all your events • {registrations.length} Records
+              {selectedEvent
+                ? `${selectedEvent.title} • ${visibleRegistrations.length} Records`
+                : `Across all your events • ${visibleRegistrations.length} Records`}
             </p>
           </div>
           <button
@@ -107,6 +120,41 @@ export default function AllRegistrations() {
           </button>
         </div>
 
+        <div className="mb-6 rounded-xl border border-gray-700 bg-gray-800/50 p-4 backdrop-blur">
+          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-[0.2em] text-gray-500">
+                Filter By Event
+              </p>
+              <p className="mt-1 text-sm text-gray-400">
+                Choose from events created by you.
+              </p>
+            </div>
+
+            <label className="block w-full md:max-w-sm">
+              <span className="mb-2 block text-xs font-medium uppercase tracking-wider text-gray-500">
+                Event
+              </span>
+              <select
+                value={selectedEventId}
+                onChange={(event) => setSelectedEventId(event.target.value)}
+                disabled={managedEvents.length === 0}
+                className="w-full rounded-lg border border-gray-700 bg-gray-900 px-4 py-3 text-sm text-white outline-none transition focus:border-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <option value="all">All My Events</option>
+                {managedEvents.map((event) => {
+                  const eventId = String(event._id || event.id);
+                  return (
+                    <option key={eventId} value={eventId}>
+                      {event.title}
+                    </option>
+                  );
+                })}
+              </select>
+            </label>
+          </div>
+        </div>
+
         <div className="bg-gray-800/50 backdrop-blur border border-gray-700 rounded-xl overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left">
@@ -120,17 +168,19 @@ export default function AllRegistrations() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-700">
-                {registrations.length === 0 ? (
+                {visibleRegistrations.length === 0 ? (
                   <tr>
                     <td
                       colSpan="5"
                       className="px-6 py-12 text-center text-gray-500"
                     >
-                      No registrations found.
+                      {managedEvents.length === 0
+                        ? "No created events found."
+                        : "No registrations found for the selected event."}
                     </td>
                   </tr>
                 ) : (
-                  registrations.map((reg, index) => (
+                  visibleRegistrations.map((reg, index) => (
                     <tr key={index} className="hover:bg-gray-700/30 transition">
                       <td className="px-6 py-4 font-medium text-white">
                         <div className="flex flex-col">

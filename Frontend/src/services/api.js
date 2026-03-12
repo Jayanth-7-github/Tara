@@ -245,6 +245,115 @@ export async function fetchTeams(eventId) {
   return body;
 }
 
+export async function fetchTeamProblemStatements(teamId) {
+  const resp = await fetch(
+    `${API_BASE.replace(/\/$/, "")}/teams/${encodeURIComponent(teamId)}/problem-statements`,
+    {
+      credentials: "include",
+    },
+  );
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(
+      body.error || "Failed to fetch team problem statements",
+    );
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}
+
+export async function selectTeamProblemStatement({
+  teamId,
+  problemStatementId,
+}) {
+  const resp = await fetch(
+    `${API_BASE.replace(/\/$/, "")}/teams/${encodeURIComponent(teamId)}/problem-statement-selection`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ problemStatementId }),
+    },
+  );
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(
+      body.error || "Failed to select team problem statement",
+    );
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}
+
+export async function resetTeamProblemStatementSelection(teamId) {
+  const resp = await fetch(
+    `${API_BASE.replace(/\/$/, "")}/teams/${encodeURIComponent(teamId)}/problem-statement-selection/reset`,
+    {
+      method: "PATCH",
+      credentials: "include",
+    },
+  );
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(
+      body.error || "Failed to reset team problem statement selection",
+    );
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}
+
+export async function fetchTeamMarks({ eventId, teamId } = {}) {
+  const url = new URL(`${API_BASE.replace(/\/$/, "")}/team-marks`);
+  if (eventId) url.searchParams.set("eventId", eventId);
+  if (teamId) url.searchParams.set("teamId", teamId);
+
+  const resp = await fetch(url.toString(), { credentials: "include" });
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(body.error || "Failed to fetch team marks");
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}
+
+export async function saveTeamMark(payload) {
+  const resp = await fetch(`${API_BASE.replace(/\/$/, "")}/team-marks`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(body.error || "Failed to save team mark");
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}
+
+export async function deleteTeamMark(markId) {
+  const resp = await fetch(
+    `${API_BASE.replace(/\/$/, "")}/team-marks/${encodeURIComponent(markId)}`,
+    {
+      method: "DELETE",
+      credentials: "include",
+    },
+  );
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(body.error || "Failed to delete team mark");
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}
+
 // Student Attendance (photo + approval)
 export async function submitStudentAttendance({
   eventId,
@@ -484,6 +593,243 @@ export async function registerForEvent(eventId, payload) {
   const body = await resp.json().catch(() => ({}));
   if (!resp.ok) {
     const err = new Error(body.error || "Failed to register for event");
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}
+
+export async function checkPaymentReferenceAvailability(eventId, value) {
+  const url = new URL(
+    `${API_BASE.replace(/\/$/, "")}/events/${encodeURIComponent(eventId)}/payment-reference/check`,
+  );
+  url.searchParams.set("value", value);
+
+  const resp = await fetch(url.toString(), {
+    credentials: "include",
+  });
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(
+      body.error || "Failed to check transaction ID / UTR number",
+    );
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}
+
+export async function fetchProblemStatements(eventId, options = {}) {
+  const url = new URL(`${API_BASE.replace(/\/$/, "")}/problem-statements`);
+  if (eventId) url.searchParams.set("eventId", eventId);
+  if (options.activeOnly) url.searchParams.set("activeOnly", "true");
+
+  const resp = await fetch(url.toString(), {
+    credentials: "include",
+  });
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(body.error || "Failed to fetch problem statements");
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}
+
+export async function createProblemStatement(payload) {
+  const resp = await fetch(
+    `${API_BASE.replace(/\/$/, "")}/problem-statements`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(payload),
+    },
+  );
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(body.error || "Failed to create problem statement");
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}
+
+export async function updateProblemStatement(statementId, payload) {
+  const resp = await fetch(
+    `${API_BASE.replace(/\/$/, "")}/problem-statements/${encodeURIComponent(statementId)}`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(payload),
+    },
+  );
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(body.error || "Failed to update problem statement");
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}
+
+export async function deleteProblemStatement(statementId) {
+  const resp = await fetch(
+    `${API_BASE.replace(/\/$/, "")}/problem-statements/${encodeURIComponent(statementId)}`,
+    {
+      method: "DELETE",
+      credentials: "include",
+    },
+  );
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(body.error || "Failed to delete problem statement");
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}
+
+export async function toggleAllProblemStatements(eventId, isActive) {
+  const resp = await fetch(
+    `${API_BASE.replace(/\/$/, "")}/problem-statements/actions/toggle-all`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ eventId, isActive }),
+    },
+  );
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(
+      body.error || "Failed to update all problem statements",
+    );
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}
+
+export async function fetchPaymentQrs(eventId) {
+  const url = new URL(`${API_BASE.replace(/\/$/, "")}/payment-qrs`);
+  if (eventId) url.searchParams.set("eventId", eventId);
+
+  const resp = await fetch(url.toString(), {
+    credentials: "include",
+  });
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(body.error || "Failed to fetch payment QRs");
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}
+
+export async function fetchActivePaymentQr(eventId) {
+  const url = new URL(`${API_BASE.replace(/\/$/, "")}/payment-qrs/active`);
+  if (eventId) url.searchParams.set("eventId", eventId);
+
+  const resp = await fetch(url.toString(), {
+    credentials: "include",
+  });
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(body.error || "Failed to fetch active payment QR");
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}
+
+export async function fetchPaymentVerifications(eventId, status) {
+  const url = new URL(`${API_BASE.replace(/\/$/, "")}/payment-verifications`);
+  if (eventId) url.searchParams.set("eventId", eventId);
+  if (status) url.searchParams.set("status", status);
+
+  const resp = await fetch(url.toString(), {
+    credentials: "include",
+  });
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(
+      body.error || "Failed to fetch payment verifications",
+    );
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}
+
+export async function reviewPaymentVerification(verificationId, decision) {
+  const resp = await fetch(
+    `${API_BASE.replace(/\/$/, "")}/payment-verifications/${encodeURIComponent(verificationId)}/review`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ decision }),
+    },
+  );
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(
+      body.error || "Failed to review payment verification",
+    );
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}
+
+export async function createPaymentQr(payload) {
+  const resp = await fetch(`${API_BASE.replace(/\/$/, "")}/payment-qrs`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(body.error || "Failed to create payment QR");
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}
+
+export async function togglePaymentQrStatus(qrId, isActive) {
+  const resp = await fetch(
+    `${API_BASE.replace(/\/$/, "")}/payment-qrs/${encodeURIComponent(qrId)}/status`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ isActive }),
+    },
+  );
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(body.error || "Failed to update payment QR status");
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}
+
+export async function deletePaymentQr(qrId) {
+  const resp = await fetch(
+    `${API_BASE.replace(/\/$/, "")}/payment-qrs/${encodeURIComponent(qrId)}`,
+    {
+      method: "DELETE",
+      credentials: "include",
+    },
+  );
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(body.error || "Failed to delete payment QR");
     err.status = resp.status;
     throw err;
   }

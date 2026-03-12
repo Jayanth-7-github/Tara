@@ -31,9 +31,11 @@ import EventRegistrations from "./pages/EventRegistrations";
 import AllRegistrations from "./pages/AllRegistrations";
 import StudentResults from "./pages/StudentResults";
 import ManageQuestions from "./pages/ManageQuestions";
+import ProblemStatements from "./pages/ProblemStatements";
 import EventSessions from "./pages/EventSessions";
 import EventAttendance from "./pages/EventAttendance";
 import ManageStudents from "./pages/ManageStudents";
+import MarksForStudents from "./pages/MarksForStudents";
 import { ADMIN_TOKEN } from "./services/constants";
 import TestCompiler from "./Exam/pages/testcompailer";
 import PublicNavbar from "./components/PublicNavbar";
@@ -43,15 +45,14 @@ import BecomeOrganizer from "./pages/BecomeOrganizer";
 import NotFound from "./pages/NotFound";
 import Explore from "./pages/Explore";
 
-
 // this is for hidding navbar on specific routes, you can add more routes to the hideOn array if needed
 function ConditionalNavbar() {
   const location = useLocation();
   const hideOn = [
     "/events/dashboard",
+    "/events/problem-statements",
     "/dashboard/admin",
-    "/dashboard/student"
-
+    "/dashboard/student",
   ];
 
   if (hideOn.includes(location.pathname)) return null;
@@ -95,8 +96,13 @@ function App() {
             />
             <Route path="/events/attendance" element={<EventAttendance />} />
             <Route path="/events/questions" element={<ManageQuestions />} />
+            <Route
+              path="/events/problem-statements"
+              element={<ProblemStatements />}
+            />
             <Route path="/events/sessions" element={<EventSessions />} />
             <Route path="/events/results" element={<StudentResults />} />
+            <Route path="/events/team-marks" element={<MarksForStudents />} />
             <Route path="/events/approvals" element={<ManageApprovals />} />
             <Route path="/events/students" element={<ManageStudents />} />
             <Route

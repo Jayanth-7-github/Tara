@@ -22,6 +22,22 @@ const QuestionSchema = new Schema({
   language: { type: String, default: "c++" },
 });
 
+const TeamMarkCategorySchema = new Schema(
+  {
+    name: { type: String, required: true, trim: true },
+    maxScore: { type: Number, default: 10, min: 0 },
+  },
+  { _id: false },
+);
+
+const TeamMarkRoundSchema = new Schema(
+  {
+    roundName: { type: String, required: true, trim: true },
+    categories: { type: [TeamMarkCategorySchema], default: [] },
+  },
+  { _id: false },
+);
+
 const EventSchema = new Schema(
   {
     title: { type: String, required: true, trim: true },
@@ -31,6 +47,7 @@ const EventSchema = new Schema(
     // Optional price in rupees. 0 or missing means free.
     price: { type: Number, default: 0, min: 0 },
     imageUrl: { type: String, trim: true },
+    cloudinaryPublicId: { type: String, trim: true },
     // Email of the event manager/organizer. Required so each event has a contact.
     managerEmail: {
       type: String,
@@ -68,7 +85,7 @@ const EventSchema = new Schema(
         message: "maxTeamSize must be greater than or equal to minTeamSize",
       },
     },
-    // Store image binary directly in MongoDB (optional). Use either imageUrl or image.
+    // Legacy fallback for older events created before Cloudinary-backed storage.
     image: {
       data: Buffer,
       contentType: String,
@@ -96,6 +113,10 @@ const EventSchema = new Schema(
         isActive: { type: Boolean, default: false },
       },
     ],
+    teamMarksConfig: {
+      type: [TeamMarkRoundSchema],
+      default: [],
+    },
     accessKey: { type: String, trim: true, index: true },
   },
   { timestamps: true },

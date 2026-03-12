@@ -1,15 +1,22 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Sidebar, SidebarBody, SidebarLink } from "../components/ui/sidebar";
-import { IconClipboardList, IconLogout, IconHome } from "@tabler/icons-react";
+import {
+  IconClipboardList,
+  IconFileText,
+  IconLogout,
+  IconHome,
+} from "@tabler/icons-react";
 import { cn } from "../lib/utils";
 import { getMe, logout } from "../services/auth";
 import TeamPanel from "../components/TeamPanel";
 import {
   fetchStudent,
   fetchEventById,
+  fetchTeamProblemStatements,
   fetchTeams,
   fetchStudentAttendanceRecords,
+  selectTeamProblemStatement,
   submitStudentAttendance,
 } from "../services/api";
 
@@ -191,6 +198,11 @@ export default function StudentDashboard() {
         <IconClipboardList size={20} className="text-neutral-300 shrink-0" />
       ),
     },
+    {
+      label: "Problem Statement",
+      section: "problem-statement",
+      icon: <IconFileText size={20} className="text-neutral-300 shrink-0" />,
+    },
   ];
 
   // ─── Overview Section ───────────────────────────────────────────────
@@ -208,6 +220,12 @@ export default function StudentDashboard() {
     }
 
     switch (activeSection) {
+      case "problem-statement":
+        return (
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <StudentProblemStatementSection team={team} event={event} />
+          </div>
+        );
       case "attendance":
         return (
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -301,6 +319,471 @@ function roleBadge(role) {
   if (r === "team lead")
     return "bg-blue-900/40 text-blue-200 border-blue-800/60";
   return "bg-neutral-800 text-neutral-200 border-neutral-700";
+}
+
+function getProblemDescriptionPreview(value, limit = 128) {
+  const text = String(value || "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!text) return "No description available.";
+  if (text.length <= limit) return text;
+  return `${text.slice(0, limit).trimEnd()}...`;
+}
+
+function ProblemStatementDetailsModal({
+  item,
+  locked,
+  isChosen,
+  onClose,
+  onSelect,
+}) {
+  if (!item) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/75" onClick={onClose} />
+      <div className="relative flex max-h-[calc(100vh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-neutral-800 bg-neutral-950 shadow-2xl">
+        <div className="flex items-start justify-between gap-4 border-b border-neutral-800 px-6 py-5">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-[0.22em] text-neutral-500">
+              Problem Statement Details
+            </p>
+            <h3 className="mt-2 text-2xl font-semibold text-white">
+              {item.title}
+            </h3>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-lg bg-neutral-900 px-3 py-2 text-sm text-neutral-300 transition-colors hover:bg-neutral-800"
+          >
+            Cancel
+          </button>
+        </div>
+
+        <div className="overflow-y-auto px-6 py-6">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="inline-flex items-center rounded-full border border-neutral-700 bg-neutral-900 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-neutral-300">
+              Full Description
+            </span>
+            {isChosen ? (
+              <span className="inline-flex items-center rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-200">
+                Selected for team
+              </span>
+            ) : null}
+          </div>
+
+          <p className="mt-5 whitespace-pre-wrap text-sm leading-7 text-neutral-200">
+            {item.description}
+          </p>
+        </div>
+
+        <div className="flex flex-col-reverse gap-3 border-t border-neutral-800 px-6 py-5 sm:flex-row sm:items-center sm:justify-end">
+          <button
+            onClick={onClose}
+            className="rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 text-sm font-medium text-neutral-200 transition-colors hover:bg-neutral-800"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => onSelect(item)}
+            disabled={locked || isChosen}
+            className={cn(
+              "rounded-xl px-4 py-3 text-sm font-semibold transition-colors",
+              locked || isChosen
+                ? "cursor-not-allowed bg-neutral-800 text-neutral-500"
+                : "bg-blue-600 text-white hover:bg-blue-500",
+            )}
+          >
+            {isChosen
+              ? "Already Selected"
+              : locked
+                ? "Selection Locked"
+                : "Select Problem Statement"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProblemStatementConfirmToast({
+  item,
+  submitting,
+  onConfirm,
+  onCancel,
+}) {
+  if (!item) return null;
+
+  return (
+    <div className="pointer-events-none fixed bottom-4 right-4 z-60 w-full max-w-sm px-4 sm:px-0">
+      <div className="pointer-events-auto rounded-2xl border border-amber-500/30 bg-neutral-950/95 p-5 shadow-2xl backdrop-blur">
+        <p className="text-xs font-medium uppercase tracking-[0.22em] text-amber-200/80">
+          Confirm Selection
+        </p>
+        <h4 className="mt-2 text-lg font-semibold text-white">{item.title}</h4>
+        <p className="mt-2 text-sm leading-6 text-neutral-300">
+          This will be the final problem statement for the whole team. You can
+          confirm or cancel now, but once confirmed it cannot be changed.
+        </p>
+
+        <div className="mt-4 flex items-center justify-end gap-3">
+          <button
+            onClick={onCancel}
+            disabled={submitting}
+            className={cn(
+              "rounded-lg border border-neutral-700 px-4 py-2 text-sm font-medium transition-colors",
+              submitting
+                ? "cursor-not-allowed bg-neutral-900 text-neutral-500"
+                : "bg-neutral-900 text-neutral-200 hover:bg-neutral-800",
+            )}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={submitting}
+            className={cn(
+              "rounded-lg px-4 py-2 text-sm font-semibold transition-colors",
+              submitting
+                ? "cursor-not-allowed bg-blue-800 text-blue-200"
+                : "bg-blue-600 text-white hover:bg-blue-500",
+            )}
+          >
+            {submitting ? "Confirming..." : "Confirm"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StudentProblemStatementSection({ team, event }) {
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(null);
+  const [items, setItems] = useState([]);
+  const [detailItem, setDetailItem] = useState(null);
+  const [confirmItem, setConfirmItem] = useState(null);
+  const [teamSelection, setTeamSelection] = useState(() => ({
+    selectedProblemStatement: team?.selectedProblemStatement || null,
+    selectedProblemStatementBy: team?.selectedProblemStatementBy || null,
+    selectedProblemStatementAt: team?.selectedProblemStatementAt || null,
+  }));
+
+  useEffect(() => {
+    setTeamSelection({
+      selectedProblemStatement: team?.selectedProblemStatement || null,
+      selectedProblemStatementBy: team?.selectedProblemStatementBy || null,
+      selectedProblemStatementAt: team?.selectedProblemStatementAt || null,
+    });
+  }, [
+    team?.selectedProblemStatement,
+    team?.selectedProblemStatementAt,
+    team?.selectedProblemStatementBy,
+  ]);
+
+  const loadProblemStatements = async () => {
+    if (!team?._id) return;
+
+    setLoading(true);
+    setError(null);
+    try {
+      const resp = await fetchTeamProblemStatements(team._id);
+      setItems(Array.isArray(resp?.items) ? resp.items : []);
+      setTeamSelection({
+        selectedProblemStatement: resp?.team?.selectedProblemStatement || null,
+        selectedProblemStatementBy:
+          resp?.team?.selectedProblemStatementBy || null,
+        selectedProblemStatementAt:
+          resp?.team?.selectedProblemStatementAt || null,
+      });
+    } catch (e) {
+      setError(e?.message || "Failed to load problem statements");
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadProblemStatements();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [team?._id]);
+
+  const selectedProblem = teamSelection.selectedProblemStatement;
+
+  const handleConfirmSelection = async () => {
+    if (!team?._id || !confirmItem?._id || selectedProblem) return;
+
+    setSubmitting(true);
+    setError(null);
+    try {
+      const resp = await selectTeamProblemStatement({
+        teamId: team._id,
+        problemStatementId: confirmItem._id,
+      });
+      setTeamSelection({
+        selectedProblemStatement:
+          resp?.selectedProblemStatement ||
+          resp?.team?.selectedProblemStatement ||
+          null,
+        selectedProblemStatementBy:
+          resp?.team?.selectedProblemStatementBy || null,
+        selectedProblemStatementAt:
+          resp?.team?.selectedProblemStatementAt || null,
+      });
+      setConfirmItem(null);
+      setDetailItem(null);
+      await loadProblemStatements();
+    } catch (e) {
+      setError(e?.message || "Failed to select problem statement");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (!team || !event) {
+    return (
+      <div className="rounded-xl border border-neutral-800 bg-neutral-900/40 p-6 text-neutral-300">
+        No team/event found for problem statement selection.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-2xl border border-neutral-800 bg-neutral-900/50 p-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="space-y-2">
+            <h2 className="text-xl font-semibold text-white">
+              Team Problem Statement
+            </h2>
+            <p className="max-w-3xl text-sm text-neutral-400">
+              Only one problem statement can be selected for the whole team. Any
+              student in this team can make the selection, but once a problem
+              statement is chosen it is locked and cannot be changed.
+            </p>
+            <div className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-200">
+              Team-wide lock: one selection only
+            </div>
+          </div>
+
+          <button
+            onClick={loadProblemStatements}
+            disabled={loading}
+            className={cn(
+              "rounded-lg border border-neutral-700 px-4 py-2 text-sm font-medium transition-colors",
+              loading
+                ? "cursor-not-allowed bg-neutral-900 text-neutral-500"
+                : "bg-neutral-900 text-neutral-200 hover:bg-neutral-800",
+            )}
+          >
+            {loading ? "Refreshing..." : "Refresh"}
+          </button>
+        </div>
+
+        <div className="mt-5 grid gap-4 md:grid-cols-3">
+          <div className="rounded-xl border border-neutral-800 bg-neutral-950/70 p-4">
+            <p className="text-xs font-medium uppercase tracking-[0.22em] text-neutral-500">
+              Event
+            </p>
+            <p className="mt-2 text-base font-semibold text-white">
+              {event?.title || "Current event"}
+            </p>
+          </div>
+          <div className="rounded-xl border border-neutral-800 bg-neutral-950/70 p-4">
+            <p className="text-xs font-medium uppercase tracking-[0.22em] text-neutral-500">
+              Team
+            </p>
+            <p className="mt-2 text-base font-semibold text-white">
+              {team?.name || "Your team"}
+            </p>
+          </div>
+          <div className="rounded-xl border border-neutral-800 bg-neutral-950/70 p-4">
+            <p className="text-xs font-medium uppercase tracking-[0.22em] text-neutral-500">
+              Selection Status
+            </p>
+            <p className="mt-2 text-base font-semibold text-white">
+              {selectedProblem ? "Locked" : "Open"}
+            </p>
+            <p className="mt-1 text-xs text-neutral-500">
+              {selectedProblem
+                ? "A teammate has already selected the team problem statement."
+                : "Any team member can select one active problem statement."}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {error && (
+        <div className="rounded-lg border border-red-900/40 bg-red-950/30 p-4 text-sm text-red-200">
+          {error}
+        </div>
+      )}
+
+      {selectedProblem ? (
+        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="space-y-3">
+              <div className="inline-flex items-center rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-emerald-200">
+                Selected for team
+              </div>
+              <div>
+                <p className="text-xs font-medium uppercase tracking-[0.22em] text-emerald-200/70">
+                  Final problem statement
+                </p>
+                <h3 className="mt-2 text-2xl font-semibold text-white">
+                  {selectedProblem.title}
+                </h3>
+              </div>
+              <p className="max-w-3xl text-sm leading-6 text-emerald-50/90">
+                {getProblemDescriptionPreview(selectedProblem.description, 160)}
+              </p>
+              <button
+                onClick={() => setDetailItem(selectedProblem)}
+                className="inline-flex w-fit items-center rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2 text-sm font-medium text-emerald-100 transition-colors hover:bg-emerald-500/20"
+              >
+                View Details
+              </button>
+            </div>
+
+            <div className="min-w-64 rounded-xl border border-emerald-400/20 bg-black/20 p-4 text-sm text-emerald-50/90">
+              <p className="text-xs font-medium uppercase tracking-[0.22em] text-emerald-200/70">
+                Lock details
+              </p>
+              <p className="mt-3 text-sm text-white">
+                Chosen by{" "}
+                {teamSelection.selectedProblemStatementBy?.name || "a teammate"}
+              </p>
+              {teamSelection.selectedProblemStatementBy?.regno ? (
+                <p className="mt-1 text-xs text-emerald-100/70">
+                  {teamSelection.selectedProblemStatementBy.regno}
+                </p>
+              ) : null}
+              {teamSelection.selectedProblemStatementAt ? (
+                <p className="mt-3 text-xs text-emerald-100/70">
+                  Locked on{" "}
+                  {new Date(
+                    teamSelection.selectedProblemStatementAt,
+                  ).toLocaleString()}
+                </p>
+              ) : null}
+              <p className="mt-3 text-xs text-emerald-100/70">
+                This applies to every student in the team and cannot be changed.
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {!selectedProblem ? (
+        <div className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-6">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h3 className="text-lg font-semibold text-white">
+                Available Problem Statements
+              </h3>
+              <p className="mt-1 text-sm text-neutral-400">
+                Choose carefully. The first confirmed selection becomes the
+                final problem statement for the entire team.
+              </p>
+            </div>
+            <div className="rounded-full border border-neutral-700 bg-neutral-950 px-3 py-1 text-xs font-medium text-neutral-300">
+              {items.length} active
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="mt-6 rounded-xl border border-neutral-800 bg-neutral-950/60 p-6 text-sm text-neutral-400">
+              Loading problem statements...
+            </div>
+          ) : items.length === 0 ? (
+            <div className="mt-6 rounded-xl border border-neutral-800 bg-neutral-950/60 p-6 text-sm text-neutral-400">
+              No active problem statements are available for this event yet.
+            </div>
+          ) : (
+            <div className="mt-6 grid gap-4">
+              {items.map((item, index) => {
+                const isChosen =
+                  String(selectedProblem?._id || "") === String(item._id || "");
+
+                return (
+                  <div
+                    key={item._id}
+                    className={cn(
+                      "rounded-2xl border p-5 transition-colors",
+                      isChosen
+                        ? "border-emerald-500/40 bg-emerald-500/10"
+                        : "border-neutral-800 bg-neutral-950/70",
+                    )}
+                  >
+                    <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <span className="inline-flex items-center rounded-full border border-neutral-700 bg-neutral-900 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-neutral-300">
+                            Problem {index + 1}
+                          </span>
+                          {isChosen ? (
+                            <span className="inline-flex items-center rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-200">
+                              Selected for team
+                            </span>
+                          ) : null}
+                        </div>
+                        <h4 className="mt-4 text-xl font-semibold text-white">
+                          {item.title}
+                        </h4>
+                        <p className="mt-3 text-sm leading-6 text-neutral-300">
+                          {getProblemDescriptionPreview(item.description)}
+                        </p>
+                      </div>
+
+                      <div className="flex w-full flex-col gap-2 lg:w-52">
+                        <button
+                          onClick={() => setDetailItem(item)}
+                          className={cn(
+                            "rounded-xl px-4 py-3 text-sm font-semibold transition-colors",
+                            isChosen
+                              ? "bg-emerald-600 text-white hover:bg-emerald-500"
+                              : "bg-blue-600 text-white hover:bg-blue-500",
+                          )}
+                        >
+                          {isChosen ? "View Selected" : "View Details"}
+                        </button>
+                        <p className="text-xs leading-5 text-neutral-500">
+                          {selectedProblem
+                            ? "Selection is locked for the whole team."
+                            : "Open the popup to review details and then select."}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ) : null}
+
+      <ProblemStatementDetailsModal
+        item={detailItem}
+        locked={Boolean(selectedProblem)}
+        isChosen={
+          String(selectedProblem?._id || "") === String(detailItem?._id || "")
+        }
+        onClose={() => setDetailItem(null)}
+        onSelect={(item) => {
+          setConfirmItem(item);
+        }}
+      />
+
+      <ProblemStatementConfirmToast
+        item={confirmItem}
+        submitting={submitting}
+        onCancel={() => setConfirmItem(null)}
+        onConfirm={handleConfirmSelection}
+      />
+    </div>
+  );
 }
 
 function StudentAttendanceSection({ team, event }) {

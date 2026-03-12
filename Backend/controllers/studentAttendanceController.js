@@ -4,6 +4,10 @@ const Student = require("../models/Student");
 const User = require("../models/User");
 const RoleConfig = require("../models/RoleConfig");
 const StudentAttendance = require("../models/StudentAttendance");
+const {
+  isCloudinaryConfigured,
+  uploadStudentAttendanceImage,
+} = require("../services/cloudinary");
 
 function normalizeSessionName(sessionName) {
   const s = String(sessionName || "").trim();
@@ -205,17 +209,34 @@ exports.markStudentAttendance = async (req, res) => {
       });
     }
 
+    if (!isCloudinaryConfigured()) {
+      return res.status(500).json({
+        error:
+          "Snapshot uploads require Cloudinary to be configured on the server.",
+      });
+    }
+
+    const uploadedPhoto = await uploadStudentAttendanceImage(photoDataUrl, {
+      eventId: event._id,
+      teamId: team._id,
+      studentId: student._id,
+      sessionName: sName,
+      existingPublicId: existing?.photoCloudinaryPublicId,
+    });
+
     let doc;
     if (!existing) {
       doc = await StudentAttendance.create({
         ...filter,
-        photoDataUrl,
+        photoDataUrl: uploadedPhoto.secureUrl,
+        photoCloudinaryPublicId: uploadedPhoto.publicId,
         status: "pending",
         allowResubmit: false,
         submittedBy: actor._id,
       });
     } else {
-      existing.photoDataUrl = photoDataUrl;
+      existing.photoDataUrl = uploadedPhoto.secureUrl;
+      existing.photoCloudinaryPublicId = uploadedPhoto.publicId;
       existing.status = "pending";
       existing.allowResubmit = false;
       existing.submittedBy = actor._id;

@@ -459,7 +459,7 @@ export default function EventsList({
 
           return (
             <div
-              className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-md px-3 sm:px-0"
+              className="fixed inset-0 z-9999 flex items-center justify-center bg-black/80 backdrop-blur-md px-3 sm:px-0"
               onClick={() => setShowDetailsFor(null)}
             >
               <div
@@ -492,7 +492,7 @@ export default function EventsList({
 
                 {/* Right Side: Details */}
                 <div className="w-full md:w-1/2 h-full flex flex-col bg-gray-900 border-l border-gray-800">
-                  <div className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto">
+                  <div className="scrollbar-hidden flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto">
                     <div className="flex justify-between items-start mb-4 sm:mb-6">
                       <div>
                         <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">
@@ -914,7 +914,7 @@ export default function EventsList({
       {/* Contact modal */}
       {showContactFor && (
         <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm"
+          className="fixed inset-0 z-9999 flex items-center justify-center bg-black/70 backdrop-blur-sm"
           onClick={() => setShowContactFor(null)}
         >
           <div
@@ -959,11 +959,11 @@ export default function EventsList({
       {/* Edit modal */}
       {showEditFor && (
         <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-2 sm:p-4"
+          className="fixed inset-0 z-9999 flex items-center justify-center bg-black/70 backdrop-blur-sm p-2 sm:p-4"
           onClick={() => setShowEditFor(null)}
         >
           <div
-            className="bg-gray-800 border border-gray-700 rounded-2xl p-4 sm:p-6 shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
+            className="scrollbar-hidden bg-gray-800 border border-gray-700 rounded-2xl p-4 sm:p-6 shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-4 sticky top-0 bg-gray-800 z-10 pb-2">

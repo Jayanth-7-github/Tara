@@ -76,6 +76,15 @@ const SERVICE_MAP = {
   getMyResults: "default",
   getMyStats: "default",
   getResultById: "default",
+
+  // Payment Verification
+  fetchPaymentVerifications: "default",
+  reviewPaymentVerification: "default",
+  createPaymentVerification: "default",
+  getPaymentVerification: "default",
+  listPaymentVerifications: "default",
+  approvePaymentVerification: "default",
+  rejectPaymentVerification: "default",
 };
 
 const route = async (taskName, req, res) => {

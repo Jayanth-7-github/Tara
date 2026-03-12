@@ -84,13 +84,30 @@ function TeamCard({ teamId, teamName, stats, active, onSelect }) {
   );
 }
 
-function TeamsSidebar({ teams, selectedTeamId, statsById, loading, onSelect }) {
+function TeamsSidebar({
+  teams,
+  selectedTeamId,
+  statsById,
+  loading,
+  onSelect,
+  searchTerm,
+  onSearchChange,
+}) {
   return (
     <aside className="hidden md:flex w-70 shrink-0 border-r border-neutral-800 bg-neutral-950/60">
-      <div className="w-full h-full overflow-y-auto p-4">
+      <div className="scrollbar-hidden w-full h-full overflow-y-auto p-4">
         <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-3">
           Teams
         </p>
+
+        <input
+          type="search"
+          value={searchTerm}
+          onChange={(e) => onSearchChange(e.target.value)}
+          placeholder="Search team name"
+          aria-label="Search team name"
+          className="mb-4 w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-sm text-white placeholder:text-neutral-500 outline-none focus:border-blue-500/60"
+        />
 
         {loading ? (
           <div className="space-y-3">
@@ -107,7 +124,9 @@ function TeamsSidebar({ teams, selectedTeamId, statsById, loading, onSelect }) {
           </div>
         ) : teams.length === 0 ? (
           <div className="rounded-xl border border-neutral-800 bg-neutral-900/30 p-5 text-sm text-neutral-400">
-            No teams found for this event.
+            {String(searchTerm || "").trim()
+              ? "No teams match your search."
+              : "No teams found for this event."}
           </div>
         ) : (
           <div className="space-y-3">
@@ -262,6 +281,7 @@ function TeamDetailsPanel({
   teamOptions,
   selectedTeamId,
   onSelectTeam,
+  searchTerm,
   renderCard,
 }) {
   if (loading) {
@@ -285,6 +305,18 @@ function TeamDetailsPanel({
               </div>
             ))}
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!teamOptions.length) {
+    return (
+      <div className="p-6">
+        <div className="rounded-2xl border border-neutral-800 bg-neutral-900/30 p-10 text-center text-sm text-neutral-400">
+          {String(searchTerm || "").trim()
+            ? "No teams match your search."
+            : "No teams available for this event."}
         </div>
       </div>
     );
@@ -443,7 +475,9 @@ function StudentSnapLayout({ topBar, sidebar, children }) {
       <div className="flex-1 overflow-hidden">
         <div className="h-full max-w-350 mx-auto flex overflow-hidden">
           {sidebar}
-          <main className="flex-1 overflow-y-auto">{children}</main>
+          <main className="scrollbar-hidden flex-1 overflow-y-auto">
+            {children}
+          </main>
         </div>
       </div>
     </div>
@@ -454,6 +488,7 @@ export function StudentSnapSection({ events }) {
   const [selectedEventId, setSelectedEventId] = useState("");
   const [teams, setTeams] = useState([]);
   const [selectedTeamId, setSelectedTeamId] = useState("");
+  const [teamSearchTerm, setTeamSearchTerm] = useState("");
 
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -475,6 +510,19 @@ export function StudentSnapSection({ events }) {
       .filter((t) => Boolean(t.teamId))
       .sort((a, b) => a.teamName.localeCompare(b.teamName));
   }, [teams]);
+
+  const filteredTeams = useMemo(() => {
+    const query = String(teamSearchTerm || "")
+      .trim()
+      .toLowerCase();
+    if (!query) return orderedTeams;
+
+    return orderedTeams.filter((team) =>
+      String(team?.teamName || "")
+        .toLowerCase()
+        .includes(query),
+    );
+  }, [orderedTeams, teamSearchTerm]);
 
   const statsById = useMemo(() => {
     const map = new Map();
@@ -520,8 +568,8 @@ export function StudentSnapSection({ events }) {
 
   const selectedTeam = useMemo(() => {
     if (!selectedTeamId) return null;
-    return orderedTeams.find((t) => t.teamId === selectedTeamId) || null;
-  }, [orderedTeams, selectedTeamId]);
+    return filteredTeams.find((t) => t.teamId === selectedTeamId) || null;
+  }, [filteredTeams, selectedTeamId]);
 
   const selectedStats = useMemo(() => {
     if (!selectedTeamId) return null;
@@ -539,11 +587,11 @@ export function StudentSnapSection({ events }) {
   }, [selectedStats]);
 
   const teamOptionsForMobile = useMemo(() => {
-    return orderedTeams.map((t) => ({
+    return filteredTeams.map((t) => ({
       ...t,
       total: statsById.get(t.teamId)?.total || 0,
     }));
-  }, [orderedTeams, statsById]);
+  }, [filteredTeams, statsById]);
 
   const loadData = async ({ keepTeamSelection = true } = {}) => {
     if (!selectedEventId) return;
@@ -615,16 +663,16 @@ export function StudentSnapSection({ events }) {
   }, [selectedEventId]);
 
   useEffect(() => {
-    if (!orderedTeams.length) {
+    if (!filteredTeams.length) {
       setSelectedTeamId("");
       return;
     }
 
     setSelectedTeamId((prev) => {
-      if (prev && orderedTeams.some((t) => t.teamId === prev)) return prev;
-      return orderedTeams[0].teamId;
+      if (prev && filteredTeams.some((t) => t.teamId === prev)) return prev;
+      return filteredTeams[0].teamId;
     });
-  }, [orderedTeams]);
+  }, [filteredTeams]);
 
   const decide = async (attendanceId, decision) => {
     setActionLoading((p) => ({ ...p, [attendanceId]: true }));
@@ -674,11 +722,13 @@ export function StudentSnapSection({ events }) {
       }
       sidebar={
         <TeamsSidebar
-          teams={orderedTeams}
+          teams={filteredTeams}
           selectedTeamId={selectedTeamId}
           statsById={statsById}
           loading={loading}
           onSelect={setSelectedTeamId}
+          searchTerm={teamSearchTerm}
+          onSearchChange={setTeamSearchTerm}
         />
       }
     >
@@ -692,6 +742,7 @@ export function StudentSnapSection({ events }) {
           teamOptions={teamOptionsForMobile}
           selectedTeamId={selectedTeamId}
           onSelectTeam={setSelectedTeamId}
+          searchTerm={teamSearchTerm}
           renderCard={(r) => {
             const id = r?._id;
             const busy = Boolean(actionLoading?.[id]);

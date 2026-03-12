@@ -1,8 +1,405 @@
 const Event = require("../models/Event");
 const Student = require("../models/Student");
 const Team = require("../models/Team");
+const TeamMark = require("../models/TeamMark");
+const ProblemStatement = require("../models/ProblemStatement");
+const PaymentVerification = require("../models/PaymentVerification");
 const RoleConfig = require("../models/RoleConfig");
 const User = require("../models/User");
+const {
+  destroyRegistrationPaymentImage,
+  destroyEventImage,
+  isCloudinaryConfigured,
+  uploadEventImage,
+} = require("../services/cloudinary");
+const {
+  getActivePaymentQr,
+  isPaidEvent,
+  isPaymentReferenceAvailable,
+  normalizePaymentReference,
+  releasePaymentReference,
+  reservePaymentReference,
+  uploadPaymentProofImage,
+} = require("../utils/registrationPayment");
+
+function extractBase64Payload(raw) {
+  const value = String(raw || "");
+  const match = value.match(/^data:([^;]+);base64,(.*)$/);
+  return {
+    mime: match ? match[1] : null,
+    base64: match ? match[2] : value,
+  };
+}
+
+function estimateBytesFromBase64(base64) {
+  const length = String(base64 || "").length;
+  const padding = String(base64 || "").endsWith("==")
+    ? 2
+    : String(base64 || "").endsWith("=")
+      ? 1
+      : 0;
+  return Math.floor((length * 3) / 4) - padding;
+}
+
+function buildDataUrl(raw, mime) {
+  const value = String(raw || "");
+  if (value.startsWith("data:")) {
+    return value;
+  }
+
+  return `data:${mime || "application/octet-stream"};base64,${value}`;
+}
+
+function normalizeConfigKey(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+function normalizeTeamMarksConfig(config) {
+  if (!Array.isArray(config)) {
+    return [];
+  }
+
+  const seenRounds = new Set();
+  const normalizedConfig = [];
+
+  for (const round of config) {
+    const roundName = String(round?.roundName || "").trim();
+    const roundKey = normalizeConfigKey(roundName);
+    if (!roundName || seenRounds.has(roundKey)) {
+      continue;
+    }
+
+    seenRounds.add(roundKey);
+
+    const seenCategories = new Set();
+    const categories = Array.isArray(round?.categories)
+      ? round.categories
+          .map((category) => {
+            const name = String(category?.name || "").trim();
+            const key = normalizeConfigKey(name);
+            if (!name || seenCategories.has(key)) {
+              return null;
+            }
+
+            seenCategories.add(key);
+
+            const parsedMaxScore = Number(category?.maxScore);
+            return {
+              name,
+              maxScore:
+                Number.isFinite(parsedMaxScore) && parsedMaxScore > 0
+                  ? parsedMaxScore
+                  : 10,
+            };
+          })
+          .filter(Boolean)
+      : [];
+
+    normalizedConfig.push({ roundName, categories });
+  }
+
+  return normalizedConfig;
+}
+
+function buildRoundConfigSignature(round) {
+  return (Array.isArray(round?.categories) ? round.categories : [])
+    .map((category) => ({
+      name: normalizeConfigKey(category?.name),
+      maxScore: Number(category?.maxScore || 0),
+    }))
+    .filter((category) => Boolean(category.name))
+    .sort((left, right) =>
+      left.name.localeCompare(right.name, undefined, {
+        sensitivity: "base",
+        numeric: true,
+      }),
+    )
+    .map((category) => `${category.name}:${category.maxScore}`)
+    .join("|");
+}
+
+function getRenamedRounds(previousConfig, nextConfig) {
+  const previousRounds = normalizeTeamMarksConfig(previousConfig);
+  const nextRounds = normalizeTeamMarksConfig(nextConfig);
+
+  const nextByKey = new Set(
+    nextRounds.map((round) => normalizeConfigKey(round.roundName)),
+  );
+  const previousByKey = new Set(
+    previousRounds.map((round) => normalizeConfigKey(round.roundName)),
+  );
+
+  const removedRounds = previousRounds.filter(
+    (round) => !nextByKey.has(normalizeConfigKey(round.roundName)),
+  );
+  const addedRounds = nextRounds.filter(
+    (round) => !previousByKey.has(normalizeConfigKey(round.roundName)),
+  );
+
+  const usedAddedIndexes = new Set();
+  const renames = [];
+
+  for (const removedRound of removedRounds) {
+    const removedSignature = buildRoundConfigSignature(removedRound);
+    const matchIndex = addedRounds.findIndex((addedRound, index) => {
+      if (usedAddedIndexes.has(index)) {
+        return false;
+      }
+
+      return buildRoundConfigSignature(addedRound) === removedSignature;
+    });
+
+    if (matchIndex === -1) {
+      continue;
+    }
+
+    const addedRound = addedRounds[matchIndex];
+    const fromRoundKey = normalizeConfigKey(removedRound.roundName);
+    const toRoundKey = normalizeConfigKey(addedRound.roundName);
+
+    if (!fromRoundKey || !toRoundKey || fromRoundKey === toRoundKey) {
+      continue;
+    }
+
+    usedAddedIndexes.add(matchIndex);
+    renames.push({
+      fromRoundName: removedRound.roundName,
+      fromRoundKey,
+      toRoundName: addedRound.roundName,
+      toRoundKey,
+    });
+  }
+
+  return renames;
+}
+
+function isGroupedTeamMarkDoc(doc) {
+  return Array.isArray(doc?.categories);
+}
+
+function isLegacyTeamMarkDoc(doc) {
+  return Boolean(String(doc?.criteriaType || "").trim());
+}
+
+function collectTeamMarkCategories(docs = []) {
+  const sortedDocs = [...docs].sort(
+    (left, right) =>
+      new Date(left?.updatedAt || 0).getTime() -
+      new Date(right?.updatedAt || 0).getTime(),
+  );
+  const categoriesByKey = new Map();
+
+  for (const doc of sortedDocs) {
+    if (isGroupedTeamMarkDoc(doc)) {
+      for (const category of Array.isArray(doc.categories)
+        ? doc.categories
+        : []) {
+        const criteriaType = String(category?.criteriaType || "").trim();
+        const criteriaKey = normalizeConfigKey(
+          criteriaType || category?.criteriaKey,
+        );
+        if (!criteriaType || !criteriaKey) {
+          continue;
+        }
+
+        categoriesByKey.set(criteriaKey, {
+          criteriaType,
+          criteriaKey,
+          score: Number(category?.score || 0),
+          maxScore: Number(category?.maxScore || 0),
+        });
+      }
+      continue;
+    }
+
+    if (!isLegacyTeamMarkDoc(doc)) {
+      continue;
+    }
+
+    const criteriaType = String(doc?.criteriaType || "").trim();
+    const criteriaKey = normalizeConfigKey(criteriaType || doc?.criteriaKey);
+    if (!criteriaType || !criteriaKey) {
+      continue;
+    }
+
+    categoriesByKey.set(criteriaKey, {
+      criteriaType,
+      criteriaKey,
+      score: Number(doc?.score || 0),
+      maxScore: Number(doc?.maxScore || 0),
+    });
+  }
+
+  return Array.from(categoriesByKey.values());
+}
+
+function pickLatestTeamMarkNotes(docs = []) {
+  return String(
+    [...docs]
+      .sort(
+        (left, right) =>
+          new Date(right?.updatedAt || 0).getTime() -
+          new Date(left?.updatedAt || 0).getTime(),
+      )
+      .find((doc) => String(doc?.notes || "").trim())?.notes || "",
+  ).trim();
+}
+
+async function syncRenamedTeamMarkRounds({
+  eventId,
+  previousConfig,
+  nextConfig,
+  actorId,
+}) {
+  const renamedRounds = getRenamedRounds(previousConfig, nextConfig);
+  if (!renamedRounds.length) {
+    return;
+  }
+
+  for (const renamedRound of renamedRounds) {
+    const relevantDocs = await TeamMark.find({
+      event: eventId,
+      roundKey: { $in: [renamedRound.fromRoundKey, renamedRound.toRoundKey] },
+    })
+      .sort({ updatedAt: 1, createdAt: 1 })
+      .lean();
+
+    if (!relevantDocs.length) {
+      continue;
+    }
+
+    const docsByTeam = new Map();
+    for (const doc of relevantDocs) {
+      const teamId = String(doc?.team || "");
+      if (!teamId) {
+        continue;
+      }
+
+      if (!docsByTeam.has(teamId)) {
+        docsByTeam.set(teamId, []);
+      }
+      docsByTeam.get(teamId).push(doc);
+    }
+
+    for (const docs of docsByTeam.values()) {
+      const sourceDocs = docs.filter(
+        (doc) => String(doc?.roundKey || "") === renamedRound.fromRoundKey,
+      );
+      if (!sourceDocs.length) {
+        continue;
+      }
+
+      const targetDocs = docs.filter(
+        (doc) => String(doc?.roundKey || "") === renamedRound.toRoundKey,
+      );
+      const combinedDocs = [...targetDocs, ...sourceDocs];
+      const categories = collectTeamMarkCategories(combinedDocs);
+      if (!categories.length) {
+        continue;
+      }
+
+      const primaryDoc =
+        targetDocs.find(isGroupedTeamMarkDoc) ||
+        sourceDocs.find(isGroupedTeamMarkDoc) ||
+        targetDocs[0] ||
+        sourceDocs[0];
+
+      await TeamMark.findByIdAndUpdate(
+        primaryDoc._id,
+        {
+          $set: {
+            roundName: renamedRound.toRoundName,
+            roundKey: renamedRound.toRoundKey,
+            categories,
+            notes: pickLatestTeamMarkNotes(combinedDocs),
+            updatedBy: actorId || primaryDoc.updatedBy,
+          },
+          $unset: {
+            criteriaType: 1,
+            criteriaKey: 1,
+            score: 1,
+            maxScore: 1,
+          },
+        },
+        { runValidators: true },
+      );
+
+      const duplicateIds = combinedDocs
+        .filter((doc) => String(doc?._id) !== String(primaryDoc._id))
+        .map((doc) => doc._id);
+
+      if (duplicateIds.length) {
+        await TeamMark.deleteMany({ _id: { $in: duplicateIds } });
+      }
+    }
+  }
+}
+
+function getLegacyImageBuffer(event) {
+  if (!event?.image?.data) {
+    return null;
+  }
+
+  let buffer = event.image.data;
+  if (buffer && buffer._bsontype === "Binary" && buffer.buffer) {
+    buffer = Buffer.from(buffer.buffer);
+  }
+
+  if (!Buffer.isBuffer(buffer)) {
+    if (buffer && buffer.buffer) {
+      buffer = Buffer.from(buffer.buffer);
+    } else {
+      buffer = Buffer.from(buffer);
+    }
+  }
+
+  return buffer;
+}
+
+async function uploadIncomingEventImage({
+  imageBase64,
+  imageType,
+  imageUrl,
+  eventId,
+  title,
+  existingPublicId,
+}) {
+  if (!imageBase64 && !imageUrl) {
+    return null;
+  }
+
+  if (!isCloudinaryConfigured()) {
+    const error = new Error(
+      "Image uploads require Cloudinary to be configured on the server.",
+    );
+    error.status = 500;
+    throw error;
+  }
+
+  let source = null;
+  if (imageBase64) {
+    const parsed = extractBase64Payload(imageBase64);
+    const byteSize = estimateBytesFromBase64(parsed.base64);
+    if (byteSize > 5 * 1024 * 1024) {
+      const error = new Error("Image size exceeds 5MB limit");
+      error.status = 400;
+      throw error;
+    }
+
+    source = buildDataUrl(imageBase64, imageType || parsed.mime);
+  } else if (imageUrl) {
+    source = imageUrl;
+  }
+
+  return uploadEventImage(source, {
+    eventId,
+    title,
+    existingPublicId,
+  });
+}
 
 /**
  * Create a new event.
@@ -24,6 +421,7 @@ async function createEvent(req, res) {
       isCodingEnabled,
       examSecurityCode,
       sessions,
+      teamMarksConfig,
       participationType,
       minTeamSize,
       maxTeamSize,
@@ -129,27 +527,26 @@ async function createEvent(req, res) {
       isCodingEnabled: isCodingEnabled !== undefined ? isCodingEnabled : false,
       examSecurityCode: examSecurityCode || undefined,
       sessions: sessions || [],
+      teamMarksConfig: normalizeTeamMarksConfig(teamMarksConfig),
       participationType: teamType,
       minTeamSize: minTeam,
       maxTeamSize: maxTeam,
     });
 
-    // If frontend uploaded image as base64, store it in MongoDB
-    if (imageBase64 && imageType) {
-      // strip data URI prefix if present
-      const matches = imageBase64.match(/^data:(.+);base64,(.*)$/);
-      const base64Data = matches ? matches[2] : imageBase64;
-      const buffer = Buffer.from(base64Data, "base64");
-      if (buffer.length > 5 * 1024 * 1024) {
-        return res.status(400).json({ error: "Image size exceeds 5MB limit" });
+    if (imageBase64 || imageUrl) {
+      const uploadedImage = await uploadIncomingEventImage({
+        imageBase64,
+        imageType,
+        imageUrl,
+        eventId: ev._id.toString(),
+        title,
+      });
+
+      if (uploadedImage) {
+        ev.imageUrl = uploadedImage.secureUrl;
+        ev.cloudinaryPublicId = uploadedImage.publicId;
+        ev.image = undefined;
       }
-      ev.image = {
-        data: buffer,
-        contentType: imageType,
-      };
-    } else if (imageUrl) {
-      // fallback to storing remote URL
-      ev.imageUrl = imageUrl;
     }
 
     await ev.save();
@@ -382,32 +779,18 @@ async function getEventImage(req, res) {
     const ev = await Event.findById(id);
     if (!ev) return res.status(404).json({ error: "Event not found" });
 
-    if (ev.image && ev.image.data) {
-      // ev.image.data can be a Buffer, a BSON Binary, or other typed array depending on how it was stored/retrieved.
-      let buf = ev.image.data;
+    if (ev.imageUrl) {
+      return res.redirect(ev.imageUrl);
+    }
 
-      // If it's a BSON Binary (has _bsontype === 'Binary'), extract the underlying buffer
-      if (buf && buf._bsontype === "Binary" && buf.buffer) {
-        buf = Buffer.from(buf.buffer);
-      }
-
-      // If it's a typed array or has a .buffer (ArrayBuffer), convert to Buffer
-      if (!Buffer.isBuffer(buf)) {
-        if (buf && buf.buffer) buf = Buffer.from(buf.buffer);
-        else buf = Buffer.from(buf);
-      }
-
+    const buffer = getLegacyImageBuffer(ev);
+    if (buffer) {
       res.set(
         "Content-Type",
         ev.image.contentType || "application/octet-stream",
       );
-      res.set("Content-Length", buf.length);
-      return res.send(buf);
-    }
-
-    if (ev.imageUrl) {
-      // If only imageUrl is set, redirect to it
-      return res.redirect(ev.imageUrl);
+      res.set("Content-Length", buffer.length);
+      return res.send(buffer);
     }
 
     return res.status(404).json({ error: "Image not found for this event" });
@@ -424,7 +807,20 @@ async function getEventImage(req, res) {
 async function registerEvent(req, res) {
   try {
     const id = req.params.id;
-    const { name, email, regno, branch, college, year } = req.body || {};
+    const {
+      name,
+      email,
+      regno,
+      branch,
+      college,
+      year,
+      paymentReference,
+      transactionId,
+      utrNumber,
+      paymentScreenshotBase64,
+      paymentScreenshotType,
+      paymentScreenshotUrl,
+    } = req.body || {};
 
     const ev = await Event.findById(id);
     if (!ev) return res.status(404).json({ error: "Event not found" });
@@ -434,6 +830,126 @@ async function registerEvent(req, res) {
       return res
         .status(400)
         .json({ error: "Missing student identifier (regno or email)" });
+    }
+
+    const normalizedRegno = String(regno || "")
+      .trim()
+      .toUpperCase();
+    const normalizedEmail = String(email || "")
+      .trim()
+      .toLowerCase();
+
+    if (isPaidEvent(ev)) {
+      let existingStudent = null;
+      if (normalizedRegno) {
+        existingStudent = await Student.findOne({ regno: normalizedRegno });
+      }
+      if (!existingStudent && normalizedEmail) {
+        existingStudent = await Student.findOne({ email: normalizedEmail });
+      }
+
+      const alreadyRegistered = Array.isArray(existingStudent?.registrations)
+        ? existingStudent.registrations.some(
+            (entry) =>
+              entry.event && entry.event.toString() === ev._id.toString(),
+          )
+        : false;
+      if (alreadyRegistered) {
+        return res.status(400).json({ error: "Already registered" });
+      }
+
+      const duplicateVerificationConditions = [];
+      if (normalizedRegno) {
+        duplicateVerificationConditions.push({
+          "participant.regno": normalizedRegno,
+        });
+      }
+      if (normalizedEmail) {
+        duplicateVerificationConditions.push({
+          "participant.email": normalizedEmail,
+        });
+      }
+
+      if (duplicateVerificationConditions.length > 0) {
+        const existingVerification = await PaymentVerification.findOne({
+          event: ev._id,
+          registrationType: "solo",
+          status: { $in: ["submitted", "approved"] },
+          $or: duplicateVerificationConditions,
+        }).lean();
+
+        if (existingVerification) {
+          return res.status(400).json({
+            error:
+              existingVerification.status === "submitted"
+                ? "Payment verification is already pending for this event"
+                : "Already registered",
+          });
+        }
+      }
+
+      const activePaymentQr = await getActivePaymentQr(ev._id);
+      if (!activePaymentQr) {
+        return res.status(400).json({
+          error:
+            "Payment QR is not available for this event yet. Please contact the organizer.",
+        });
+      }
+
+      const normalizedReference = normalizePaymentReference(
+        paymentReference || transactionId || utrNumber,
+      );
+      let reservedReference = null;
+      let uploadedPaymentProof = null;
+      try {
+        reservedReference = await reservePaymentReference({
+          reference: normalizedReference,
+          eventId: ev._id,
+          registrationType: "solo",
+        });
+
+        uploadedPaymentProof = await uploadPaymentProofImage({
+          imageBase64: paymentScreenshotBase64,
+          imageType: paymentScreenshotType,
+          imageUrl: paymentScreenshotUrl,
+          eventId: ev._id,
+          paymentReference: normalizedReference,
+          regno: normalizedRegno,
+        });
+
+        const item = await PaymentVerification.create({
+          event: ev._id,
+          eventTitle: ev.title || "",
+          registrationType: "solo",
+          paymentReference: reservedReference.reference,
+          paymentScreenshotUrl: uploadedPaymentProof.secureUrl,
+          paymentScreenshotPublicId: uploadedPaymentProof.publicId,
+          paymentAmount: Number(ev.price || 0),
+          paymentSubmittedAt: new Date(),
+          participant: {
+            name: String(name || "").trim(),
+            regno: normalizedRegno,
+            email: normalizedEmail,
+            branch: String(branch || "").trim(),
+            college: String(college || "").trim(),
+            year: String(year || "").trim(),
+          },
+        });
+
+        return res.status(202).json({
+          success: true,
+          verificationPending: true,
+          item,
+        });
+      } catch (submissionErr) {
+        if (reservedReference?.reference) {
+          await releasePaymentReference(reservedReference.reference);
+        }
+        if (uploadedPaymentProof?.publicId) {
+          await destroyRegistrationPaymentImage(uploadedPaymentProof.publicId);
+        }
+        throw submissionErr;
+      }
     }
 
     // Find or create/update Student record
@@ -483,14 +999,73 @@ async function registerEvent(req, res) {
     if (alreadyRegistered)
       return res.status(400).json({ error: "Already registered" });
 
+    let reservedReference = null;
+    let uploadedPaymentProof = null;
+    if (isPaidEvent(ev)) {
+      const activePaymentQr = await getActivePaymentQr(ev._id);
+      if (!activePaymentQr) {
+        return res.status(400).json({
+          error:
+            "Payment QR is not available for this event yet. Please contact the organizer.",
+        });
+      }
+
+      const normalizedReference = normalizePaymentReference(
+        paymentReference || transactionId || utrNumber,
+      );
+      reservedReference = await reservePaymentReference({
+        reference: normalizedReference,
+        eventId: ev._id,
+        registrationType: "solo",
+        studentId: student._id,
+      });
+
+      try {
+        uploadedPaymentProof = await uploadPaymentProofImage({
+          imageBase64: paymentScreenshotBase64,
+          imageType: paymentScreenshotType,
+          imageUrl: paymentScreenshotUrl,
+          eventId: ev._id,
+          paymentReference: normalizedReference,
+          regno: student.regno,
+        });
+      } catch (paymentErr) {
+        await releasePaymentReference(normalizedReference);
+        throw paymentErr;
+      }
+    }
+
     // Add registration to the student document (normalize registrations to Student collection)
     // store the event title as a denormalized field for easy display
-    student.registrations.push({
+    const registrationEntry = {
       event: ev._id,
       eventName: ev.title || "",
       registeredAt: new Date(),
-    });
-    await student.save();
+    };
+
+    if (reservedReference && uploadedPaymentProof) {
+      registrationEntry.paymentReference = reservedReference.reference;
+      registrationEntry.paymentScreenshotUrl = uploadedPaymentProof.secureUrl;
+      registrationEntry.paymentScreenshotPublicId =
+        uploadedPaymentProof.publicId;
+      registrationEntry.paymentAmount = Number(ev.price || 0);
+      registrationEntry.paymentStatus = "submitted";
+      registrationEntry.paymentSubmittedAt = new Date();
+    }
+
+    student.registrations.push(registrationEntry);
+
+    try {
+      await student.save();
+    } catch (saveErr) {
+      if (reservedReference?.reference) {
+        await releasePaymentReference(reservedReference.reference);
+      }
+      if (uploadedPaymentProof?.publicId) {
+        await destroyRegistrationPaymentImage(uploadedPaymentProof.publicId);
+      }
+      throw saveErr;
+    }
 
     // Atomically increment registeredCount on the Event for accurate counting (avoid race conditions)
     try {
@@ -507,6 +1082,35 @@ async function registerEvent(req, res) {
     return res.json({ success: true, student });
   } catch (err) {
     console.error("registerEvent error", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+async function checkPaymentReferenceAvailability(req, res) {
+  try {
+    const eventId = req.params.id;
+    const event = await Event.findById(eventId).select("_id price").lean();
+    if (!event) {
+      return res.status(404).json({ error: "Event not found" });
+    }
+
+    const reference = normalizePaymentReference(
+      req.query.value || req.query.reference,
+    );
+    if (!reference) {
+      return res.status(400).json({
+        error: "Transaction ID / UTR number is required",
+      });
+    }
+
+    const available = await isPaymentReferenceAvailable(reference);
+    return res.json({
+      available,
+      reference,
+      paidEvent: isPaidEvent(event),
+    });
+  } catch (err) {
+    console.error("checkPaymentReferenceAvailability error", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 }
@@ -534,6 +1138,7 @@ async function updateEvent(req, res) {
       questions,
       sessions,
       studentSessions,
+      teamMarksConfig,
       examSecurityCode,
       participationType,
       minTeamSize,
@@ -624,6 +1229,21 @@ async function updateEvent(req, res) {
       $set.studentSessions = studentSessions;
     }
 
+    const normalizedTeamMarksConfig =
+      teamMarksConfig !== undefined
+        ? normalizeTeamMarksConfig(teamMarksConfig)
+        : undefined;
+
+    if (normalizedTeamMarksConfig !== undefined) {
+      await syncRenamedTeamMarkRounds({
+        eventId: ev._id,
+        previousConfig: ev.teamMarksConfig,
+        nextConfig: normalizedTeamMarksConfig,
+        actorId: req.user?.id,
+      });
+      $set.teamMarksConfig = normalizedTeamMarksConfig;
+    }
+
     if (participationType !== undefined)
       $set.participationType = participationType;
     if (minTeamSize !== undefined) $set.minTeamSize = Number(minTeamSize);
@@ -639,21 +1259,35 @@ async function updateEvent(req, res) {
     }
 
     if (imageBase64 && imageType) {
-      const matches = imageBase64.match(/^data:(.+);base64,(.*)$/);
-      const base64Data = matches ? matches[2] : imageBase64;
-      const buffer = Buffer.from(base64Data, "base64");
-      if (buffer.length > 5 * 1024 * 1024) {
-        return res.status(400).json({ error: "Image size exceeds 5MB limit" });
-      }
-      $set.image = {
-        data: buffer,
-        contentType: imageType,
-      };
-      $unset.imageUrl = 1;
-    } else if (imageUrl !== undefined) {
-      $set.imageUrl = imageUrl || ""; // Ensure it's string
-      // Clear binary if it exists
+      const uploadedImage = await uploadIncomingEventImage({
+        imageBase64,
+        imageType,
+        eventId: ev._id.toString(),
+        title: title !== undefined ? title : ev.title,
+        existingPublicId: ev.cloudinaryPublicId,
+      });
+      $set.imageUrl = uploadedImage.secureUrl;
+      $set.cloudinaryPublicId = uploadedImage.publicId;
       $unset.image = 1;
+    } else if (imageUrl !== undefined) {
+      if (imageUrl) {
+        const uploadedImage = await uploadIncomingEventImage({
+          imageUrl,
+          eventId: ev._id.toString(),
+          title: title !== undefined ? title : ev.title,
+          existingPublicId: ev.cloudinaryPublicId,
+        });
+        $set.imageUrl = uploadedImage.secureUrl;
+        $set.cloudinaryPublicId = uploadedImage.publicId;
+        $unset.image = 1;
+      } else {
+        if (ev.cloudinaryPublicId) {
+          await destroyEventImage(ev.cloudinaryPublicId);
+        }
+        $set.imageUrl = "";
+        $unset.image = 1;
+        $unset.cloudinaryPublicId = 1;
+      }
     }
 
     if (price !== undefined) {
@@ -735,6 +1369,23 @@ async function deleteEvent(req, res) {
     } catch (pullErr) {
       console.error("Failed to remove registrations from students:", pullErr);
       // continue with delete even if student cleanup fails
+    }
+
+    if (ev.cloudinaryPublicId) {
+      try {
+        await destroyEventImage(ev.cloudinaryPublicId);
+      } catch (imageErr) {
+        console.error("Failed to delete Cloudinary image:", imageErr);
+      }
+    }
+
+    try {
+      await ProblemStatement.deleteMany({ event: ev._id });
+    } catch (problemStatementErr) {
+      console.error(
+        "Failed to delete problem statements for event:",
+        problemStatementErr,
+      );
     }
 
     await Event.deleteOne({ _id: ev._id });
@@ -822,6 +1473,7 @@ module.exports = {
   getEvents,
   getEventImage,
   registerEvent,
+  checkPaymentReferenceAvailability,
   updateEvent,
   deleteEvent,
   generateEventKey,

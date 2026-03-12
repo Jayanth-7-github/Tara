@@ -26,8 +26,10 @@ import ManageStudents from "./ManageStudents";
 import StudentResults from "./StudentResults";
 import EventSessions from "./EventSessions";
 import ManageQuestions from "./ManageQuestions";
+import { MarksForStudentsSection } from "./MarksForStudents";
 import { StudentSnapSection } from "./StudentSnap";
 import ManageApprovals from "./ManageApprovals";
+import ProblemStatementsSection from "./ProblemStatements";
 
 // ─── Logo ────────────────────────────────────────────────────────────────────
 const Logo = () => (
@@ -70,13 +72,17 @@ const StatCard = ({ title, value, sub, icon, color, onClick }) => {
   const parts = cls.split(" ");
   const bg = parts[2] || "";
   const text = parts[3] || "";
+  const Component = onClick ? "button" : "div";
+
   return (
-    <div
+    <Component
+      type={onClick ? "button" : undefined}
       onClick={onClick}
       className={cn(
-        "rounded-xl border p-5 transition-all duration-200 backdrop-blur bg-neutral-800/60",
+        "rounded-xl border p-5 transition-all duration-200 backdrop-blur bg-neutral-800/60 text-left",
         cls,
-        onClick && "cursor-pointer hover:bg-neutral-700/40",
+        onClick &&
+          "cursor-pointer hover:bg-neutral-700/40 focus:outline-none focus:ring-2 focus:ring-blue-500/60",
       )}
     >
       <div className="flex items-center justify-between mb-3">
@@ -87,7 +93,7 @@ const StatCard = ({ title, value, sub, icon, color, onClick }) => {
       </div>
       <p className="text-3xl font-bold text-white">{value}</p>
       {sub && <p className="text-xs text-neutral-500 mt-1">{sub}</p>}
-    </div>
+    </Component>
   );
 };
 
@@ -305,6 +311,13 @@ export default function EventManagerDashboard() {
       icon: <IconUserCheck size={20} className="text-neutral-300 shrink-0" />,
     },
     {
+      label: "Team Marks",
+      section: "teamMarks",
+      icon: (
+        <IconClipboardList size={20} className="text-neutral-300 shrink-0" />
+      ),
+    },
+    {
       label: "Sessions",
       section: "sessions",
       icon: (
@@ -322,15 +335,22 @@ export default function EventManagerDashboard() {
       icon: <IconSettings size={20} className="text-neutral-300 shrink-0" />,
     },
     {
+      label: "Problems Statements",
+      section: "problemStatements",
+      icon: (
+        <IconClipboardList size={20} className="text-neutral-300 shrink-0" />
+      ),
+    },
+    {
       label: "Results",
       section: "results",
       icon: <IconUserCheck size={20} className="text-neutral-300 shrink-0" />,
     },
     {
-      label: "Approvals",
+      label: "Approvals / QR Codes",
       section: "approvals",
       icon: <IconSettings size={20} className="text-neutral-300 shrink-0" />,
-    }
+    },
   ];
 
   const renderSection = () => {
@@ -339,6 +359,8 @@ export default function EventManagerDashboard() {
         return <AttendanceSection navigate={navigate} user={user} />;
       case "studentSnap":
         return <StudentSnapSection events={events} />;
+      case "teamMarks":
+        return <MarksForStudentsSection events={events} />;
       case "sessions":
         return <SessionsSection />;
       case "students":
@@ -348,7 +370,9 @@ export default function EventManagerDashboard() {
       case "results":
         return <ManagerResultsSection />;
       case "approvals":
-        return <ManageApprovals/>;
+        return <ManageApprovals />;
+      case "problemStatements":
+        return <ProblemStatementsSection />;
       default:
         return (
           <ManagerOverviewSection
@@ -374,20 +398,26 @@ export default function EventManagerDashboard() {
   return (
     <div className="flex h-screen w-full overflow-hidden bg-neutral-950 flex-col md:flex-row">
       <Sidebar open={sidebarOpen} setOpen={setSidebarOpen}>
-        <SidebarBody className="justify-between gap-8">
-          <div className="flex flex-1 flex-col overflow-x-hidden overflow-y-auto gap-1">
-            {sidebarOpen ? <Logo /> : <LogoIcon />}
-            <div className="mt-8 flex flex-col gap-1">
+        <SidebarBody className="justify-between gap-6 overflow-hidden">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <div className="shrink-0">
+              {sidebarOpen ? <Logo /> : <LogoIcon />}
+            </div>
+            <div className="scrollbar-hidden mt-8 flex min-h-0 flex-1 flex-col gap-1 overflow-x-hidden overflow-y-auto pr-1">
               {navLinks.map((link) => (
                 <SidebarLink
-                  key={link.section}
+                  key={link.path || link.section}
                   link={{ label: link.label, href: "#", icon: link.icon }}
                   onClick={() => {
-                    setActiveSection(link.section);
+                    if (link.path) {
+                      navigate(link.path);
+                    } else {
+                      setActiveSection(link.section);
+                    }
                     setSidebarOpen(false);
                   }}
                   className={
-                    activeSection === link.section
+                    !link.path && activeSection === link.section
                       ? "bg-white/10 text-white"
                       : ""
                   }
@@ -395,7 +425,7 @@ export default function EventManagerDashboard() {
               ))}
             </div>
           </div>
-          <div>
+          <div className="shrink-0">
             <SidebarLink
               link={{
                 label: user?.name || user?.email || "Manager",
@@ -428,7 +458,7 @@ export default function EventManagerDashboard() {
         </SidebarBody>
       </Sidebar>
 
-      <main className="flex-1 overflow-y-auto bg-neutral-950 text-white w-full">
+      <main className="scrollbar-hidden flex-1 overflow-y-auto bg-neutral-950 text-white w-full">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeSection}
@@ -502,6 +532,7 @@ function ManagerOverviewSection({
             sub="Across your events"
             icon={<IconUsersGroup size={18} />}
             color="green"
+            onClick={() => navigate("/events/all-registrations")}
           />
           <StatCard
             title="Attendance"

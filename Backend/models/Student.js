@@ -30,6 +30,15 @@ const StudentSchema = new Schema(
         // store the event title for convenience (denormalized)
         eventName: { type: String, trim: true },
         registeredAt: { type: Date, default: Date.now },
+        paymentReference: { type: String, trim: true, uppercase: true },
+        paymentScreenshotUrl: { type: String, trim: true },
+        paymentScreenshotPublicId: { type: String, trim: true },
+        paymentAmount: { type: Number, min: 0 },
+        paymentStatus: {
+          type: String,
+          enum: ["submitted", "approved", "rejected"],
+        },
+        paymentSubmittedAt: { type: Date },
       },
     ],
   },

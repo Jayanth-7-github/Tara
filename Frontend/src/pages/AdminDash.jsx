@@ -467,7 +467,7 @@ function EventsSection({ navigate }) {
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-8">
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">
             Event Manager
@@ -476,7 +476,7 @@ function EventsSection({ navigate }) {
             All events in the system
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <button
             onClick={() => {
               setLoading(true);
@@ -496,6 +496,12 @@ function EventsSection({ navigate }) {
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-sm transition"
           >
             <IconRefresh size={15} /> Refresh
+          </button>
+          <button
+            onClick={() => navigate("/events/dashboard")}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-sm transition"
+          >
+            <IconBrandTabler size={15} /> Manager Dash
           </button>
           <button
             onClick={() => navigate("/events/create")}
@@ -726,9 +732,6 @@ function AttendanceSection({ navigate }) {
     </div>
   );
 }
-
-
-
 // ─── Section: Admin Portal ────────────────────────────────────────────────────
 function PortalSection({ navigate }) {
   const quickLinks = [

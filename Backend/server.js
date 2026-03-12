@@ -40,6 +40,18 @@ const eventRoutes = require(path.join(__dirname, "routes", "eventRoutes"));
 const rolesRoutes = require(path.join(__dirname, "routes", "rolesRoutes"));
 const contactRoutes = require(path.join(__dirname, "routes", "contactRoutes"));
 const userRoutes = require(path.join(__dirname, "routes", "userRoutes"));
+const teamMarkRoutes = require(
+  path.join(__dirname, "routes", "teamMarkRoutes"),
+);
+const problemStatementRoutes = require(
+  path.join(__dirname, "routes", "problemStatementRoutes"),
+);
+const paymentQrRoutes = require(
+  path.join(__dirname, "routes", "paymentQrRoutes"),
+);
+const paymentVerificationRoutes = require(
+  path.join(__dirname, "routes", "paymentVerificationRoutes"),
+);
 
 app.use("/api/students", studentRoutes);
 app.use("/api/attendance", attendanceRoutes);
@@ -49,6 +61,10 @@ app.use("/api/test-results", testResultRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api/contact", contactRoutes);
 app.use("/api/teams", require("./routes/teamRoutes"));
+app.use("/api/team-marks", teamMarkRoutes);
+app.use("/api/problem-statements", problemStatementRoutes);
+app.use("/api/payment-qrs", paymentQrRoutes);
+app.use("/api/payment-verifications", paymentVerificationRoutes);
 // Google OAuth and other user-facing auth flows (non-API)
 app.use("/user", userRoutes);
 app.use("/api/roles/secret8181", rolesRoutes);

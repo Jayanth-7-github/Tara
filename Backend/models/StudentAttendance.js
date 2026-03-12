@@ -14,9 +14,10 @@ const StudentAttendanceSchema = new Schema(
     // free-form session label (e.g., "Session 1", "Day 2 - Morning")
     sessionName: { type: String, required: true, trim: true, index: true },
 
-    // Store a data URL so frontend can render without auth-gated image fetches.
-    // Expected: data:<mime>;base64,<...>
+    // Legacy records may store a data URL. New records store the hosted
+    // Cloudinary image URL so the frontend can render directly.
     photoDataUrl: { type: String, required: true },
+    photoCloudinaryPublicId: { type: String, trim: true },
 
     status: {
       type: String,
