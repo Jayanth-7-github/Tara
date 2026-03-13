@@ -68,6 +68,10 @@ const SERVICE_MAP = {
   getStudentByRegNo: "studentService",
   createStudent: "studentService",
   createStudentsBulk: "studentService",
+  softDeleteRegistration: "studentService",
+  undoDeleteRegistration: "studentService",
+  permanentDeleteRegistration: "studentService",
+  getDeletedRegistrations: "studentService",
 
   // Test Results
   submitTest: "default",

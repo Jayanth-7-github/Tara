@@ -1054,3 +1054,72 @@ export async function verifyEventKey(key) {
   }
   return body;
 }
+
+// Soft delete registration
+export async function softDeleteRegistration(studentId, eventId) {
+  const resp = await fetch(`${API_BASE}/students/soft-delete`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ studentId, eventId }),
+  });
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(body.error || "Failed to soft delete registration");
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}
+
+// Undo soft delete
+export async function undoDeleteRegistration(studentId, eventId) {
+  const resp = await fetch(`${API_BASE}/students/undo-delete`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ studentId, eventId }),
+  });
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(body.error || "Failed to undo delete registration");
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}
+
+// Permanent delete registration
+export async function permanentDeleteRegistration(studentId, eventId) {
+  const resp = await fetch(`${API_BASE}/students/permanent-delete`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ studentId, eventId }),
+  });
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(
+      body.error || "Failed to permanent delete registration",
+    );
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}
+
+// Get deleted registrations
+export async function getDeletedRegistrations() {
+  const resp = await fetch(`${API_BASE}/students/deleted`, {
+    credentials: "include",
+  });
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(
+      body.error || "Failed to fetch deleted registrations",
+    );
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}

@@ -2,6 +2,10 @@ const path = require("path");
 const Student = require(path.join(__dirname, "..", "models", "Student"));
 const Team = require(path.join(__dirname, "..", "models", "Team"));
 const Event = require(path.join(__dirname, "..", "models", "Event"));
+const User = require(path.join(__dirname, "..", "models", "User"));
+const DeletedRegistration = require(
+  path.join(__dirname, "..", "models", "DeletedRegistration"),
+);
 
 function normalizeStudentInput(input) {
   const body = input || {};
@@ -303,6 +307,205 @@ exports.updateStudent = async (req, res) => {
     return res.json(saved);
   } catch (err) {
     console.error("updateStudent error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// Soft delete a registration
+exports.softDeleteRegistration = async (req, res) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { studentId, eventId } = req.body;
+    if (!studentId || !eventId) {
+      return res.status(400).json({ error: "studentId and eventId required" });
+    }
+
+    const student = await Student.findById(studentId);
+    if (!student) {
+      return res.status(404).json({ error: "Student not found" });
+    }
+
+    const regIndex = student.registrations.findIndex(
+      (r) => r.event.toString() === eventId && !r.isDeleted,
+    );
+    if (regIndex === -1) {
+      return res.status(404).json({ error: "Active registration not found" });
+    }
+
+    const registration = student.registrations[regIndex];
+
+    // Move registration data to DeletedRegistration collection
+    await DeletedRegistration.create({
+      studentId: student._id,
+      regno: student.regno,
+      name: student.name,
+      email: student.email,
+      department: student.department,
+      college: student.college,
+      year: student.year,
+      phone: student.phone,
+      branch: student.branch,
+      hostelName: student.hostelName,
+      roomNo: student.roomNo,
+      eventId: registration.event,
+      eventTitle: registration.eventName,
+      registeredAt: registration.registeredAt,
+      paymentReference: registration.paymentReference,
+      paymentScreenshotUrl: registration.paymentScreenshotUrl,
+      paymentScreenshotPublicId: registration.paymentScreenshotPublicId,
+      paymentAmount: registration.paymentAmount,
+      paymentStatus: registration.paymentStatus,
+      paymentSubmittedAt: registration.paymentSubmittedAt,
+      deletedBy: req.user.id,
+    });
+
+    // Remove from student's registrations array
+    student.registrations.splice(regIndex, 1);
+    await student.save();
+
+    res.json({ message: "Registration soft deleted" });
+  } catch (err) {
+    console.error("softDeleteRegistration error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// Undo soft delete
+exports.undoDeleteRegistration = async (req, res) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { studentId, eventId } = req.body;
+    if (!studentId || !eventId) {
+      return res.status(400).json({ error: "studentId and eventId required" });
+    }
+
+    // Find the deleted registration
+    const deletedReg = await DeletedRegistration.findOne({
+      studentId,
+      eventId,
+    });
+    if (!deletedReg) {
+      return res.status(404).json({ error: "Deleted registration not found" });
+    }
+
+    // Find or create the student
+    let student = await Student.findById(studentId);
+    if (!student) {
+      // Recreate student if they were deleted
+      student = await Student.create({
+        _id: studentId,
+        regno: deletedReg.regno,
+        name: deletedReg.name,
+        email: deletedReg.email,
+        department: deletedReg.department,
+        college: deletedReg.college,
+        year: deletedReg.year,
+        phone: deletedReg.phone,
+        branch: deletedReg.branch,
+        hostelName: deletedReg.hostelName,
+        roomNo: deletedReg.roomNo,
+      });
+    }
+
+    // Add registration back to student
+    student.registrations.push({
+      event: deletedReg.eventId,
+      eventName: deletedReg.eventTitle,
+      registeredAt: deletedReg.registeredAt,
+      paymentReference: deletedReg.paymentReference,
+      paymentScreenshotUrl: deletedReg.paymentScreenshotUrl,
+      paymentScreenshotPublicId: deletedReg.paymentScreenshotPublicId,
+      paymentAmount: deletedReg.paymentAmount,
+      paymentStatus: deletedReg.paymentStatus,
+      paymentSubmittedAt: deletedReg.paymentSubmittedAt,
+    });
+
+    await student.save();
+
+    // Remove from deleted registrations
+    await DeletedRegistration.findByIdAndDelete(deletedReg._id);
+
+    res.json({ message: "Registration restored" });
+  } catch (err) {
+    console.error("undoDeleteRegistration error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// Permanent delete a registration
+exports.permanentDeleteRegistration = async (req, res) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { studentId, eventId } = req.body;
+    if (!studentId || !eventId) {
+      return res.status(400).json({ error: "studentId and eventId required" });
+    }
+
+    // Remove from deleted registrations
+    const deletedReg = await DeletedRegistration.findOneAndDelete({
+      studentId,
+      eventId,
+    });
+
+    if (!deletedReg) {
+      return res.status(404).json({ error: "Deleted registration not found" });
+    }
+
+    res.json({ message: "Registration permanently deleted" });
+  } catch (err) {
+    console.error("permanentDeleteRegistration error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// Get deleted registrations for events managed by the user
+exports.getDeletedRegistrations = async (req, res) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const actor = await User.findById(req.user.id).lean();
+    const userEmail =
+      actor && actor.email ? String(actor.email).toLowerCase().trim() : null;
+    if (!userEmail) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    // Get events managed by this user
+    const managedEvents = await Event.find({ managerEmail: userEmail });
+    const eventIds = managedEvents.map((e) => e._id.toString());
+
+    // Get deleted registrations for these events
+    const deletedRegs = await DeletedRegistration.find({
+      eventId: { $in: eventIds },
+    }).sort({ deletedAt: -1 });
+
+    const formattedRegs = deletedRegs.map((reg) => ({
+      studentId: reg.studentId,
+      eventId: reg.eventId,
+      eventTitle: reg.eventTitle,
+      name: reg.name,
+      regno: reg.regno,
+      email: reg.email,
+      department: reg.department,
+      year: reg.year,
+      college: reg.college,
+      deletedAt: reg.deletedAt,
+    }));
+
+    res.json({ deletedRegistrations: formattedRegs });
+  } catch (err) {
+    console.error("getDeletedRegistrations error:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 };
