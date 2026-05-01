@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useDeferredValue, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   getSummary,
@@ -22,6 +22,7 @@ export default function AttendanceSummary() {
   const [inputKey, setInputKey] = useState("");
   const [keyError, setKeyError] = useState("");
   const [checkingAuth, setCheckingAuth] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
 
   // Auth check on mount
   useEffect(() => {
@@ -228,6 +229,44 @@ export default function AttendanceSummary() {
       })
     : studentRows;
 
+  const deferredSearchTerm = useDeferredValue(searchTerm);
+  const normalizedSearchTerm = deferredSearchTerm.trim().toLowerCase();
+
+  const filteredStudentRows = useMemo(() => {
+    if (!normalizedSearchTerm) {
+      return sortedStudentRows;
+    }
+
+    return sortedStudentRows.filter((student) => {
+      const searchableParts = [
+        student.regno,
+        student.name,
+        student.email,
+        student.hostelName,
+        student.teamName,
+        ...(student.sessions
+          ? Object.entries(student.sessions).flatMap(
+              ([sessionName, record]) => [
+                sessionName,
+                record?.isPresent ? "present" : "absent",
+                record?.name,
+                record?.email,
+                record?.regno,
+                record?.hostelName,
+                record?.teamName,
+              ],
+            )
+          : []),
+      ];
+
+      return searchableParts.some((value) =>
+        String(value || "")
+          .toLowerCase()
+          .includes(normalizedSearchTerm),
+      );
+    });
+  }, [normalizedSearchTerm, sortedStudentRows]);
+
   const handleDownload = async (mode) => {
     try {
       const blob = await downloadCSV(
@@ -307,6 +346,61 @@ export default function AttendanceSummary() {
           </div>
 
           <div className="w-full sm:w-auto flex flex-col sm:flex-row sm:flex-wrap gap-3">
+            <div className="w-full sm:w-[320px]">
+              <label className="sr-only" htmlFor="attendance-summary-search">
+                Search attendance summary
+              </label>
+              <div className="relative">
+                <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-gray-500">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 21l-4.35-4.35m1.85-5.15a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
+                </span>
+                <input
+                  id="attendance-summary-search"
+                  type="text"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  placeholder="Search by regno, name, email, hostel, team"
+                  className="w-full rounded-xl border border-gray-700/70 bg-gray-900/60 py-3 pl-9 pr-10 text-sm text-white placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                />
+                {searchTerm.trim() ? (
+                  <button
+                    type="button"
+                    onClick={() => setSearchTerm("")}
+                    className="absolute inset-y-0 right-2 flex items-center text-gray-500 hover:text-gray-200"
+                    aria-label="Clear search"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                ) : null}
+              </div>
+            </div>
+
             {/* Event selector */}
             <div className="flex flex-col sm:flex-row items-center gap-3 bg-gray-900/40 p-1 rounded-xl border border-gray-700/50">
               <div className="flex items-center gap-2 px-3 py-2">
@@ -391,10 +485,18 @@ export default function AttendanceSummary() {
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
               <div className="text-gray-300 text-sm">
                 <div>
-                  Total Students Tracked:{" "}
+                  {searchTerm.trim()
+                    ? "Matching Students:"
+                    : "Total Students Tracked:"}{" "}
                   <span className="font-semibold text-blue-400">
-                    {studentRows.length}
+                    {filteredStudentRows.length}
                   </span>
+                  {searchTerm.trim() ? (
+                    <span className="text-gray-500">
+                      {" "}
+                      of {studentRows.length}
+                    </span>
+                  ) : null}
                 </div>
               </div>
               <button
@@ -405,139 +507,154 @@ export default function AttendanceSummary() {
               </button>
             </div>
 
-            {/* Mobile list */}
-            <div className="sm:hidden space-y-3">
-              {sortedStudentRows.map((s) => (
-                <div
-                  key={s.regno}
-                  className="rounded-lg border border-gray-800 bg-gray-900/50 p-4 shadow-sm"
-                >
-                  <div className="text-base font-semibold text-gray-100 wrap-break-word mb-2">
-                    {s.name}
-                  </div>
-                  <div className="text-sm text-gray-400 mb-2">{s.regno}</div>
-                  {isTeamEvent ? (
-                    <div className="text-sm text-gray-400 mb-2">
-                      Team:{" "}
-                      <span className="text-gray-200 font-medium">
-                        {s.teamName || "—"}
-                      </span>
-                    </div>
-                  ) : null}
-
-                  <div className="space-y-2">
-                    {sessionColumns.map((sess) => {
-                      const record = s.sessions[sess.name];
-                      const isPresent = record && record.isPresent;
-                      return (
-                        <div
-                          key={sess.name}
-                          className="flex justify-between items-center text-sm border-t border-gray-800 pt-2"
-                        >
-                          <span className="text-gray-300">{sess.name}</span>
-                          <span>
-                            {isPresent ? (
-                              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-green-500/20 text-green-400">
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  className="h-3 w-3"
-                                  viewBox="0 0 20 20"
-                                  fill="currentColor"
-                                >
-                                  <path
-                                    fillRule="evenodd"
-                                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                    clipRule="evenodd"
-                                  />
-                                </svg>
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 text-xs font-medium">
-                                Absent
-                              </span>
-                            )}
+            {filteredStudentRows.length === 0 ? (
+              <div className="rounded-lg border border-gray-800 bg-gray-900/40 px-4 py-10 text-center text-gray-400">
+                {searchTerm.trim()
+                  ? "No students match your search."
+                  : "No students tracked."}
+              </div>
+            ) : (
+              <>
+                {/* Mobile list */}
+                <div className="sm:hidden space-y-3">
+                  {filteredStudentRows.map((s) => (
+                    <div
+                      key={s.regno}
+                      className="rounded-lg border border-gray-800 bg-gray-900/50 p-4 shadow-sm"
+                    >
+                      <div className="text-base font-semibold text-gray-100 wrap-break-word mb-2">
+                        {s.name}
+                      </div>
+                      <div className="text-sm text-gray-400 mb-2">
+                        {s.regno}
+                      </div>
+                      {isTeamEvent ? (
+                        <div className="text-sm text-gray-400 mb-2">
+                          Team:{" "}
+                          <span className="text-gray-200 font-medium">
+                            {s.teamName || "—"}
                           </span>
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Desktop table */}
-            <div className="hidden sm:block overflow-x-auto rounded-lg border border-gray-800 bg-gray-950/50 shadow-inner">
-              <table className="min-w-[800px] w-full text-sm">
-                <thead className="bg-gray-800/80 text-gray-200 uppercase tracking-wide text-xs">
-                  <tr>
-                    <th className="px-3 py-3 text-left">Roll No</th>
-                    <th className="px-3 py-3 text-left">Name</th>
-                    {isTeamEvent ? (
-                      <th className="px-3 py-3 text-left">Team</th>
-                    ) : null}
-                    <th className="px-3 py-3 text-left">Email</th>
-                    <th className="px-3 py-3 text-left">Hostel</th>
-                    {sessionColumns.map((sess) => (
-                      <th key={sess.name} className="px-3 py-3 text-center">
-                        {sess.name}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedStudentRows.map((s, i) => (
-                    <tr
-                      key={s.regno}
-                      className={`${
-                        i % 2 === 0 ? "bg-gray-900/40" : "bg-gray-800/30"
-                      } border-t border-gray-800 hover:bg-gray-800/70 transition-colors`}
-                    >
-                      <td className="px-3 py-3 text-gray-200">{s.regno}</td>
-                      <td className="px-3 py-3 text-gray-200">{s.name}</td>
-                      {isTeamEvent ? (
-                        <td className="px-3 py-3 text-gray-200">
-                          {s.teamName || "—"}
-                        </td>
                       ) : null}
-                      <td className="px-3 py-3 text-gray-200 break-all">
-                        {s.email || "—"}
-                      </td>
-                      <td className="px-3 py-3 text-gray-200">
-                        {s.hostelName || "—"}
-                      </td>
-                      {sessionColumns.map((sess) => {
-                        const record = s.sessions[sess.name];
-                        const isPresent = record && record.isPresent;
-                        return (
-                          <td key={sess.name} className="px-3 py-3 text-center">
-                            {isPresent ? (
-                              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-500/20 text-green-400">
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  className="h-4 w-4"
-                                  viewBox="0 0 20 20"
-                                  fill="currentColor"
-                                >
-                                  <path
-                                    fillRule="evenodd"
-                                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                    clipRule="evenodd"
-                                  />
-                                </svg>
+
+                      <div className="space-y-2">
+                        {sessionColumns.map((sess) => {
+                          const record = s.sessions[sess.name];
+                          const isPresent = record && record.isPresent;
+                          return (
+                            <div
+                              key={sess.name}
+                              className="flex justify-between items-center text-sm border-t border-gray-800 pt-2"
+                            >
+                              <span className="text-gray-300">{sess.name}</span>
+                              <span>
+                                {isPresent ? (
+                                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-green-500/20 text-green-400">
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      className="h-3 w-3"
+                                      viewBox="0 0 20 20"
+                                      fill="currentColor"
+                                    >
+                                      <path
+                                        fillRule="evenodd"
+                                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                        clipRule="evenodd"
+                                      />
+                                    </svg>
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 text-xs font-medium">
+                                    Absent
+                                  </span>
+                                )}
                               </span>
-                            ) : (
-                              <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 text-xs font-medium">
-                                Absent
-                              </span>
-                            )}
-                          </td>
-                        );
-                      })}
-                    </tr>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
                   ))}
-                </tbody>
-              </table>
-            </div>
+                </div>
+
+                {/* Desktop table */}
+                <div className="hidden sm:block overflow-x-auto rounded-lg border border-gray-800 bg-gray-950/50 shadow-inner">
+                  <table className="min-w-[800px] w-full text-sm">
+                    <thead className="bg-gray-800/80 text-gray-200 uppercase tracking-wide text-xs">
+                      <tr>
+                        <th className="px-3 py-3 text-left">Roll No</th>
+                        <th className="px-3 py-3 text-left">Name</th>
+                        {isTeamEvent ? (
+                          <th className="px-3 py-3 text-left">Team</th>
+                        ) : null}
+                        <th className="px-3 py-3 text-left">Email</th>
+                        <th className="px-3 py-3 text-left">Hostel</th>
+                        {sessionColumns.map((sess) => (
+                          <th key={sess.name} className="px-3 py-3 text-center">
+                            {sess.name}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredStudentRows.map((s, i) => (
+                        <tr
+                          key={s.regno}
+                          className={`${
+                            i % 2 === 0 ? "bg-gray-900/40" : "bg-gray-800/30"
+                          } border-t border-gray-800 hover:bg-gray-800/70 transition-colors`}
+                        >
+                          <td className="px-3 py-3 text-gray-200">{s.regno}</td>
+                          <td className="px-3 py-3 text-gray-200">{s.name}</td>
+                          {isTeamEvent ? (
+                            <td className="px-3 py-3 text-gray-200">
+                              {s.teamName || "—"}
+                            </td>
+                          ) : null}
+                          <td className="px-3 py-3 text-gray-200 break-all">
+                            {s.email || "—"}
+                          </td>
+                          <td className="px-3 py-3 text-gray-200">
+                            {s.hostelName || "—"}
+                          </td>
+                          {sessionColumns.map((sess) => {
+                            const record = s.sessions[sess.name];
+                            const isPresent = record && record.isPresent;
+                            return (
+                              <td
+                                key={sess.name}
+                                className="px-3 py-3 text-center"
+                              >
+                                {isPresent ? (
+                                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-500/20 text-green-400">
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      className="h-4 w-4"
+                                      viewBox="0 0 20 20"
+                                      fill="currentColor"
+                                    >
+                                      <path
+                                        fillRule="evenodd"
+                                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                        clipRule="evenodd"
+                                      />
+                                    </svg>
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 text-xs font-medium">
+                                    Absent
+                                  </span>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
           </div>
         ) : (
           <div className="text-gray-500 text-center py-16">
