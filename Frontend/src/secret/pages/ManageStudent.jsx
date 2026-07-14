@@ -281,7 +281,18 @@ export default function ManageStudent() {
         }
       } else {
         const normalized = normalizeStudentInput(data);
-        const res = await createStudent(normalized);
+        let res;
+        let isExisting = false;
+        try {
+          res = await createStudent(normalized);
+        } catch (err) {
+          if (err.status === 409) {
+            isExisting = true;
+            res = await updateStudent(normalized.regno, normalized);
+          } else {
+            throw err;
+          }
+        }
         // If an event is selected, register the single student for it
         if (selectedEventId) {
           try {
@@ -289,10 +300,17 @@ export default function ManageStudent() {
               regno: normalized.regno,
               name: normalized.name,
             });
-            setResult({ message: "Student created and registered", body: res });
+            setResult({
+              message: isExisting
+                ? "Student details updated and registered"
+                : "Student created and registered",
+              body: res,
+            });
           } catch (regErr) {
             setResult({
-              message: "Student created; registration failed",
+              message: isExisting
+                ? "Student details updated; registration failed"
+                : "Student created; registration failed",
               body: {
                 created: res,
                 registrationError: regErr?.message || String(regErr),
@@ -300,7 +318,10 @@ export default function ManageStudent() {
             });
           }
         } else {
-          setResult({ message: "Student created", body: res });
+          setResult({
+            message: isExisting ? "Student details updated" : "Student created",
+            body: res,
+          });
         }
       }
       setText("");
