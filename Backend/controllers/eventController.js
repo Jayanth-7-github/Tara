@@ -839,7 +839,22 @@ async function registerEvent(req, res) {
       .trim()
       .toLowerCase();
 
-    if (isPaidEvent(ev)) {
+    // Check if requester has admin/manager privileges to bypass payment
+    let actor = null;
+    if (req.user && req.user.id) {
+      actor = await User.findById(req.user.id).lean();
+    }
+    const isAdmin = actor && actor.role === "admin";
+    const userEmail =
+      actor && actor.email ? String(actor.email).toLowerCase().trim() : null;
+    const isManager =
+      userEmail &&
+      ev.managerEmail &&
+      String(ev.managerEmail).toLowerCase().trim() === userEmail;
+
+    const canBypassPayment = isAdmin || isManager;
+
+    if (isPaidEvent(ev) && !canBypassPayment) {
       let existingStudent = null;
       if (normalizedRegno) {
         existingStudent = await Student.findOne({ regno: normalizedRegno });
@@ -1001,7 +1016,7 @@ async function registerEvent(req, res) {
 
     let reservedReference = null;
     let uploadedPaymentProof = null;
-    if (isPaidEvent(ev)) {
+    if (isPaidEvent(ev) && !canBypassPayment) {
       const activePaymentQr = await getActivePaymentQr(ev._id);
       if (!activePaymentQr) {
         return res.status(400).json({
@@ -1051,6 +1066,10 @@ async function registerEvent(req, res) {
       registrationEntry.paymentAmount = Number(ev.price || 0);
       registrationEntry.paymentStatus = "submitted";
       registrationEntry.paymentSubmittedAt = new Date();
+    } else if (isPaidEvent(ev) && canBypassPayment) {
+      registrationEntry.paymentStatus = "approved";
+      registrationEntry.paymentAmount = Number(ev.price || 0);
+      registrationEntry.paymentSubmittedAt = new Date();
     }
 
     student.registrations.push(registrationEntry);
@@ -1082,7 +1101,9 @@ async function registerEvent(req, res) {
     return res.json({ success: true, student });
   } catch (err) {
     console.error("registerEvent error", err);
-    return res.status(500).json({ error: "Internal server error" });
+    const status = err.status || 500;
+    const message = err.status ? err.message : "Internal server error";
+    return res.status(status).json({ error: message });
   }
 }
 

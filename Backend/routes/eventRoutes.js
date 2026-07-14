@@ -33,7 +33,7 @@ router.get(
 );
 
 // POST /api/events/:id/register -> register
-router.post("/:id/register", delegate("registerEvent", registerEvent));
+router.post("/:id/register", identifyUser, delegate("registerEvent", registerEvent));
 
 // PUT /api/events/:id -> update event (authenticated or with secret token)
 router.put("/:id", identifyUser, delegate("updateEvent", updateEvent));

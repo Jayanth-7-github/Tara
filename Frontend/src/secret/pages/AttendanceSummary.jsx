@@ -237,35 +237,64 @@ export default function AttendanceSummary() {
       return sortedStudentRows;
     }
 
-    return sortedStudentRows.filter((student) => {
-      const searchableParts = [
-        student.regno,
-        student.name,
-        student.email,
-        student.hostelName,
-        student.teamName,
-        ...(student.sessions
-          ? Object.entries(student.sessions).flatMap(
-              ([sessionName, record]) => [
-                sessionName,
-                record?.isPresent ? "present" : "absent",
-                record?.name,
-                record?.email,
-                record?.regno,
-                record?.hostelName,
-                record?.teamName,
-              ],
-            )
-          : []),
-      ];
+    // Split the search query by "and" (case-insensitive, with optional surrounding whitespace)
+    // e.g., "session 1 and session 2" -> ["session 1", "session 2"]
+    const subQueries = normalizedSearchTerm
+      .split(/\s+and\s+/i)
+      .map((q) => q.trim())
+      .filter(Boolean);
 
-      return searchableParts.some((value) =>
-        String(value || "")
-          .toLowerCase()
-          .includes(normalizedSearchTerm),
-      );
+    if (subQueries.length === 0) {
+      return sortedStudentRows;
+    }
+
+    const cleanStr = (str) => String(str || "").replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+
+    return sortedStudentRows.filter((student) => {
+      // Every sub-query must match for the student to be included (AND logic)
+      return subQueries.every((subQuery) => {
+        const cleanSubQuery = cleanStr(subQuery);
+
+        // 1. Check if the sub-query matches a session name
+        const matchedSession = sessionColumns.find(
+          (c) => cleanStr(c.name) === cleanSubQuery
+        );
+
+        if (matchedSession) {
+          // If searching for a session name, the student must be present in that session
+          return !!student.sessions[matchedSession.name]?.isPresent;
+        }
+
+        // 2. Default search fallback for this sub-query
+        const searchableParts = [
+          student.regno,
+          student.name,
+          student.email,
+          student.hostelName,
+          student.teamName,
+          ...(student.sessions
+            ? Object.entries(student.sessions).flatMap(
+                ([sessionName, record]) => [
+                  sessionName,
+                  record?.isPresent ? "present" : "absent",
+                  record?.name,
+                  record?.email,
+                  record?.regno,
+                  record?.hostelName,
+                  record?.teamName,
+                ],
+              )
+            : []),
+        ];
+
+        return searchableParts.some((value) =>
+          String(value || "")
+            .toLowerCase()
+            .includes(subQuery)
+        );
+      });
     });
-  }, [normalizedSearchTerm, sortedStudentRows]);
+  }, [normalizedSearchTerm, sortedStudentRows, sessionColumns]);
 
   const handleDownload = async (mode) => {
     try {
