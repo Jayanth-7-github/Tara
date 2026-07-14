@@ -32,7 +32,10 @@ function normalizeStudentInput(input) {
 
   if (teamNameRaw != null) payload.teamName = String(teamNameRaw).trim();
   if (roleRaw != null) payload.role = String(roleRaw).trim();
-  if (emailRaw != null) payload.email = String(emailRaw).trim();
+  if (emailRaw != null) {
+    const trimmedEmail = String(emailRaw).trim();
+    payload.email = trimmedEmail || undefined;
+  }
   if (branchRaw != null) payload.branch = String(branchRaw).trim();
   if (hostelNameRaw != null) payload.hostelName = String(hostelNameRaw).trim();
   if (roomNoRaw != null) payload.roomNo = String(roomNoRaw).trim();
@@ -155,14 +158,37 @@ exports.createStudent = async (req, res) => {
         .json({ error: "'regno' and 'name' cannot be empty." });
     }
 
-    // Enforce case-insensitive uniqueness for regno
+    // Enforce case-insensitive uniqueness for regno: perform upsert if exists
     const existing = await Student.findOne({
       regno: new RegExp(`^${trimmedRegno}$`, "i"),
-    }).lean();
+    });
     if (existing) {
-      return res.status(409).json({
-        error: "A student with this registration number already exists.",
-      });
+      // Update the student details with new request fields
+      const body = req.body || {};
+      if (body.name) existing.name = body.name.trim();
+      if (body.email !== undefined) {
+        const trimmedEmail = body.email ? body.email.trim() : "";
+        existing.email = trimmedEmail || undefined;
+      }
+      if (body.phone !== undefined)
+        existing.phone = body.phone ? body.phone.trim() : null;
+      if (body.year !== undefined)
+        existing.year = body.year ? body.year.trim() : null;
+      if (body.department !== undefined)
+        existing.department = body.department ? body.department.trim() : null;
+      if (body.branch !== undefined)
+        existing.branch = body.branch ? body.branch.trim() : null;
+      if (body.teamName !== undefined)
+        existing.teamName = body.teamName ? body.teamName.trim() : null;
+      if (body.role !== undefined)
+        existing.role = body.role ? body.role.trim() : null;
+      if (body.hostelName !== undefined)
+        existing.hostelName = body.hostelName ? body.hostelName.trim() : null;
+      if (body.roomNo !== undefined)
+        existing.roomNo = body.roomNo ? body.roomNo.trim() : null;
+
+      const saved = await existing.save();
+      return res.status(200).json(saved);
     }
 
     const payload = {
@@ -175,6 +201,7 @@ exports.createStudent = async (req, res) => {
     // Return the created document
     return res.status(201).json(created);
   } catch (err) {
+    console.error("createStudent catch block error:", err);
     // Handle duplicate key error just in case unique index catches it
     if (err && err.code === 11000) {
       return res.status(409).json({

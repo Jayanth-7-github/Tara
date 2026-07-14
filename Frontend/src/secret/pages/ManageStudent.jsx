@@ -281,18 +281,7 @@ export default function ManageStudent() {
         }
       } else {
         const normalized = normalizeStudentInput(data);
-        let res;
-        let isExisting = false;
-        try {
-          res = await createStudent(normalized);
-        } catch (err) {
-          if (err.status === 409) {
-            isExisting = true;
-            res = await updateStudent(normalized.regno, normalized);
-          } else {
-            throw err;
-          }
-        }
+        const res = await createStudent(normalized);
         // If an event is selected, register the single student for it
         if (selectedEventId) {
           try {
@@ -301,16 +290,12 @@ export default function ManageStudent() {
               name: normalized.name,
             });
             setResult({
-              message: isExisting
-                ? "Student details updated and registered"
-                : "Student created and registered",
+              message: "Student saved and registered successfully",
               body: res,
             });
           } catch (regErr) {
             setResult({
-              message: isExisting
-                ? "Student details updated; registration failed"
-                : "Student created; registration failed",
+              message: "Student saved; registration failed",
               body: {
                 created: res,
                 registrationError: regErr?.message || String(regErr),
@@ -319,7 +304,7 @@ export default function ManageStudent() {
           }
         } else {
           setResult({
-            message: isExisting ? "Student details updated" : "Student created",
+            message: "Student saved successfully",
             body: res,
           });
         }

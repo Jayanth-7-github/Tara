@@ -167,19 +167,8 @@ export default function ManageStudents() {
         await updateStudent(formState.regno, formState);
         showNotification("Student updated successfully");
       } else {
-        let isExisting = false;
-        try {
-          await createStudent(formState);
-          showNotification("Student created successfully");
-        } catch (err) {
-          if (err.status === 409) {
-            isExisting = true;
-            await updateStudent(formState.regno, formState);
-            showNotification("Student details updated");
-          } else {
-            throw err;
-          }
-        }
+        await createStudent(formState);
+        showNotification("Student saved successfully");
         // If an event is selected, register the student for it
         if (selectedEventId) {
           try {
@@ -188,11 +177,7 @@ export default function ManageStudents() {
               name: formState.name,
               email: formState.email,
             });
-            showNotification(
-              isExisting
-                ? "Student registered for event successfully"
-                : "Student created & registered for event"
-            );
+            showNotification("Student registered for event successfully");
           } catch (regErr) {
             console.error("Registration failed:", regErr);
             showNotification(regErr.message || "Registration failed", "error");
