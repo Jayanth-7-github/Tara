@@ -34,6 +34,11 @@ const StudentAttendanceSchema = new Schema(
     reviewedBy: { type: Types.ObjectId, ref: "User" },
     reviewedAt: { type: Date },
     reviewComment: { type: String, trim: true },
+
+    latitude: { type: Number },
+    longitude: { type: Number },
+    locationName: { type: String, trim: true },
+    accuracy: { type: Number },
   },
   { timestamps: true },
 );

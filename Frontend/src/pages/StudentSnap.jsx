@@ -147,6 +147,183 @@ function TeamsSidebar({
   );
 }
 
+function LocationDisplay({ latitude, longitude, locationName, accuracy }) {
+  const [resolvedName, setResolvedName] = useState(locationName || "");
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (resolvedName) return; // Already resolved or loaded from DB
+    if (latitude == null || longitude == null) return;
+
+    let active = true;
+    (async () => {
+      setLoading(true);
+      try {
+        const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`;
+        const resp = await fetch(url, {
+          headers: {
+            "Accept-Language": "en"
+          }
+        });
+        if (resp.ok && active) {
+          const data = await resp.json();
+          const addr = data.address || {};
+          
+          const excludedKeywords = [
+            "constituency",
+            "assembly",
+            "parliamentary",
+            "district",
+            "state",
+            "country",
+            "india",
+            "tamil nadu",
+            "postal",
+            "postcode"
+          ];
+
+          const localName =
+            addr.amenity ||
+            addr.building ||
+            addr.shop ||
+            addr.office ||
+            addr.university ||
+            addr.college ||
+            addr.school ||
+            addr.hospital ||
+            addr.tourism ||
+            addr.historic ||
+            addr.tourist_attraction ||
+            addr.house_name;
+          const street = addr.road || addr.pedestrian || addr.highway || addr.path;
+          const neighborhood = addr.neighbourhood || addr.suburb || addr.city_district || addr.subdivision;
+          const city = addr.city || addr.town || addr.village;
+
+          const parts = [localName, street, neighborhood, city].filter(Boolean);
+          let filteredParts = parts.filter(part => {
+            const lower = part.toLowerCase();
+            return !excludedKeywords.some(keyword => lower.includes(keyword));
+          });
+
+          let locName = "";
+          if (filteredParts.length > 0) {
+            locName = filteredParts.join(", ");
+          } else {
+            const dispParts = (data.display_name || "").split(",").map(p => p.trim());
+            const filteredDisp = dispParts.filter(part => {
+              const lower = part.toLowerCase();
+              if (/^\d{5,6}$/.test(lower)) return false;
+              return !excludedKeywords.some(keyword => lower.includes(keyword));
+            });
+            locName = filteredDisp.join(", ") || data.display_name || "";
+          }
+
+          // Fetch nearest named POI (building, college, amenity, etc.) from OSM Overpass API dynamically
+          let poiName = "";
+          try {
+            const query = `[out:json];(
+              node(around:500, ${latitude}, ${longitude})["amenity"];
+              way(around:500, ${latitude}, ${longitude})["amenity"];
+              node(around:500, ${latitude}, ${longitude})["building"];
+              way(around:500, ${latitude}, ${longitude})["building"];
+              node(around:500, ${latitude}, ${longitude})["office"];
+              way(around:500, ${latitude}, ${longitude})["office"];
+            );out tags;`;
+            const overpassUrl = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+            const overpassResp = await fetch(overpassUrl);
+            if (overpassResp.ok) {
+              const overpassData = await overpassResp.json();
+              const elements = overpassData.elements || [];
+              const named = elements.filter(el => el.tags && el.tags.name);
+              if (named.length > 0) {
+                // Sort to prioritize university/college, then library, then others
+                named.sort((a, b) => {
+                  const aTags = a.tags || {};
+                  const bTags = b.tags || {};
+                  const aName = (aTags.name || "").toLowerCase();
+                  const bName = (bTags.name || "").toLowerCase();
+                  const aWeight = aTags.university || aTags.college || aName.includes("university") || aName.includes("college") ? 3 :
+                                  aTags.amenity === "library" || aName.includes("library") ? 2 : 1;
+                  const bWeight = bTags.university || bTags.college || bName.includes("university") || bName.includes("college") ? 3 :
+                                  bTags.amenity === "library" || bName.includes("library") ? 2 : 1;
+                  return bWeight - aWeight;
+                });
+                poiName = named[0].tags.name;
+              }
+            }
+          } catch (err) {
+            console.error("Overpass query failed", err);
+          }
+
+          if (poiName) {
+            if (!locName.toLowerCase().includes(poiName.toLowerCase())) {
+              locName = `${poiName}, ${locName}`;
+            }
+          }
+
+          setResolvedName(locName);
+        }
+      } catch (err) {
+        console.error("Reverse geocoding failed", err);
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [latitude, longitude, resolvedName]);
+
+  if (latitude == null || longitude == null) {
+    return (
+      <p className="text-[11px] text-neutral-600 mt-1.5 italic">
+        No location recorded
+      </p>
+    );
+  }
+
+  const cleanDisplayAddress = (addressStr) => {
+    if (!addressStr) return "";
+    const excludedKeywords = [
+      "constituency",
+      "assembly",
+      "parliamentary",
+      "district",
+      "state",
+      "country",
+      "india",
+      "tamil nadu",
+      "postal",
+      "postcode"
+    ];
+    const parts = addressStr.split(",").map(p => p.trim());
+    const filtered = parts.filter(part => {
+      const lower = part.toLowerCase();
+      if (/^\d{5,6}$/.test(lower)) return false;
+      return !excludedKeywords.some(keyword => lower.includes(keyword));
+    });
+    
+    let base = filtered.join(", ") || addressStr;
+    return base;
+  };
+
+  const displayAddress = cleanDisplayAddress(resolvedName);
+  const accuracyText = accuracy != null ? ` (±${Math.round(accuracy)}m)` : "";
+
+  return (
+    <a
+      href={`https://www.google.com/maps?q=${latitude},${longitude}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-[11px] text-cyan-400 hover:text-cyan-300 hover:underline mt-1.5 inline-flex items-center gap-1 font-medium transition-colors line-clamp-2 text-left"
+      title={(displayAddress || "View location on Google Maps") + accuracyText}
+    >
+      📍 {loading ? "Resolving location..." : (displayAddress || `${Number(latitude).toFixed(4)}, ${Number(longitude).toFixed(4)}`) + accuracyText}
+    </a>
+  );
+}
+
 function StudentAttendanceCard({
   record,
   busy,
@@ -186,6 +363,12 @@ function StudentAttendanceCard({
             <p className="text-xs text-neutral-500 truncate">
               {st?.regno || ""}
             </p>
+            <LocationDisplay
+              latitude={record?.latitude}
+              longitude={record?.longitude}
+              locationName={record?.locationName}
+              accuracy={record?.accuracy}
+            />
           </div>
           <StatusBadge status={status} />
         </div>

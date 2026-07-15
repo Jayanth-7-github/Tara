@@ -30,12 +30,16 @@ export default function ManageStudents() {
   const [bulkMode, setBulkMode] = useState(false);
   const [bulkJson, setBulkJson] = useState("");
   const [notification, setNotification] = useState(null);
+  const [extraMembers, setExtraMembers] = useState([]);
 
   const selectedEvent = events.find((e) => (e._id || e.id) === selectedEventId);
   const isTeamEvent =
     !!selectedEventId && selectedEvent?.participationType === "team";
   const isSoloEvent =
     !!selectedEventId && selectedEvent?.participationType !== "team";
+
+  const maxTeamSize = selectedEvent?.maxTeamSize || 4;
+  const maxExtra = maxTeamSize - 1;
 
   // Form State
   const [formState, setFormState] = useState({
@@ -142,6 +146,7 @@ export default function ManageStudents() {
     setEditingStudent(null);
     setBulkMode(false);
     setBulkJson("");
+    setExtraMembers([]);
   };
 
   const handleEdit = (student) => {
@@ -161,15 +166,18 @@ export default function ManageStudents() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isTeamEvent && !formState.teamName?.trim()) {
+      showNotification("Team name is required for team events", "error");
+      return;
+    }
     setLoading(true);
     try {
       if (editingStudent) {
         await updateStudent(formState.regno, formState);
         showNotification("Student updated successfully");
       } else {
-        await createStudent(formState);
-        showNotification("Student saved successfully");
-        // If an event is selected, register the student for it
+        await createStudent({ ...formState, role: isTeamEvent ? "Leader" : formState.role });
+        
         if (selectedEventId) {
           try {
             await registerForEvent(selectedEventId, {
@@ -177,11 +185,35 @@ export default function ManageStudents() {
               name: formState.name,
               email: formState.email,
             });
-            showNotification("Student registered for event successfully");
           } catch (regErr) {
-            console.error("Registration failed:", regErr);
-            showNotification(regErr.message || "Registration failed", "error");
+            console.error("Leader registration failed:", regErr);
+            throw new Error(`Leader registration failed: ${regErr.message || regErr}`);
           }
+        }
+
+        if (isTeamEvent && extraMembers.length > 0) {
+          for (let idx = 0; idx < extraMembers.length; idx++) {
+            const member = extraMembers[idx];
+            try {
+              await createStudent({
+                ...member,
+                teamName: formState.teamName,
+              });
+              if (selectedEventId) {
+                await registerForEvent(selectedEventId, {
+                  regno: member.regno,
+                  name: member.name,
+                  email: member.email,
+                });
+              }
+            } catch (memberErr) {
+              console.error(`Failed to register member ${member.name}:`, memberErr);
+              throw new Error(`Failed to add team member "${member.name}": ${memberErr.message || memberErr}`);
+            }
+          }
+          showNotification("All team members registered successfully");
+        } else {
+          showNotification("Student saved successfully");
         }
       }
       setShowAddModal(false);
@@ -879,6 +911,24 @@ export default function ManageStudents() {
                 ) : (
                   <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {(editingStudent || isTeamEvent) && (
+                        <div className="space-y-1 md:col-span-2">
+                          <label className="text-xs font-medium text-gray-500 uppercase tracking-wider text-blue-300">
+                            Team Name *
+                          </label>
+                          <input
+                            required={isTeamEvent}
+                            value={formState.teamName}
+                            onChange={(e) =>
+                              setFormState({
+                                ...formState,
+                                teamName: e.target.value,
+                              })
+                            }
+                            className="w-full bg-black/50 border border-gray-800 rounded-xl py-2 px-4 outline-none focus:border-blue-500 transition-all font-semibold"
+                          />
+                        </div>
+                      )}
                       <div className="space-y-1">
                         <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Register Number *
@@ -968,21 +1018,140 @@ export default function ManageStudents() {
                         />
                       </div>
 
-                      {(editingStudent || isTeamEvent) && (
-                        <div className="space-y-1">
-                          <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Team Name
-                          </label>
-                          <input
-                            value={formState.teamName}
-                            onChange={(e) =>
-                              setFormState({
-                                ...formState,
-                                teamName: e.target.value,
-                              })
-                            }
-                            className="w-full bg-black/50 border border-gray-800 rounded-xl py-2 px-4 outline-none focus:border-blue-500 transition-all"
-                          />
+                      {isTeamEvent && !editingStudent && (
+                        <div className="md:col-span-2 space-y-4 pt-4 border-t border-gray-800">
+                          <div className="flex justify-between items-center">
+                            <h4 className="text-sm font-semibold uppercase tracking-wider text-blue-400">
+                              Team Members ({extraMembers.length + 1} / {maxTeamSize})
+                            </h4>
+                            {extraMembers.length < maxExtra && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setExtraMembers([
+                                    ...extraMembers,
+                                    { regno: "", name: "", email: "", phone: "", department: "", year: "", role: "Member" },
+                                  ])
+                                }
+                                className="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded-lg text-xs font-semibold text-white transition-all"
+                              >
+                                + Add Member
+                              </button>
+                            )}
+                          </div>
+
+                          <div className="space-y-4">
+                            {extraMembers.map((member, index) => (
+                              <div
+                                key={index}
+                                className="p-4 bg-gray-950/50 border border-gray-800 rounded-xl space-y-3 relative"
+                              >
+                                <div className="flex justify-between items-center">
+                                  <span className="text-xs font-semibold text-gray-400">
+                                    Member #{index + 2}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setExtraMembers(extraMembers.filter((_, idx) => idx !== index))
+                                    }
+                                    className="text-xs text-red-400 hover:underline"
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                  <div className="space-y-1">
+                                    <label className="text-[10px] font-semibold text-gray-500 uppercase">
+                                      Register Number *
+                                    </label>
+                                    <input
+                                      required
+                                      value={member.regno}
+                                      onChange={(e) => {
+                                        const newM = [...extraMembers];
+                                        newM[index].regno = e.target.value;
+                                        setExtraMembers(newM);
+                                      }}
+                                      className="w-full bg-black/50 border border-gray-850 rounded-lg py-1.5 px-3 text-xs outline-none focus:border-blue-500"
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <label className="text-[10px] font-semibold text-gray-500 uppercase">
+                                      Full Name *
+                                    </label>
+                                    <input
+                                      required
+                                      value={member.name}
+                                      onChange={(e) => {
+                                        const newM = [...extraMembers];
+                                        newM[index].name = e.target.value;
+                                        setExtraMembers(newM);
+                                      }}
+                                      className="w-full bg-black/50 border border-gray-850 rounded-lg py-1.5 px-3 text-xs outline-none focus:border-blue-500"
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <label className="text-[10px] font-semibold text-gray-500 uppercase">
+                                      Email Address
+                                    </label>
+                                    <input
+                                      type="email"
+                                      value={member.email}
+                                      onChange={(e) => {
+                                        const newM = [...extraMembers];
+                                        newM[index].email = e.target.value;
+                                        setExtraMembers(newM);
+                                      }}
+                                      className="w-full bg-black/50 border border-gray-850 rounded-lg py-1.5 px-3 text-xs outline-none focus:border-blue-500"
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <label className="text-[10px] font-semibold text-gray-500 uppercase">
+                                      Phone Number
+                                    </label>
+                                    <input
+                                      value={member.phone}
+                                      onChange={(e) => {
+                                        const newM = [...extraMembers];
+                                        newM[index].phone = e.target.value;
+                                        setExtraMembers(newM);
+                                      }}
+                                      className="w-full bg-black/50 border border-gray-850 rounded-lg py-1.5 px-3 text-xs outline-none focus:border-blue-500"
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <label className="text-[10px] font-semibold text-gray-500 uppercase">
+                                      Department
+                                    </label>
+                                    <input
+                                      value={member.department}
+                                      onChange={(e) => {
+                                        const newM = [...extraMembers];
+                                        newM[index].department = e.target.value;
+                                        setExtraMembers(newM);
+                                      }}
+                                      className="w-full bg-black/50 border border-gray-850 rounded-lg py-1.5 px-3 text-xs outline-none focus:border-blue-500"
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <label className="text-[10px] font-semibold text-gray-500 uppercase">
+                                      Academic Year
+                                    </label>
+                                    <input
+                                      value={member.year}
+                                      onChange={(e) => {
+                                        const newM = [...extraMembers];
+                                        newM[index].year = e.target.value;
+                                        setExtraMembers(newM);
+                                      }}
+                                      className="w-full bg-black/50 border border-gray-850 rounded-lg py-1.5 px-3 text-xs outline-none focus:border-blue-500"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>

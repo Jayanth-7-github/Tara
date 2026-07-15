@@ -108,7 +108,7 @@ exports.markStudentAttendance = async (req, res) => {
     const actor = await getActor(req);
     if (!actor) return res.status(401).json({ error: "Unauthorized" });
 
-    const { teamId, studentId, sessionName, photoDataUrl, eventId } =
+    const { teamId, studentId, sessionName, photoDataUrl, eventId, latitude, longitude, locationName, accuracy } =
       req.body || {};
 
     if (!teamId || !studentId) {
@@ -233,6 +233,10 @@ exports.markStudentAttendance = async (req, res) => {
         status: "pending",
         allowResubmit: false,
         submittedBy: actor._id,
+        latitude: typeof latitude === "number" ? latitude : undefined,
+        longitude: typeof longitude === "number" ? longitude : undefined,
+        locationName: locationName ? String(locationName).trim() : undefined,
+        accuracy: typeof accuracy === "number" ? accuracy : undefined,
       });
     } else {
       existing.photoDataUrl = uploadedPhoto.secureUrl;
@@ -243,6 +247,10 @@ exports.markStudentAttendance = async (req, res) => {
       existing.reviewedBy = undefined;
       existing.reviewedAt = undefined;
       existing.reviewComment = undefined;
+      if (typeof latitude === "number") existing.latitude = latitude;
+      if (typeof longitude === "number") existing.longitude = longitude;
+      if (locationName) existing.locationName = String(locationName).trim();
+      if (typeof accuracy === "number") existing.accuracy = accuracy;
       doc = await existing.save();
     }
 

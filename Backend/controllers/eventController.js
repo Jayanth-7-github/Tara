@@ -1076,6 +1076,13 @@ async function registerEvent(req, res) {
 
     try {
       await student.save();
+      try {
+        await syncStudentTeamMembership(student);
+      } catch (syncErr) {
+        student.registrations.pop();
+        await student.save();
+        throw syncErr;
+      }
     } catch (saveErr) {
       if (reservedReference?.reference) {
         await releasePaymentReference(reservedReference.reference);
@@ -1101,6 +1108,9 @@ async function registerEvent(req, res) {
     return res.json({ success: true, student });
   } catch (err) {
     console.error("registerEvent error", err);
+    if (err && err.message && err.message.includes("Team limit reached")) {
+      return res.status(400).json({ error: err.message });
+    }
     const status = err.status || 500;
     const message = err.status ? err.message : "Internal server error";
     return res.status(status).json({ error: message });
@@ -1486,6 +1496,94 @@ async function revokeEventKey(req, res) {
   } catch (err) {
     console.error("revokeEventKey error", err);
     return res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+async function syncStudentTeamMembership(student) {
+  if (!student) return;
+
+  const registrations = student.registrations || [];
+  const studentTeamName = (student.teamName || "").trim();
+
+  for (const reg of registrations) {
+    const eventId = reg.event;
+    if (!eventId) continue;
+
+    const event = await Event.findById(eventId).lean();
+    if (!event || event.participationType !== "team") continue;
+
+    let regChanged = false;
+    if (reg.paymentStatus !== "approved") {
+      reg.paymentStatus = "approved";
+      reg.paymentAmount = reg.paymentAmount || Number(event.price || 0);
+      reg.paymentSubmittedAt = reg.paymentSubmittedAt || new Date();
+      regChanged = true;
+    }
+
+    if (regChanged) {
+      student.markModified("registrations");
+      await student.save();
+    }
+
+    // 1. Remove from other teams for the same event where name doesn't match
+    const otherTeams = await Team.find({
+      event: eventId,
+      $or: [{ leader: student._id }, { members: student._id }],
+    });
+
+    for (const team of otherTeams) {
+      if (!studentTeamName || team.name.toLowerCase() !== studentTeamName.toLowerCase()) {
+        if (team.leader && team.leader.toString() === student._id.toString()) {
+          if (team.members && team.members.length > 0) {
+            team.leader = team.members[0];
+            team.members.shift();
+            await team.save();
+          } else {
+            await Team.deleteOne({ _id: team._id });
+          }
+        } else {
+          team.members = team.members.filter((m) => m && m.toString() !== student._id.toString());
+          if ((!team.leader || team.leader.toString() === student._id.toString()) && team.members.length === 0) {
+            await Team.deleteOne({ _id: team._id });
+          } else {
+            await team.save();
+          }
+        }
+      }
+    }
+
+    // 2. Add to new team
+    if (studentTeamName) {
+      let targetTeam = await Team.findOne({
+        event: eventId,
+        name: new RegExp(`^${studentTeamName}$`, "i"),
+      });
+
+      if (!targetTeam) {
+        // Create the team
+        targetTeam = await Team.create({
+          event: eventId,
+          name: studentTeamName,
+          leader: student._id,
+          members: [],
+          paymentStatus: "approved",
+        });
+      } else {
+        const isLeader = targetTeam.leader && targetTeam.leader.toString() === student._id.toString();
+        const isMember = targetTeam.members && targetTeam.members.some((m) => m && m.toString() === student._id.toString());
+
+        if (!isLeader && !isMember) {
+          const maxTeamSize = event.maxTeamSize || 4;
+          const currentSize = 1 + (targetTeam.members ? targetTeam.members.length : 0);
+          if (currentSize >= maxTeamSize) {
+            throw new Error(`Team limit reached: Maximum team size for this event is ${maxTeamSize}. Cannot add student ${student.regno} to team "${studentTeamName}".`);
+          }
+          targetTeam.members.push(student._id);
+        }
+        targetTeam.paymentStatus = "approved";
+        await targetTeam.save();
+      }
+    }
   }
 }
 

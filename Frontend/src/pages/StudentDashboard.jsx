@@ -821,6 +821,7 @@ function StudentAttendanceSection({ team, event }) {
   const [selectedSessionName, setSelectedSessionName] = useState("");
   const [snapshotDataUrl, setSnapshotDataUrl] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [coords, setCoords] = useState(null);
 
   useEffect(() => {
     if (!sessionNames.length) {
@@ -955,7 +956,143 @@ function StudentAttendanceSection({ team, event }) {
 
   const startCamera = async () => {
     setError(null);
+    setCoords(null);
     try {
+      const getGeoLocation = () => {
+        return new Promise((resolve, reject) => {
+          if (!navigator.geolocation) {
+            reject(new Error("Geolocation is not supported by your browser"));
+            return;
+          }
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              resolve({
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+              });
+            },
+            (err) => {
+              reject(new Error("Location permission denied or unavailable"));
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+          );
+        });
+      };
+
+      const loc = await getGeoLocation();
+      
+      let locName = "";
+      try {
+        const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${loc.latitude}&lon=${loc.longitude}&zoom=18&addressdetails=1`;
+        const resp = await fetch(url, {
+          headers: {
+            "Accept-Language": "en"
+          }
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          const addr = data.address || {};
+          
+          const excludedKeywords = [
+            "constituency",
+            "assembly",
+            "parliamentary",
+            "district",
+            "state",
+            "country",
+            "india",
+            "tamil nadu",
+            "postal",
+            "postcode"
+          ];
+
+          const localName =
+            addr.amenity ||
+            addr.building ||
+            addr.shop ||
+            addr.office ||
+            addr.university ||
+            addr.college ||
+            addr.school ||
+            addr.hospital ||
+            addr.tourism ||
+            addr.historic ||
+            addr.tourist_attraction ||
+            addr.house_name;
+          const street = addr.road || addr.pedestrian || addr.highway || addr.path;
+          const neighborhood = addr.neighbourhood || addr.suburb || addr.city_district || addr.subdivision;
+          const city = addr.city || addr.town || addr.village;
+
+          const parts = [localName, street, neighborhood, city].filter(Boolean);
+          let filteredParts = parts.filter(part => {
+            const lower = part.toLowerCase();
+            return !excludedKeywords.some(keyword => lower.includes(keyword));
+          });
+
+          if (filteredParts.length > 0) {
+            locName = filteredParts.join(", ");
+          } else {
+            const dispParts = (data.display_name || "").split(",").map(p => p.trim());
+            const filteredDisp = dispParts.filter(part => {
+              const lower = part.toLowerCase();
+              if (/^\d{5,6}$/.test(lower)) return false;
+              return !excludedKeywords.some(keyword => lower.includes(keyword));
+            });
+            locName = filteredDisp.join(", ") || data.display_name || "";
+          }
+        }
+      } catch (err) {
+        console.error("Nominatim reverse geocoding failed", err);
+      }
+
+      // Fetch nearest named POI (building, college, amenity, etc.) from OSM Overpass API dynamically
+      let poiName = "";
+      try {
+        const query = `[out:json];(
+          node(around:500, ${loc.latitude}, ${loc.longitude})["amenity"];
+          way(around:500, ${loc.latitude}, ${loc.longitude})["amenity"];
+          node(around:500, ${loc.latitude}, ${loc.longitude})["building"];
+          way(around:500, ${loc.latitude}, ${loc.longitude})["building"];
+          node(around:500, ${loc.latitude}, ${loc.longitude})["office"];
+          way(around:500, ${loc.latitude}, ${loc.longitude})["office"];
+        );out tags;`;
+        const overpassUrl = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+        const overpassResp = await fetch(overpassUrl);
+        if (overpassResp.ok) {
+          const overpassData = await overpassResp.json();
+          const elements = overpassData.elements || [];
+          const named = elements.filter(el => el.tags && el.tags.name);
+          if (named.length > 0) {
+            // Sort to prioritize university/college, then library, then others
+            named.sort((a, b) => {
+              const aTags = a.tags || {};
+              const bTags = b.tags || {};
+              const aName = (aTags.name || "").toLowerCase();
+              const bName = (bTags.name || "").toLowerCase();
+              const aWeight = aTags.university || aTags.college || aName.includes("university") || aName.includes("college") ? 3 :
+                              aTags.amenity === "library" || aName.includes("library") ? 2 : 1;
+              const bWeight = bTags.university || bTags.college || bName.includes("university") || bName.includes("college") ? 3 :
+                              bTags.amenity === "library" || bName.includes("library") ? 2 : 1;
+              return bWeight - aWeight;
+            });
+            poiName = named[0].tags.name;
+          }
+        }
+      } catch (err) {
+        console.error("Overpass query failed", err);
+      }
+
+      if (poiName) {
+        if (!locName.toLowerCase().includes(poiName.toLowerCase())) {
+          locName = `${poiName}, ${locName}`;
+        }
+      }
+
+      setCoords({
+        ...loc,
+        locationName: locName,
+      });
+
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
@@ -972,7 +1109,14 @@ function StudentAttendanceSection({ team, event }) {
       setCameraOn(true);
     } catch (e) {
       setCameraOn(false);
-      setError("Camera permission denied or unavailable");
+      setCoords(null);
+      setError(e.message || "Camera permission denied or unavailable");
+      try {
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach((t) => t.stop());
+          streamRef.current = null;
+        }
+      } catch {}
     }
   };
 
@@ -986,6 +1130,7 @@ function StudentAttendanceSection({ team, event }) {
       // ignore
     }
     setCameraOn(false);
+    setCoords(null);
   };
 
   const captureSnapshot = () => {
@@ -1006,6 +1151,10 @@ function StudentAttendanceSection({ team, event }) {
   const submit = async () => {
     if (!selectedStudentId || !selectedSessionName || !snapshotDataUrl) return;
     if (!team?._id || !event?._id) return;
+    if (!coords) {
+      setError("Location coordinate access is required to submit attendance");
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
@@ -1015,6 +1164,10 @@ function StudentAttendanceSection({ team, event }) {
         studentId: selectedStudentId,
         sessionName: selectedSessionName,
         photoDataUrl: snapshotDataUrl,
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+        locationName: coords.locationName,
+        accuracy: coords.accuracy,
       });
       setSnapshotDataUrl(null);
       setSelectedStudentId(null);
@@ -1355,14 +1508,22 @@ function StudentAttendanceSection({ team, event }) {
                 </div>
               </div>
 
+              {(!cameraOn || !coords) && activeSessions.length > 0 && (
+                <div className="text-xs text-red-400 bg-red-950/20 border border-red-900/30 rounded-lg p-3 space-y-1">
+                  {!cameraOn && <p>• Camera access is required to take a snapshot.</p>}
+                  {!coords && <p>• Location access is required to mark attendance.</p>}
+                  <p className="text-neutral-400 font-medium">Please allow access to both to snap your attendance.</p>
+                </div>
+              )}
+
               <div className="flex items-center justify-between gap-3 flex-col sm:flex-row">
                 <div className="flex gap-2">
                   <button
                     onClick={captureSnapshot}
-                    disabled={!cameraOn || activeSessions.length === 0}
+                    disabled={!cameraOn || !coords || activeSessions.length === 0}
                     className={
                       "px-4 py-2 rounded-lg text-sm " +
-                      (!cameraOn || activeSessions.length === 0
+                      (!cameraOn || !coords || activeSessions.length === 0
                         ? "bg-neutral-800 text-neutral-500 cursor-not-allowed"
                         : "bg-blue-600 hover:bg-blue-700 text-white")
                     }

@@ -361,6 +361,10 @@ export async function submitStudentAttendance({
   studentId,
   sessionName,
   photoDataUrl,
+  latitude,
+  longitude,
+  locationName,
+  accuracy,
 }) {
   const resp = await fetch(
     `${API_BASE.replace(/\/$/, "")}/student-attendance/mark`,
@@ -374,6 +378,10 @@ export async function submitStudentAttendance({
         studentId,
         sessionName,
         photoDataUrl,
+        latitude,
+        longitude,
+        locationName,
+        accuracy,
       }),
     },
   );
