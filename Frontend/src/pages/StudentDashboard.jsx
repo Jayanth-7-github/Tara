@@ -117,57 +117,56 @@ export default function StudentDashboard() {
 
   const [selectedEventId, setSelectedEventId] = useState(null);
 
-  useEffect(() => {
-    async function fetchUser() {
-      try {
-        setLoading(true);
-        const profile = await getMe();
-        const u = profile?.user || profile;
-        setUser(u);
+  const loadDashboardData = async (silent = false) => {
+    try {
+      if (!silent) setLoading(true);
+      const profile = await getMe();
+      const u = profile?.user || profile;
+      setUser(u);
 
-        // If the user logged in with regno, use it to find student + team.
-        if (u?.regno) {
-          const s = await fetchStudent(u.regno);
-          setStudent(s);
+      // If the user logged in with regno, use it to find student + team.
+      if (u?.regno) {
+        const s = await fetchStudent(u.regno);
+        setStudent(s);
 
-          const regs = Array.isArray(s?.registrations) ? s.registrations : [];
-          const latest = regs
-            .slice()
-            .sort(
-              (a, b) =>
-                new Date(b?.registeredAt || 0) - new Date(a?.registeredAt || 0),
-            )[0];
+        const regs = Array.isArray(s?.registrations) ? s.registrations : [];
+        const latest = regs
+          .slice()
+          .sort(
+            (a, b) =>
+              new Date(b?.registeredAt || 0) - new Date(a?.registeredAt || 0),
+          )[0];
 
-          const evId = latest?.event || null;
-          if (evId) {
-            setSelectedEventId(String(evId));
-            const ev = await fetchEventById(String(evId));
-            setEvent(ev || null);
+        const evId = latest?.event?._id || latest?.event || null;
+        if (evId) {
+          setSelectedEventId(String(evId));
+          const ev = await fetchEventById(String(evId));
+          setEvent(ev || null);
 
-            const teamsResp = await fetchTeams(String(evId));
-            const teams = Array.isArray(teamsResp?.teams)
-              ? teamsResp.teams
-              : [];
-            const regUpper = String(u.regno).toUpperCase();
-            const myTeam = teams.find((t) => {
-              const leaderReg = t?.leader?.regno
-                ? String(t.leader.regno).toUpperCase()
-                : "";
-              if (leaderReg && leaderReg === regUpper) return true;
-              const mems = Array.isArray(t?.members) ? t.members : [];
-              return mems.some(
-                (m) => String(m?.regno || "").toUpperCase() === regUpper,
-              );
-            });
-            setTeam(myTeam || null);
-          }
+          const teamsResp = await fetchTeams(String(evId));
+          const teams = Array.isArray(teamsResp?.teams)
+            ? teamsResp.teams
+            : [];
+          const regUpper = String(u.regno).toUpperCase();
+          const myTeam = teams.find((t) => {
+            const leaderReg = t?.leader?.regno
+              ? String(t.leader.regno).toUpperCase()
+              : "";
+            if (leaderReg && leaderReg === regUpper) return true;
+            const mems = Array.isArray(t?.members) ? t.members : [];
+            return mems.some(
+              (m) => String(m?.regno || "").toUpperCase() === regUpper,
+            );
+          });
+          setTeam(myTeam || null);
         }
-      } catch (err) {
-        setUser(null);
-        setStudent(null);
-        setTeam(null);
-        setEvent(null);
       }
+    } catch (err) {
+      setUser(null);
+      setStudent(null);
+      setTeam(null);
+      setEvent(null);
+    } finally {
       setStats({
         registeredEvents: 5,
         attendedEvents: 4,
@@ -179,10 +178,12 @@ export default function StudentDashboard() {
         { id: 1, name: "Hackathon", date: "2026-03-10" },
         { id: 2, name: "Workshop", date: "2026-03-15" },
       ]);
-
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
-    fetchUser();
+  };
+
+  useEffect(() => {
+    loadDashboardData();
   }, []);
 
   const navLinks = [
@@ -229,7 +230,11 @@ export default function StudentDashboard() {
       case "attendance":
         return (
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <StudentAttendanceSection team={team} event={event} />
+            <StudentAttendanceSection
+              team={team}
+              event={event}
+              onRefresh={() => loadDashboardData(true)}
+            />
           </div>
         );
       case "overview":
@@ -786,7 +791,7 @@ function StudentProblemStatementSection({ team, event }) {
   );
 }
 
-function StudentAttendanceSection({ team, event }) {
+function StudentAttendanceSection({ team, event, onRefresh }) {
   const [eventLive, setEventLive] = useState(event);
 
   useEffect(() => {
@@ -980,7 +985,7 @@ function StudentAttendanceSection({ team, event }) {
       };
 
       const loc = await getGeoLocation();
-      
+
       let locName = "";
       try {
         const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${loc.latitude}&lon=${loc.longitude}&zoom=18&addressdetails=1`;
@@ -992,7 +997,7 @@ function StudentAttendanceSection({ team, event }) {
         if (resp.ok) {
           const data = await resp.json();
           const addr = data.address || {};
-          
+
           const excludedKeywords = [
             "constituency",
             "assembly",
@@ -1070,9 +1075,9 @@ function StudentAttendanceSection({ team, event }) {
               const aName = (aTags.name || "").toLowerCase();
               const bName = (bTags.name || "").toLowerCase();
               const aWeight = aTags.university || aTags.college || aName.includes("university") || aName.includes("college") ? 3 :
-                              aTags.amenity === "library" || aName.includes("library") ? 2 : 1;
+                aTags.amenity === "library" || aName.includes("library") ? 2 : 1;
               const bWeight = bTags.university || bTags.college || bName.includes("university") || bName.includes("college") ? 3 :
-                              bTags.amenity === "library" || bName.includes("library") ? 2 : 1;
+                bTags.amenity === "library" || bName.includes("library") ? 2 : 1;
               return bWeight - aWeight;
             });
             poiName = named[0].tags.name;
@@ -1116,7 +1121,7 @@ function StudentAttendanceSection({ team, event }) {
           streamRef.current.getTracks().forEach((t) => t.stop());
           streamRef.current = null;
         }
-      } catch {}
+      } catch { }
     }
   };
 
@@ -1225,10 +1230,18 @@ function StudentAttendanceSection({ team, event }) {
           </div>
           <button
             onClick={async () => {
-              try {
-                await reloadEvent();
-              } catch {
-                // ignore
+              if (onRefresh) {
+                try {
+                  await onRefresh();
+                } catch {
+                  // ignore
+                }
+              } else {
+                try {
+                  await reloadEvent();
+                } catch {
+                  // ignore
+                }
               }
               await loadRecords();
             }}
@@ -1558,10 +1571,10 @@ function StudentAttendanceSection({ team, event }) {
                   className={
                     "px-4 py-2 rounded-lg text-sm " +
                     (!selectedStudentId ||
-                    !selectedSessionName ||
-                    !snapshotDataUrl ||
-                    submitting ||
-                    activeSessions.length === 0
+                      !selectedSessionName ||
+                      !snapshotDataUrl ||
+                      submitting ||
+                      activeSessions.length === 0
                       ? "bg-neutral-800 text-neutral-500 cursor-not-allowed"
                       : "bg-green-600 hover:bg-green-700 text-white")
                   }
