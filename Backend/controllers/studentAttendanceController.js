@@ -108,8 +108,17 @@ exports.markStudentAttendance = async (req, res) => {
     const actor = await getActor(req);
     if (!actor) return res.status(401).json({ error: "Unauthorized" });
 
-    const { teamId, studentId, sessionName, photoDataUrl, eventId, latitude, longitude, locationName, accuracy } =
-      req.body || {};
+    const {
+      teamId,
+      studentId,
+      sessionName,
+      photoDataUrl,
+      eventId,
+      latitude,
+      longitude,
+      locationName,
+      accuracy,
+    } = req.body || {};
 
     if (!teamId || !studentId) {
       return res

@@ -29,6 +29,8 @@ const StudentAttendanceSchema = new Schema(
     // If true, a previously rejected record may be resubmitted by the student.
     allowResubmit: { type: Boolean, default: false, index: true },
 
+    markedAt: { type: Date, index: true },
+
     submittedBy: { type: Types.ObjectId, ref: "User" },
 
     reviewedBy: { type: Types.ObjectId, ref: "User" },

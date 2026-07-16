@@ -11,7 +11,6 @@ import {
   getRoles,
   reviewStudentAttendance,
 } from "../services/api";
-
 import {
   IconCheck,
   IconX,
@@ -24,6 +23,7 @@ import {
   IconClock,
   IconCamera,
   IconBrandTabler,
+  IconDownload,
 } from "@tabler/icons-react";
 
 function StatusBadge({ status }) {
@@ -52,14 +52,15 @@ function TeamCard({ team, stats, active, onSelect }) {
   const approved = stats?.approved || 0;
   const rejected = stats?.rejected || 0;
   const total = stats?.total || 0;
-  
+
   const teamName = team.teamName;
   const leaderName = team.leader?.name || "No Leader";
   const studentCount = (team.members?.length || 0) + 1;
   const initial = (String(teamName || "T").trim()[0] || "T").toUpperCase();
-  
+
   // Simulated online indicator based on teamId hash code
-  const isOnline = (String(team.teamId).charCodeAt(String(team.teamId).length - 1) % 3) !== 0;
+  const isOnline =
+    String(team.teamId).charCodeAt(String(team.teamId).length - 1) % 3 !== 0;
 
   return (
     <button
@@ -74,12 +75,14 @@ function TeamCard({ team, stats, active, onSelect }) {
       {active && (
         <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500" />
       )}
-      
+
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <div className="h-9 w-9 shrink-0 rounded-lg bg-linear-to-br from-blue-500/30 to-cyan-400/20 border border-neutral-850 flex items-center justify-center text-neutral-100 text-sm font-bold relative">
             {initial}
-            <span className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-neutral-950 ${isOnline ? "bg-emerald-500" : "bg-neutral-500"}`} />
+            <span
+              className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-neutral-950 ${isOnline ? "bg-emerald-500" : "bg-neutral-500"}`}
+            />
           </div>
           <div className="min-w-0">
             <p className="text-sm font-semibold text-white group-hover:text-blue-400 transition-colors truncate">
@@ -201,13 +204,13 @@ function LocationDisplay({ latitude, longitude, locationName, accuracy }) {
         const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`;
         const resp = await fetch(url, {
           headers: {
-            "Accept-Language": "en"
-          }
+            "Accept-Language": "en",
+          },
         });
         if (resp.ok && active) {
           const data = await resp.json();
           const addr = data.address || {};
-          
+
           const excludedKeywords = [
             "constituency",
             "assembly",
@@ -218,7 +221,7 @@ function LocationDisplay({ latitude, longitude, locationName, accuracy }) {
             "india",
             "tamil nadu",
             "postal",
-            "postcode"
+            "postcode",
           ];
 
           const localName =
@@ -234,25 +237,34 @@ function LocationDisplay({ latitude, longitude, locationName, accuracy }) {
             addr.historic ||
             addr.tourist_attraction ||
             addr.house_name;
-          const street = addr.road || addr.pedestrian || addr.highway || addr.path;
-          const neighborhood = addr.neighbourhood || addr.suburb || addr.city_district || addr.subdivision;
+          const street =
+            addr.road || addr.pedestrian || addr.highway || addr.path;
+          const neighborhood =
+            addr.neighbourhood ||
+            addr.suburb ||
+            addr.city_district ||
+            addr.subdivision;
           const city = addr.city || addr.town || addr.village;
 
           const parts = [localName, street, neighborhood, city].filter(Boolean);
-          let filteredParts = parts.filter(part => {
+          let filteredParts = parts.filter((part) => {
             const lower = part.toLowerCase();
-            return !excludedKeywords.some(keyword => lower.includes(keyword));
+            return !excludedKeywords.some((keyword) => lower.includes(keyword));
           });
 
           let locName = "";
           if (filteredParts.length > 0) {
             locName = filteredParts.join(", ");
           } else {
-            const dispParts = (data.display_name || "").split(",").map(p => p.trim());
-            const filteredDisp = dispParts.filter(part => {
+            const dispParts = (data.display_name || "")
+              .split(",")
+              .map((p) => p.trim());
+            const filteredDisp = dispParts.filter((part) => {
               const lower = part.toLowerCase();
               if (/^\d{5,6}$/.test(lower)) return false;
-              return !excludedKeywords.some(keyword => lower.includes(keyword));
+              return !excludedKeywords.some((keyword) =>
+                lower.includes(keyword),
+              );
             });
             locName = filteredDisp.join(", ") || data.display_name || "";
           }
@@ -273,7 +285,7 @@ function LocationDisplay({ latitude, longitude, locationName, accuracy }) {
             if (overpassResp.ok) {
               const overpassData = await overpassResp.json();
               const elements = overpassData.elements || [];
-              const named = elements.filter(el => el.tags && el.tags.name);
+              const named = elements.filter((el) => el.tags && el.tags.name);
               if (named.length > 0) {
                 // Sort to prioritize university/college, then library, then others
                 named.sort((a, b) => {
@@ -281,10 +293,24 @@ function LocationDisplay({ latitude, longitude, locationName, accuracy }) {
                   const bTags = b.tags || {};
                   const aName = (aTags.name || "").toLowerCase();
                   const bName = (bTags.name || "").toLowerCase();
-                  const aWeight = aTags.university || aTags.college || aName.includes("university") || aName.includes("college") ? 3 :
-                    aTags.amenity === "library" || aName.includes("library") ? 2 : 1;
-                  const bWeight = bTags.university || bTags.college || bName.includes("university") || bName.includes("college") ? 3 :
-                    bTags.amenity === "library" || bName.includes("library") ? 2 : 1;
+                  const aWeight =
+                    aTags.university ||
+                    aTags.college ||
+                    aName.includes("university") ||
+                    aName.includes("college")
+                      ? 3
+                      : aTags.amenity === "library" || aName.includes("library")
+                        ? 2
+                        : 1;
+                  const bWeight =
+                    bTags.university ||
+                    bTags.college ||
+                    bName.includes("university") ||
+                    bName.includes("college")
+                      ? 3
+                      : bTags.amenity === "library" || bName.includes("library")
+                        ? 2
+                        : 1;
                   return bWeight - aWeight;
                 });
                 poiName = named[0].tags.name;
@@ -334,15 +360,15 @@ function LocationDisplay({ latitude, longitude, locationName, accuracy }) {
       "india",
       "tamil nadu",
       "postal",
-      "postcode"
+      "postcode",
     ];
-    const parts = addressStr.split(",").map(p => p.trim());
-    const filtered = parts.filter(part => {
+    const parts = addressStr.split(",").map((p) => p.trim());
+    const filtered = parts.filter((part) => {
       const lower = part.toLowerCase();
       if (/^\d{5,6}$/.test(lower)) return false;
-      return !excludedKeywords.some(keyword => lower.includes(keyword));
+      return !excludedKeywords.some((keyword) => lower.includes(keyword));
     });
-    
+
     let base = filtered.join(", ") || addressStr;
     return base;
   };
@@ -358,7 +384,12 @@ function LocationDisplay({ latitude, longitude, locationName, accuracy }) {
       className="text-[11px] text-cyan-400 hover:text-cyan-300 hover:underline mt-1.5 inline-flex items-center gap-1 font-medium transition-colors line-clamp-2 text-left cursor-pointer"
       title={(displayAddress || "View location on Google Maps") + accuracyText}
     >
-      📍 {loading ? "Resolving location..." : (displayAddress || `${Number(latitude).toFixed(4)}, ${Number(longitude).toFixed(4)}`) + accuracyText}
+      📍{" "}
+      {loading
+        ? "Resolving location..."
+        : (displayAddress ||
+            `${Number(latitude).toFixed(4)}, ${Number(longitude).toFixed(4)}`) +
+          accuracyText}
     </a>
   );
 }
@@ -376,7 +407,9 @@ function LightboxModal({ record, onClose }) {
 
   if (!record) return null;
 
-  const dateStr = record.createdAt ? new Date(record.createdAt).toLocaleString() : "";
+  const dateStr = record.createdAt
+    ? new Date(record.createdAt).toLocaleString()
+    : "";
 
   return (
     <div
@@ -418,21 +451,31 @@ function LightboxModal({ record, onClose }) {
                 ✕
               </button>
             </div>
-            
+
             <div className="space-y-3.5 text-xs text-neutral-400">
               <div>
-                <p className="text-[10px] uppercase font-bold text-neutral-500 tracking-wider">Student</p>
-                <p className="text-white text-sm font-semibold mt-0.5">{record.student?.name || "Student"}</p>
-                <p className="mt-0.5 font-mono">{record.student?.regno || ""}</p>
+                <p className="text-[10px] uppercase font-bold text-neutral-500 tracking-wider">
+                  Student
+                </p>
+                <p className="text-white text-sm font-semibold mt-0.5">
+                  {record.student?.name || "Student"}
+                </p>
+                <p className="mt-0.5 font-mono">
+                  {record.student?.regno || ""}
+                </p>
               </div>
 
               <div>
-                <p className="text-[10px] uppercase font-bold text-neutral-500 tracking-wider">Date & Time</p>
+                <p className="text-[10px] uppercase font-bold text-neutral-500 tracking-wider">
+                  Date & Time
+                </p>
                 <p className="text-neutral-200 mt-0.5">{dateStr}</p>
               </div>
 
               <div>
-                <p className="text-[10px] uppercase font-bold text-neutral-500 tracking-wider">GPS Location</p>
+                <p className="text-[10px] uppercase font-bold text-neutral-500 tracking-wider">
+                  GPS Location
+                </p>
                 <div className="mt-0.5">
                   <LocationDisplay
                     latitude={record.latitude}
@@ -445,8 +488,12 @@ function LightboxModal({ record, onClose }) {
 
               {record.accuracy != null && (
                 <div>
-                  <p className="text-[10px] uppercase font-bold text-neutral-500 tracking-wider">GPS Accuracy</p>
-                  <p className="text-neutral-200 mt-0.5">±{Math.round(record.accuracy)} meters</p>
+                  <p className="text-[10px] uppercase font-bold text-neutral-500 tracking-wider">
+                    GPS Accuracy
+                  </p>
+                  <p className="text-neutral-200 mt-0.5">
+                    ±{Math.round(record.accuracy)} meters
+                  </p>
                 </div>
               )}
             </div>
@@ -477,7 +524,7 @@ function StudentCard({
   onOpenLightbox,
 }) {
   const [activeSessionName, setActiveSessionName] = useState(
-    currentSessionName || allSessions[allSessions.length - 1] || "default"
+    currentSessionName || allSessions[allSessions.length - 1] || "default",
   );
 
   useEffect(() => {
@@ -522,14 +569,18 @@ function StudentCard({
                 </span>
               )}
             </div>
-            <p className="text-xs text-neutral-500 mt-1 font-mono">{student.regno}</p>
+            <p className="text-xs text-neutral-500 mt-1 font-mono">
+              {student.regno}
+            </p>
           </div>
         </div>
       </div>
 
       {/* Session Circles horizontal row */}
       <div className="space-y-1.5">
-        <p className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Attendance Sessions</p>
+        <p className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">
+          Attendance Sessions
+        </p>
         <div className="flex items-center gap-2 overflow-x-auto py-1 scrollbar-hidden whitespace-nowrap">
           {allSessions.map((sessionName) => {
             const rec = recordBySession.get(sessionName);
@@ -538,10 +589,12 @@ function StudentCard({
 
             let borderCls = "border-neutral-800";
             let bgCls = "bg-neutral-950";
-            
+
             if (rec) {
-              if (rec.status === "approved") borderCls = "border-emerald-500/60";
-              else if (rec.status === "rejected") borderCls = "border-red-500/60";
+              if (rec.status === "approved")
+                borderCls = "border-emerald-500/60";
+              else if (rec.status === "rejected")
+                borderCls = "border-red-500/60";
               else borderCls = "border-yellow-500/60";
             }
 
@@ -552,9 +605,16 @@ function StudentCard({
                 title={`${sessionName}${rec ? ` (${rec.status})` : " (Not submitted)"}`}
                 className={
                   "h-8 w-8 rounded-full border-2 shrink-0 flex items-center justify-center overflow-hidden transition-all duration-200 cursor-pointer relative " +
-                  borderCls + " " + bgCls + " " +
-                  (isSelected ? " scale-110 ring-1 ring-blue-500" : " hover:scale-105") +
-                  (isCurrent ? " ring-2 ring-offset-2 ring-offset-neutral-900 ring-blue-500/40" : "")
+                  borderCls +
+                  " " +
+                  bgCls +
+                  " " +
+                  (isSelected
+                    ? " scale-110 ring-1 ring-blue-500"
+                    : " hover:scale-105") +
+                  (isCurrent
+                    ? " ring-2 ring-offset-2 ring-offset-neutral-900 ring-blue-500/40"
+                    : "")
                 }
               >
                 {rec?.photoDataUrl ? (
@@ -566,9 +626,11 @@ function StudentCard({
                     draggable="false"
                   />
                 ) : (
-                  <span className="text-[9px] text-neutral-600 font-bold">○</span>
+                  <span className="text-[9px] text-neutral-600 font-bold">
+                    ○
+                  </span>
                 )}
-                
+
                 {isCurrent && (
                   <span className="absolute top-0 right-0 h-1.5 w-1.5 rounded-full bg-blue-500 animate-ping" />
                 )}
@@ -583,16 +645,21 @@ function StudentCard({
         <div className="flex-grow flex flex-col">
           <div className="flex items-center justify-between gap-2">
             <span className="text-[10px] text-neutral-450 uppercase font-semibold">
-              Selected: <span className="text-white normal-case font-bold">{activeSessionName}</span>
+              Selected:{" "}
+              <span className="text-white normal-case font-bold">
+                {activeSessionName}
+              </span>
             </span>
             {activeRecord && (
-              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider ${
-                activeRecord.status === "approved"
-                  ? "bg-emerald-950/20 text-emerald-400 border-emerald-900/50"
-                  : activeRecord.status === "rejected"
-                    ? "bg-red-950/20 text-red-400 border-red-900/50"
-                    : "bg-yellow-950/20 text-yellow-450 border-yellow-900/50"
-              }`}>
+              <span
+                className={`text-[10px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider ${
+                  activeRecord.status === "approved"
+                    ? "bg-emerald-950/20 text-emerald-400 border-emerald-900/50"
+                    : activeRecord.status === "rejected"
+                      ? "bg-red-950/20 text-red-400 border-red-900/50"
+                      : "bg-yellow-950/20 text-yellow-450 border-yellow-900/50"
+                }`}
+              >
                 {activeRecord.status}
               </span>
             )}
@@ -802,7 +869,11 @@ function TeamDetailsPanel({
             {selectedTeam.teamName}
           </h2>
           <p className="text-xs text-neutral-400 mt-1">
-            Leader: <span className="text-white font-semibold">{selectedTeam.leader?.name || "None"}</span> • {totalMembers} members
+            Leader:{" "}
+            <span className="text-white font-semibold">
+              {selectedTeam.leader?.name || "None"}
+            </span>{" "}
+            • {totalMembers} members
           </p>
         </div>
 
@@ -838,18 +909,33 @@ function TeamDetailsPanel({
         <h3 className="text-xs font-bold text-neutral-450 uppercase tracking-wider mb-4">
           Student Attendance
         </h3>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
           {students.map((st) => {
-            const isLead = String(st._id || st.id || "") === String(selectedTeam.leader?._id || selectedTeam.leader || "");
-            
-            const studentRecords = (Array.isArray(records) ? records : []).filter(
-              (r) => String(r?.student?._id || r?.student || "") === String(st._id || st.id || "")
+            const isLead =
+              String(st._id || st.id || "") ===
+              String(selectedTeam.leader?._id || selectedTeam.leader || "");
+
+            const studentRecords = (
+              Array.isArray(records) ? records : []
+            ).filter(
+              (r) =>
+                String(r?.student?._id || r?.student || "") ===
+                String(st._id || st.id || ""),
             );
-            
+
             const recordBySession = new Map();
             for (const r of studentRecords) {
-              if (r.sessionName) {
+              if (!r?.sessionName) continue;
+              const existing = recordBySession.get(r.sessionName);
+              const existingTime = existing?.createdAt
+                ? new Date(existing.createdAt).getTime()
+                : 0;
+              const currentTime = r?.createdAt
+                ? new Date(r.createdAt).getTime()
+                : 0;
+
+              if (!existing || currentTime > existingTime) {
                 recordBySession.set(r.sessionName, r);
               }
             }
@@ -881,6 +967,7 @@ function TopBar({
   selectedEventId,
   onChangeEvent,
   onRefresh,
+  onExport,
   loading,
   error,
   onToggleSidebar,
@@ -921,6 +1008,13 @@ function TopBar({
             ))}
           </select>
           <button
+            onClick={onExport}
+            className="px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 hover:bg-neutral-800 text-white text-xs sm:text-sm font-semibold cursor-pointer transition-colors flex items-center gap-1.5"
+          >
+            <IconDownload className="h-3.5 w-3.5" />
+            Export
+          </button>
+          <button
             onClick={onRefresh}
             disabled={loading}
             className={
@@ -930,7 +1024,9 @@ function TopBar({
                 : "bg-neutral-900/40 hover:bg-neutral-900/60 border-neutral-800 text-white")
             }
           >
-            <IconRefresh className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+            <IconRefresh
+              className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
+            />
           </button>
         </div>
       </div>
@@ -946,7 +1042,13 @@ function TopBar({
   );
 }
 
-function StudentSnapLayout({ topBar, sidebar, sidebarOpen, setSidebarOpen, children }) {
+function StudentSnapLayout({
+  topBar,
+  sidebar,
+  sidebarOpen,
+  setSidebarOpen,
+  children,
+}) {
   return (
     <div className="h-screen flex flex-col bg-neutral-950 text-white font-sans overflow-hidden">
       {topBar}
@@ -1013,7 +1115,9 @@ export function StudentSnapSection({ events }) {
   }, [events, selectedEventId]);
 
   const selectedEvent = useMemo(() => {
-    return events.find((ev) => String(ev._id || ev.id) === String(selectedEventId));
+    return events.find(
+      (ev) => String(ev._id || ev.id) === String(selectedEventId),
+    );
   }, [events, selectedEventId]);
 
   const eventName = selectedEvent?.title || "";
@@ -1152,8 +1256,8 @@ export function StudentSnapSection({ events }) {
     ) {
       setError(
         teamsResult.reason?.message ||
-        submissionsResult.reason?.message ||
-        "Failed to load data",
+          submissionsResult.reason?.message ||
+          "Failed to load data",
       );
     } else if (teamsResult.status === "rejected") {
       setError(teamsResult.reason?.message || "Failed to load teams");
@@ -1206,7 +1310,8 @@ export function StudentSnapSection({ events }) {
     if (index === -1) {
       setSelectedTeamId(filteredTeams[0].teamId);
     } else {
-      const prevIndex = (index - 1 + filteredTeams.length) % filteredTeams.length;
+      const prevIndex =
+        (index - 1 + filteredTeams.length) % filteredTeams.length;
       setSelectedTeamId(filteredTeams[prevIndex].teamId);
     }
   };
@@ -1220,6 +1325,104 @@ export function StudentSnapSection({ events }) {
       const nextIndex = (index + 1) % filteredTeams.length;
       setSelectedTeamId(filteredTeams[nextIndex].teamId);
     }
+  };
+
+  const handleExportTeamAttendance = () => {
+    const safeSessions =
+      Array.isArray(allSessions) && allSessions.length
+        ? allSessions
+        : ["Session 1"];
+
+    const toLocationText = (record) => {
+      if (!record) return "";
+      const locationName = record.locationName || "";
+      const mapUrl =
+        record.latitude != null && record.longitude != null
+          ? `https://www.google.com/maps?q=${Number(record.latitude)},${Number(record.longitude)}`
+          : "";
+
+      if (locationName && mapUrl) return `${locationName} | ${mapUrl}`;
+      if (mapUrl) return mapUrl;
+      if (locationName) return locationName;
+      return "";
+    };
+
+    const toDateTimeText = (record) => {
+      if (!record?.createdAt) return "";
+      const dt = new Date(record.createdAt);
+      return Number.isNaN(dt.getTime()) ? "" : dt.toLocaleString();
+    };
+
+    const escapeCsvCell = (value) => {
+      const text = value == null ? "" : String(value);
+      const escaped = text.replace(/"/g, '""');
+      return /[",\n]/.test(escaped) ? `"${escaped}"` : escaped;
+    };
+
+    const header = ["Team Name", "RegNo", "Student Name"];
+
+    for (const sessionName of safeSessions) {
+      header.push(sessionName, "Time & Date", "Location");
+    }
+
+    const rows = [];
+
+    for (const team of orderedTeams) {
+      const students = [team.leader, ...(team.members || [])].filter(Boolean);
+
+      for (const student of students) {
+        const studentId = String(student?._id || student?.id || "");
+        const studentRecords = (Array.isArray(records) ? records : []).filter(
+          (record) =>
+            String(record?.student?._id || record?.student || "") === studentId,
+        );
+
+        const recordBySession = new Map();
+        for (const record of studentRecords) {
+          const sessionName = String(record?.sessionName || "default");
+          const existing = recordBySession.get(sessionName);
+          const existingTime = existing?.createdAt
+            ? new Date(existing.createdAt).getTime()
+            : 0;
+          const currentTime = record?.createdAt
+            ? new Date(record.createdAt).getTime()
+            : 0;
+
+          if (!existing || currentTime > existingTime) {
+            recordBySession.set(sessionName, record);
+          }
+        }
+
+        const row = [team.teamName, student?.regno || "", student?.name || ""];
+
+        for (const sessionName of safeSessions) {
+          const record = recordBySession.get(sessionName);
+          const statusText =
+            record?.status === "approved" ? "Present" : "Absent";
+          row.push(statusText, toDateTimeText(record), toLocationText(record));
+        }
+
+        rows.push(row);
+      }
+    }
+
+    const csvLines = [
+      header.map(escapeCsvCell).join(","),
+      ...rows.map((row) => row.map(escapeCsvCell).join(",")),
+    ];
+
+    const csvContent = csvLines.join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${String(selectedEvent?.title || "event")
+      .replace(/\s+/g, "-")
+      .toLowerCase()}-attendance-export.csv`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
   };
 
   const decide = async (attendanceId, decision) => {
@@ -1251,7 +1454,9 @@ export function StudentSnapSection({ events }) {
   if (!Array.isArray(events) || events.length === 0) {
     return (
       <div className="min-h-screen bg-neutral-950 text-white flex items-center justify-center">
-        <div className="text-center text-sm text-neutral-450">No managed events.</div>
+        <div className="text-center text-sm text-neutral-450">
+          No managed events.
+        </div>
       </div>
     );
   }
@@ -1264,6 +1469,7 @@ export function StudentSnapSection({ events }) {
           selectedEventId={selectedEventId}
           onChangeEvent={setSelectedEventId}
           onRefresh={() => loadData()}
+          onExport={handleExportTeamAttendance}
           loading={loading}
           error={error}
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
