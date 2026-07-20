@@ -18,7 +18,15 @@ exports.protect = (req, res, next) => {
 
     const secret = process.env.JWT_SECRET || "dev_secret_change_me";
     const decoded = jwt.verify(token, secret);
-    req.user = { id: decoded.id };
+    if (decoded.isPublicAccess) {
+      req.user = {
+        isPublicAccess: true,
+        eventId: decoded.eventId,
+        teamId: decoded.teamId,
+      };
+    } else {
+      req.user = { id: decoded.id };
+    }
     return next();
   } catch (err) {
     return res.status(401).json({ error: "Unauthorized" });

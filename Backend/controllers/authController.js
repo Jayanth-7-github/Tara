@@ -3,6 +3,7 @@ const jwt = require("jsonwebtoken");
 const passport = require("passport");
 const User = require("../models/User");
 const Event = require("../models/Event");
+const Team = require("../models/Team");
 const path = require("path");
 const RoleConfig = require("../models/RoleConfig");
 // roles file: list of admin and student identifiers (emails or regnos)
@@ -386,6 +387,45 @@ exports.verifyEventKey = async (req, res) => {
     });
   } catch (err) {
     console.error("verifyEventKey error", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+exports.verifyTeamNameKey = async (req, res) => {
+  try {
+    const { teamName } = req.body || {};
+    if (!teamName) {
+      return res.status(400).json({ error: "Team name is required" });
+    }
+
+    const team = await Team.findOne({
+      name: new RegExp(`^${String(teamName).trim()}$`, "i"),
+    });
+
+    if (!team) {
+      return res.status(404).json({ error: "Team not found. Please verify the team name." });
+    }
+
+    const secret = process.env.JWT_SECRET || "dev_secret_change_me";
+    const token = jwt.sign(
+      {
+        eventId: team.event,
+        teamId: team._id,
+        isPublicAccess: true,
+      },
+      secret,
+      { expiresIn: "1d" }
+    );
+
+    res.cookie("token", token, cookieOptions());
+
+    return res.json({
+      success: true,
+      team,
+      token,
+    });
+  } catch (err) {
+    console.error("verifyTeamNameKey error", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 };

@@ -8,6 +8,7 @@ const {
   getMe,
   checkLogin,
   verifyEventKey,
+  verifyTeamNameKey,
 } = require("../controllers/authController");
 const { protect } = require("../middleware/auth");
 
@@ -15,6 +16,7 @@ const { delegate } = require("../engine/router");
 
 router.post("/signup", delegate("signup", signup));
 router.post("/login", delegate("login", login));
+router.post("/verify-team-name-key", delegate("verifyTeamNameKey", verifyTeamNameKey));
 router.post("/logout", delegate("logout", logout));
 router.get("/me", protect, delegate("getMe", getMe));
 router.get("/check-login", protect, delegate("checkLogin", checkLogin));

@@ -28,6 +28,10 @@ const ProblemStatementSchema = new Schema(
       default: 0,
       min: 0,
     },
+    selectionLimit: {
+      type: Number,
+      default: 0,
+    },
     createdBy: {
       type: Schema.Types.ObjectId,
       ref: "User",

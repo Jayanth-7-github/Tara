@@ -10,6 +10,7 @@ import {
   saveTeamMark,
   updateEvent,
 } from "../services/api";
+import { exportToCSV } from "../utils/export";
 
 function normalizeKey(value) {
   return String(value || "")
@@ -599,7 +600,6 @@ function MarkEditor({
   onCategoryDraftChange,
   onNotesChange,
   onSave,
-  onCancel,
   onOpenConfig,
 }) {
   const editing = Array.isArray(draft.categoryEntries)
@@ -640,14 +640,6 @@ function MarkEditor({
           </p>
         </div>
 
-        {editing && (
-          <button
-            onClick={onCancel}
-            className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-xs text-neutral-300 transition hover:bg-neutral-900 sm:text-sm"
-          >
-            Cancel edit
-          </button>
-        )}
       </div>
 
       {draft.categoryEntries.length === 0 ? (
@@ -817,6 +809,29 @@ function ResultsPanel({
   orderValue,
   onOrderValueChange,
 }) {
+  const handleExport = () => {
+    if (!rows || rows.length === 0) return;
+    const exportRows = rows.map((row) => {
+      const exportRow = {
+        "Team": row.teamName,
+      };
+      roundOptions.forEach((roundName) => {
+        const val = row.roundTotals[normalizeKey(roundName)] || "-";
+        // Excel auto-formats fraction strings like "12 / 20" to dates (e.g. Dec-20).
+        // Prefix with "=" and wrap in quotes to force Excel to treat it as string.
+        if (val !== "-" && val.includes("/")) {
+          exportRow[roundName] = `="${val}"`;
+        } else {
+          exportRow[roundName] = val;
+        }
+      });
+      exportRow["Total Score"] = row.totalScore;
+      return exportRow;
+    });
+
+    exportToCSV(`${selectedEventTitle || "Event"}_Marks.csv`, exportRows);
+  };
+
   if (loading) {
     return (
       <div className="space-y-3 p-3 sm:p-4">
@@ -840,10 +855,21 @@ function ResultsPanel({
               Round total scores for {selectedEventTitle || "this event"}.
             </p>
           </div>
-          <div className="rounded-full border border-neutral-800 bg-neutral-950 px-3 py-1 text-[11px] text-neutral-300 sm:text-xs">
-            {searchTerm || Number(topLimitValue) > 0
-              ? `${rows.length} of ${totalCount} teams`
-              : `${rows.length} teams`}
+          <div className="flex items-center gap-2">
+            {rows.length > 0 && (
+              <button
+                type="button"
+                onClick={handleExport}
+                className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-[11px] font-semibold text-cyan-200 transition hover:bg-cyan-500/20 sm:text-xs"
+              >
+                Export CSV
+              </button>
+            )}
+            <div className="rounded-full border border-neutral-800 bg-neutral-950 px-3 py-1 text-[11px] text-neutral-300 sm:text-xs">
+              {searchTerm || Number(topLimitValue) > 0
+                ? `${rows.length} of ${totalCount} teams`
+                : `${rows.length} teams`}
+            </div>
           </div>
         </div>
 
@@ -984,7 +1010,6 @@ function TeamDetailsPanel({
   onCategoryDraftChange,
   onNotesChange,
   onSave,
-  onCancelEdit,
   onOpenConfig,
 }) {
   if (loading) {
@@ -1092,7 +1117,6 @@ function TeamDetailsPanel({
         onCategoryDraftChange={onCategoryDraftChange}
         onNotesChange={onNotesChange}
         onSave={onSave}
-        onCancel={onCancelEdit}
         onOpenConfig={onOpenConfig}
       />
 
@@ -1933,7 +1957,6 @@ export function MarksForStudentsSection({ events }) {
             onCategoryDraftChange={handleCategoryDraftChange}
             onNotesChange={handleNotesChange}
             onSave={handleSave}
-            onCancelEdit={resetDraft}
             onOpenConfig={openConfigModal}
           />
         )}

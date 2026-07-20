@@ -55,7 +55,13 @@ function TeamCard({ team, stats, active, onSelect }) {
 
   const teamName = team.teamName;
   const leaderName = team.leader?.name || "No Leader";
-  const studentCount = (team.members?.length || 0) + 1;
+  const leaderId = team.leader?._id || team.leader;
+  const members = (Array.isArray(team.members) ? team.members : [])
+    .filter((m) => {
+      const mId = m?._id || m;
+      return mId && String(mId) !== String(leaderId);
+    });
+  const studentCount = members.length + (team.leader ? 1 : 0);
   const initial = (String(teamName || "T").trim()[0] || "T").toUpperCase();
 
   // Simulated online indicator based on teamId hash code

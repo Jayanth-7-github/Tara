@@ -93,6 +93,28 @@ function getStudentFromTeam(team, regno) {
 }
 
 async function getAuthenticatedTeamAccess(req, res, teamId) {
+  // Support public access tokens (verified event key / team name key)
+  if (req.user?.isPublicAccess && req.user?.eventId) {
+    if (req.user.teamId && String(req.user.teamId) !== String(teamId)) {
+      res.status(403).json({ error: "Forbidden: You do not have access to this team" });
+      return null;
+    }
+    const team = await applyTeamPopulate(Team.findById(teamId)).lean();
+    if (!team) {
+      res.status(404).json({ error: "Team not found" });
+      return null;
+    }
+    if (String(team.event?._id || team.event) !== String(req.user.eventId)) {
+      res.status(403).json({ error: "Forbidden: Event mismatch" });
+      return null;
+    }
+    return {
+      actor: { role: "student" },
+      team,
+      teamStudent: { _id: null, name: "Team Member" },
+    };
+  }
+
   if (!req.user?.id) {
     res.status(401).json({ error: "Unauthorized" });
     return null;
@@ -233,6 +255,21 @@ async function createTeam(req, res) {
       });
     }
 
+    // Ensure leader is not in members and members are unique
+    const leaderRegno = normalizeUpper(leader?.regno);
+    const memberRegnos = members.map(m => normalizeUpper(m?.regno)).filter(Boolean);
+    if (memberRegnos.includes(leaderRegno)) {
+      return res.status(400).json({
+        error: "Leader cannot be registered as a team member",
+      });
+    }
+    const uniqueMemberRegnos = new Set(memberRegnos);
+    if (uniqueMemberRegnos.size !== memberRegnos.length) {
+      return res.status(400).json({
+        error: "Team members must be unique",
+      });
+    }
+
     if (isPaidEvent(event)) {
       const teamName = normalizeText(name);
       const leaderRegno = normalizeUpper(leader?.regno);
@@ -322,15 +359,15 @@ async function createTeam(req, res) {
           },
           members: Array.isArray(members)
             ? members.map((member) => ({
-                name: normalizeText(member?.name),
-                regno: normalizeUpper(member?.regno),
-                email: normalizeText(member?.email).toLowerCase(),
-                phone: normalizeText(member?.phone),
-                branch: normalizeText(member?.branch),
-                section: normalizeText(member?.section),
-                college: normalizeText(member?.college),
-                year: normalizeText(member?.year),
-              }))
+              name: normalizeText(member?.name),
+              regno: normalizeUpper(member?.regno),
+              email: normalizeText(member?.email).toLowerCase(),
+              phone: normalizeText(member?.phone),
+              branch: normalizeText(member?.branch),
+              section: normalizeText(member?.section),
+              college: normalizeText(member?.college),
+              year: normalizeText(member?.year),
+            }))
             : [],
           paymentReference: reservedReference.reference,
           paymentScreenshotUrl: uploadedPaymentProof.secureUrl,
@@ -514,8 +551,42 @@ async function getTeamProblemStatements(req, res) {
       .sort({ order: 1, updatedAt: -1, createdAt: -1 })
       .lean();
 
+    // Fetch counts of selections for each problem statement of this event
+    const selections = await Team.aggregate([
+      {
+        $match: {
+          event: access.team.event?._id || access.team.event,
+          selectedProblemStatement: { $ne: null },
+        },
+      },
+      {
+        $group: {
+          _id: "$selectedProblemStatement",
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+    const selectionCounts = new Map(
+      selections.map((s) => [String(s._id), s.count]),
+    );
+
+    const filteredItems = items.filter((item) => {
+      // If the current team has already selected it, keep it
+      if (
+        access.team.selectedProblemStatement &&
+        String(access.team.selectedProblemStatement._id || access.team.selectedProblemStatement) === String(item._id)
+      ) {
+        return true;
+      }
+      if (item.selectionLimit > 0) {
+        const count = selectionCounts.get(String(item._id)) || 0;
+        return count < item.selectionLimit;
+      }
+      return true;
+    });
+
     return res.json({
-      items: items.map(normalizeProblemStatement),
+      items: filteredItems.map(normalizeProblemStatement),
       team: {
         _id: access.team._id,
         name: access.team.name,
@@ -571,6 +642,18 @@ async function selectTeamProblemStatement(req, res) {
       return res.status(400).json({
         error: "Only active problem statements can be selected",
       });
+    }
+
+    if (item.selectionLimit > 0) {
+      const selectedCount = await Team.countDocuments({
+        event: access.team.event?._id || access.team.event,
+        selectedProblemStatement: item._id,
+      });
+      if (selectedCount >= item.selectionLimit) {
+        return res.status(400).json({
+          error: "Selection limit reached for this problem statement",
+        });
+      }
     }
 
     const updatedTeam = await applyTeamPopulate(
@@ -649,10 +732,29 @@ async function resetTeamProblemStatement(req, res) {
   }
 }
 
+async function getTeamById(req, res) {
+  try {
+    const team = await applyTeamPopulate(Team.findById(req.params.teamId));
+    if (!team) {
+      return res.status(404).json({ error: "Team not found" });
+    }
+    if (req.user?.isPublicAccess && req.user?.eventId) {
+      if (String(team.event?._id || team.event) !== String(req.user.eventId)) {
+        return res.status(403).json({ error: "Forbidden: Event mismatch" });
+      }
+    }
+    return res.json({ success: true, team });
+  } catch (err) {
+    console.error("getTeamById error", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+}
+
 module.exports = {
   createTeam,
   getTeams,
   getTeamProblemStatements,
   selectTeamProblemStatement,
   resetTeamProblemStatement,
+  getTeamById,
 };

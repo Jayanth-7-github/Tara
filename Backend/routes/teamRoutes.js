@@ -6,12 +6,14 @@ const {
   getTeamProblemStatements,
   selectTeamProblemStatement,
   resetTeamProblemStatement,
+  getTeamById,
 } = require("../controllers/teamController");
 const { protect } = require("../middleware/auth");
 
 // POST /api/teams - create a team for an event
 router.post("/", createTeam);
 router.get("/", getTeams);
+router.get("/:teamId", protect, getTeamById);
 router.get("/:teamId/problem-statements", protect, getTeamProblemStatements);
 router.post(
   "/:teamId/problem-statement-selection",

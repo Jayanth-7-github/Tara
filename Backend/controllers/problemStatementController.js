@@ -131,6 +131,17 @@ function buildPayload(body, { partial = false } = {}) {
     }
   }
 
+  if (body.selectionLimit !== undefined && body.selectionLimit !== null && body.selectionLimit !== "") {
+    const limit = Number(body.selectionLimit);
+    if (!Number.isInteger(limit) || limit < 0) {
+      errors.push("Selection limit must be a non-negative integer");
+    } else {
+      payload.selectionLimit = limit;
+    }
+  } else if (!partial) {
+    payload.selectionLimit = 0;
+  }
+
   if (!partial || body.isActive !== undefined) {
     payload.isActive = normalizeBoolean(body.isActive, true);
   }
@@ -158,9 +169,29 @@ async function listProblemStatements(req, res) {
       .sort({ order: 1, updatedAt: -1, createdAt: -1 })
       .lean();
 
+    // Count selections of each problem statement by teams for this event
+    const selections = await Team.aggregate([
+      {
+        $match: {
+          event: access.event._id,
+          selectedProblemStatement: { $ne: null },
+        },
+      },
+      {
+        $group: {
+          _id: "$selectedProblemStatement",
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+    const selectionCounts = new Map(
+      selections.map((s) => [String(s._id), s.count]),
+    );
+
     const normalizedItems = items.map((item) => ({
       ...item,
       description: normalizeLongText(item.description || item.statement),
+      selectedCount: selectionCounts.get(String(item._id)) || 0,
     }));
 
     return res.json({ items: normalizedItems });

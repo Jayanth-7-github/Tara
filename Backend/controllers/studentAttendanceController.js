@@ -105,9 +105,6 @@ async function canSubmitForTeam({ actor, teamDoc }) {
 
 exports.markStudentAttendance = async (req, res) => {
   try {
-    const actor = await getActor(req);
-    if (!actor) return res.status(401).json({ error: "Unauthorized" });
-
     const {
       teamId,
       studentId,
@@ -157,8 +154,18 @@ exports.markStudentAttendance = async (req, res) => {
     const team = await Team.findById(teamId).lean();
     if (!team) return res.status(404).json({ error: "Team not found" });
 
-    if (!(await canSubmitForTeam({ actor, teamDoc: team }))) {
-      return res.status(403).json({ error: "Forbidden" });
+    // Support public access (verified event key / team name key)
+    if (req.user?.isPublicAccess && req.user?.teamId) {
+      if (String(req.user.teamId) !== String(teamId)) {
+        return res.status(403).json({ error: "Forbidden: Team mismatch" });
+      }
+    } else {
+      const actor = await getActor(req);
+      if (!actor) return res.status(401).json({ error: "Unauthorized" });
+
+      if (!(await canSubmitForTeam({ actor, teamDoc: team }))) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
     }
 
     // Ensure the student belongs to the team
@@ -365,9 +372,6 @@ exports.allowStudentAttendanceResubmit = async (req, res) => {
 
 exports.getAttendanceRecords = async (req, res) => {
   try {
-    const actor = await getActor(req);
-    if (!actor) return res.status(401).json({ error: "Unauthorized" });
-
     const { teamId, sessionName, eventId, status } = req.query || {};
     if (!teamId) return res.status(400).json({ error: "teamId is required" });
 
@@ -380,12 +384,22 @@ exports.getAttendanceRecords = async (req, res) => {
     const event = await Event.findById(evId).lean();
     if (!event) return res.status(404).json({ error: "Event not found" });
 
-    // Authorization: team member OR event manager
-    const isManager = await isEventManagerForEvent({ actor, eventDoc: event });
-    const isTeamMember = await canSubmitForTeam({ actor, teamDoc: team });
+    // Support public access (verified event key / team name key)
+    if (req.user?.isPublicAccess && req.user?.teamId) {
+      if (String(req.user.teamId) !== String(teamId)) {
+        return res.status(403).json({ error: "Forbidden: Team mismatch" });
+      }
+    } else {
+      const actor = await getActor(req);
+      if (!actor) return res.status(401).json({ error: "Unauthorized" });
 
-    if (!isManager && !isTeamMember) {
-      return res.status(403).json({ error: "Forbidden" });
+      // Authorization: team member OR event manager
+      const isManager = await isEventManagerForEvent({ actor, eventDoc: event });
+      const isTeamMember = await canSubmitForTeam({ actor, teamDoc: team });
+
+      if (!isManager && !isTeamMember) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
     }
 
     const query = {

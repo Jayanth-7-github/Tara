@@ -27,6 +27,14 @@ const UserSchema = new mongoose.Schema(
       enum: ["admin", "student", "member", "user"],
       default: "user",
     },
+    isTeamUser: {
+      type: Boolean,
+      default: false,
+    },
+    teamId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Team",
+    },
   },
   { timestamps: true }
 );

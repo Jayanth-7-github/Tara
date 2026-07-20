@@ -15,9 +15,11 @@ import {
   fetchEventById,
   fetchTeamProblemStatements,
   fetchTeams,
+  fetchTeamById,
   fetchStudentAttendanceRecords,
   selectTeamProblemStatement,
   submitStudentAttendance,
+  verifyTeamNameKey,
 } from "../services/api";
 
 // ─── Stat Card ───────────────────────────────────────────────────────────────
@@ -117,48 +119,111 @@ export default function StudentDashboard() {
 
   const [selectedEventId, setSelectedEventId] = useState(null);
 
+  // Guest Access states (using Team Name as key)
+  const [showKeyModal, setShowKeyModal] = useState(false);
+  const [inputKey, setInputKey] = useState("");
+  const [keyError, setKeyError] = useState("");
+  const [isPublicAccess, setIsPublicAccess] = useState(false);
+
   const loadDashboardData = async (silent = false) => {
     try {
       if (!silent) setLoading(true);
-      const profile = await getMe();
-      const u = profile?.user || profile;
-      setUser(u);
+      
+      let profile = null;
+      try {
+        profile = await getMe();
+      } catch (err) {
+        // Not logged in personally
+      }
 
-      // If the user logged in with regno, use it to find student + team.
-      if (u?.regno) {
-        const s = await fetchStudent(u.regno);
-        setStudent(s);
+      if (profile) {
+        const u = profile?.user || profile;
+        setUser(u);
 
-        const regs = Array.isArray(s?.registrations) ? s.registrations : [];
-        const latest = regs
-          .slice()
-          .sort(
-            (a, b) =>
-              new Date(b?.registeredAt || 0) - new Date(a?.registeredAt || 0),
-          )[0];
-
-        const evId = latest?.event?._id || latest?.event || null;
-        if (evId) {
-          setSelectedEventId(String(evId));
-          const ev = await fetchEventById(String(evId));
-          setEvent(ev || null);
-
-          const teamsResp = await fetchTeams(String(evId));
-          const teams = Array.isArray(teamsResp?.teams)
-            ? teamsResp.teams
-            : [];
-          const regUpper = String(u.regno).toUpperCase();
-          const myTeam = teams.find((t) => {
-            const leaderReg = t?.leader?.regno
-              ? String(t.leader.regno).toUpperCase()
-              : "";
-            if (leaderReg && leaderReg === regUpper) return true;
-            const mems = Array.isArray(t?.members) ? t.members : [];
-            return mems.some(
-              (m) => String(m?.regno || "").toUpperCase() === regUpper,
-            );
-          });
+        if (u?.isTeamUser && u?.teamId) {
+          // Logged in as virtual Team User
+          const teamDetails = await fetchTeamById(u.teamId);
+          const myTeam = teamDetails?.team || teamDetails;
           setTeam(myTeam || null);
+
+          const evId = myTeam?.event?._id || myTeam?.event;
+          if (evId) {
+            setSelectedEventId(String(evId));
+            const ev = await fetchEventById(String(evId));
+            setEvent(ev || null);
+          }
+        } else if (u?.regno) {
+          const s = await fetchStudent(u.regno);
+          setStudent(s);
+
+          const regs = Array.isArray(s?.registrations) ? s.registrations : [];
+          const latest = regs
+            .slice()
+            .sort(
+              (a, b) =>
+                new Date(b?.registeredAt || 0) - new Date(a?.registeredAt || 0),
+            )[0];
+
+          const evId = latest?.event?._id || latest?.event || null;
+          if (evId) {
+            setSelectedEventId(String(evId));
+            const ev = await fetchEventById(String(evId));
+            setEvent(ev || null);
+
+            const teamsResp = await fetchTeams(String(evId));
+            const teams = Array.isArray(teamsResp?.teams)
+              ? teamsResp.teams
+              : [];
+            const regUpper = String(u.regno).toUpperCase();
+            const myTeam = teams.find((t) => {
+              const leaderReg = t?.leader?.regno
+                ? String(t.leader.regno).toUpperCase()
+                : "";
+              if (leaderReg && leaderReg === regUpper) return true;
+              const mems = Array.isArray(t?.members) ? t.members : [];
+              return mems.some(
+                (m) => String(m?.regno || "").toUpperCase() === regUpper,
+              );
+            });
+            setTeam(myTeam || null);
+          }
+        }
+      } else {
+        // Guest/Public Access checking via Team Name
+        const storedTeam = sessionStorage.getItem("temp_team_access");
+        if (storedTeam) {
+          const teamObj = JSON.parse(storedTeam);
+          setIsPublicAccess(true);
+          // Fetch fresh team details
+          try {
+            const teamDetails = await fetchTeamById(teamObj._id);
+            const freshTeam = teamDetails?.team || teamDetails;
+            setTeam(freshTeam || null);
+            
+            const evId = freshTeam?.event?._id || freshTeam?.event;
+            if (evId) {
+              setSelectedEventId(String(evId));
+              const ev = await fetchEventById(String(evId));
+              setEvent(ev || null);
+            }
+            
+            setUser({
+              name: freshTeam.name || freshTeam.teamName,
+              role: "student",
+              isTeamUser: true,
+              teamId: freshTeam._id
+            });
+          } catch (err) {
+            setTeam(teamObj);
+            setUser({
+              name: teamObj.name || teamObj.teamName,
+              role: "student",
+              isTeamUser: true,
+              teamId: teamObj._id
+            });
+          }
+        } else {
+          setShowKeyModal(true);
         }
       }
     } catch (err) {
@@ -179,6 +244,48 @@ export default function StudentDashboard() {
         { id: 2, name: "Workshop", date: "2026-03-15" },
       ]);
       if (!silent) setLoading(false);
+    }
+  };
+
+  const handleVerifyKey = async (e) => {
+    e.preventDefault();
+    setKeyError("");
+    setLoading(true);
+    try {
+      const res = await verifyTeamNameKey(inputKey);
+      if (res.success && res.team) {
+        const myTeam = res.team;
+        sessionStorage.setItem("temp_event_access", JSON.stringify({
+          eventId: myTeam.event,
+          isPublicAccess: true,
+          token: res.token
+        }));
+        
+        setTeam(myTeam || null);
+        
+        const evId = myTeam?.event?._id || myTeam?.event;
+        if (evId) {
+          setSelectedEventId(String(evId));
+          const ev = await fetchEventById(String(evId));
+          setEvent(ev || null);
+        }
+
+        sessionStorage.setItem("temp_team_access", JSON.stringify(myTeam));
+        
+        setUser({
+          name: myTeam.name || myTeam.teamName,
+          role: "student",
+          isTeamUser: true,
+          teamId: myTeam._id
+        });
+        
+        setIsPublicAccess(true);
+        setShowKeyModal(false);
+      }
+    } catch (err) {
+      setKeyError(err.message || "Team not found. Please verify the team name.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -292,6 +399,8 @@ export default function StudentDashboard() {
                 ),
               }}
               onClick={async () => {
+                sessionStorage.removeItem("temp_event_access");
+                sessionStorage.removeItem("temp_team_access");
                 try {
                   await logout();
                 } catch (e) {
@@ -308,6 +417,57 @@ export default function StudentDashboard() {
       <main className="flex-1 overflow-y-auto bg-neutral-950 text-white w-full">
         {renderSection()}
       </main>
+
+      {/* Event Access Key Modal */}
+      {showKeyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-8 shadow-2xl max-w-md w-full mx-4 relative overflow-hidden">
+            <div className="absolute -top-12 -left-12 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl pointer-events-none" />
+            <div className="absolute -bottom-12 -right-12 w-32 h-32 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none" />
+            
+            <div className="text-center mb-6">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xl font-bold mb-3">
+                👥
+              </div>
+              <h3 className="text-2xl font-bold text-white tracking-wide">
+                Team Access
+              </h3>
+              <p className="text-neutral-400 text-sm mt-1">
+                Enter your Team Name to access your dashboard
+              </p>
+            </div>
+            
+            <form onSubmit={handleVerifyKey} className="space-y-4">
+              <div>
+                <input
+                  type="text"
+                  placeholder="Your Team Name"
+                  value={inputKey}
+                  onChange={(e) => setInputKey(e.target.value)}
+                  className="w-full bg-neutral-850 border border-neutral-700 rounded-xl px-4 py-3 text-white placeholder-neutral-500 focus:outline-none focus:border-blue-500 transition-all text-center text-lg font-semibold"
+                  required
+                />
+              </div>
+              {keyError && (
+                <div className="text-red-400 text-sm text-center bg-red-950/30 border border-red-900/50 rounded-lg py-2">
+                  {keyError}
+                </div>
+              )}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2"
+              >
+                {loading ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <span>Access Dashboard</span>
+                )}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -845,7 +1005,12 @@ function StudentAttendanceSection({ team, event, onRefresh }) {
   const teamMembers = useMemo(() => {
     if (!team) return [];
     const leader = team.leader ? [team.leader] : [];
-    const members = Array.isArray(team.members) ? team.members : [];
+    const leaderId = team.leader?._id || team.leader;
+    const members = (Array.isArray(team.members) ? team.members : [])
+      .filter((m) => {
+        const mId = m?._id || m;
+        return mId && String(mId) !== String(leaderId);
+      });
     return leader.concat(members);
   }, [team]);
 

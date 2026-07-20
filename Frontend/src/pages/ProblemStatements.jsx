@@ -31,6 +31,7 @@ function createEmptyForm() {
   return {
     title: "",
     description: "",
+    selectionLimit: "0",
   };
 }
 
@@ -183,6 +184,20 @@ function ProblemStatementModal({
                   onChange={(event) => onChange("title", event.target.value)}
                   className={`${inputClassName} mt-2`}
                   placeholder="Two Sum on Event Scores"
+                />
+              </div>
+
+              <div>
+                <label className={labelClassName}>Selection Limit (0 for unlimited)</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={form.selectionLimit}
+                  onChange={(event) =>
+                    onChange("selectionLimit", event.target.value)
+                  }
+                  className={`${inputClassName} mt-2`}
+                  placeholder="0"
                 />
               </div>
 
@@ -543,6 +558,7 @@ export default function ProblemStatements() {
     setForm({
       title: item.title || "",
       description: item.description || item.statement || "",
+      selectionLimit: String(item.selectionLimit ?? 0),
     });
     setModalOpen(true);
   };
@@ -577,10 +593,12 @@ export default function ProblemStatements() {
     setSaving(true);
     setMessage({ text: "", type: "" });
     try {
+      const parsedLimit = Number(form.selectionLimit);
       const payload = {
         eventId: selectedEventId,
         title: form.title,
         description: form.description,
+        selectionLimit: Number.isInteger(parsedLimit) && parsedLimit >= 0 ? parsedLimit : 0,
       };
 
       if (editingItem?._id) {
@@ -1066,6 +1084,12 @@ export default function ProblemStatements() {
                                   )}
                                 >
                                   {item.isActive ? "Active" : "Inactive"}
+                                </span>
+                                <span className="rounded-full border border-neutral-800 bg-neutral-950/60 px-3 py-1 text-xs font-medium text-neutral-300">
+                                  Limit: {item.selectionLimit > 0 ? item.selectionLimit : "Unlimited"}
+                                </span>
+                                <span className="rounded-full border border-neutral-800 bg-neutral-950/60 px-3 py-1 text-xs font-medium text-cyan-200">
+                                  Selected: {item.selectedCount ?? 0}
                                 </span>
                               </div>
 

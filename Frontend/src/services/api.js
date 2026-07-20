@@ -245,6 +245,22 @@ export async function fetchTeams(eventId) {
   return body;
 }
 
+export async function fetchTeamById(teamId) {
+  const resp = await fetch(
+    `${API_BASE.replace(/\/$/, "")}/teams/${encodeURIComponent(teamId)}`,
+    {
+      credentials: "include",
+    },
+  );
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(body.error || "Failed to fetch team details");
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}
+
 export async function fetchTeamProblemStatements(teamId) {
   const resp = await fetch(
     `${API_BASE.replace(/\/$/, "")}/teams/${encodeURIComponent(teamId)}/problem-statements`,
@@ -1057,6 +1073,22 @@ export async function verifyEventKey(key) {
   const body = await resp.json().catch(() => ({}));
   if (!resp.ok) {
     const err = new Error(body.error || "Invalid access key");
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}
+
+export async function verifyTeamNameKey(teamName) {
+  const resp = await fetch(`${API_BASE}/auth/verify-team-name-key`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ teamName }),
+  });
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(body.error || "Team not found. Please verify the team name.");
     err.status = resp.status;
     throw err;
   }

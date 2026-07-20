@@ -222,20 +222,26 @@ export default function TeamPanel({ team, event }) {
     );
   }
   const hasLeader = !!team.leader;
-  const hasMembers = Array.isArray(team.members) && team.members.length > 0;
+  const leaderId = team.leader?._id || team.leader;
+  const members = (Array.isArray(team.members) ? team.members : [])
+    .filter((m) => {
+      const mId = m?._id || m;
+      return mId && String(mId) !== String(leaderId);
+    });
+  const hasMembers = members.length > 0;
   return (
     <div className="rounded-3xl bg-neutral-950/90 p-8 shadow-2xl backdrop-blur-lg max-w-4xl mx-auto">
-      <TeamHeader team={team} event={event} />
+      <TeamHeader team={{ ...team, members }} event={event} />
       <TeamStatsBar
         team={team}
         event={event}
         leader={team.leader}
-        members={team.members}
+        members={members}
       />
       {hasLeader && <LeaderCard leader={team.leader} />}
       {hasMembers && (
         <div className="mt-2 space-y-6">
-          {team.members.map((member, idx) => (
+          {members.map((member, idx) => (
             <MemberCard key={member._id || idx} member={member} idx={idx} />
           ))}
         </div>
