@@ -8,6 +8,25 @@ import {
   IconHome,
 } from "@tabler/icons-react";
 import { cn } from "../lib/utils";
+import {
+  Sparkles,
+  ClipboardCheck,
+  Calendar,
+  RefreshCw,
+  CheckCircle2,
+  Clock,
+  XCircle,
+  AlertTriangle,
+  Camera,
+  Video,
+  Image as LucideImage,
+  MapPin,
+  Users,
+  Lock,
+  Unlock,
+  Eye,
+  Check,
+} from "lucide-react";
 import { getMe, logout } from "../services/auth";
 import TeamPanel from "../components/TeamPanel";
 import {
@@ -348,7 +367,7 @@ export default function StudentDashboard() {
       default:
         return (
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <TeamPanel team={team} event={event} />
+            <TeamPanel team={team} event={event} onTeamUpdate={setTeam} />
           </div>
         );
     }
@@ -362,7 +381,21 @@ export default function StudentDashboard() {
       <Sidebar open={sidebarOpen} setOpen={setSidebarOpen}>
         <SidebarBody className="justify-between gap-8">
           <div className="flex flex-1 flex-col overflow-x-hidden overflow-y-auto gap-1">
-            <div className="h-6 w-7 shrink-0 rounded-tl-lg rounded-tr-sm rounded-br-lg rounded-bl-sm bg-linear-to-br from-blue-500 to-cyan-400 mb-4" />
+            {team ? (
+              team.avatarUrl ? (
+                <img
+                  src={team.avatarUrl}
+                  alt="Team Profile"
+                  className="h-8 w-8 rounded-full object-cover shrink-0 mb-4 border border-white/20 shadow-md"
+                />
+              ) : (
+                <div className="h-8 w-8 shrink-0 rounded-full bg-linear-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-white text-xs font-black mb-4 uppercase">
+                  {(team.name || "T")[0]}
+                </div>
+              )
+            ) : (
+              <div className="h-6 w-7 shrink-0 rounded-tl-lg rounded-tr-sm rounded-br-lg rounded-bl-sm bg-linear-to-br from-blue-500 to-cyan-400 mb-4" />
+            )}
             <div className="mt-8 flex flex-col gap-1">
               {navLinks.map((link) => (
                 <SidebarLink
@@ -505,47 +538,51 @@ function ProblemStatementDetailsModal({
   if (!item) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/75" onClick={onClose} />
-      <div className="relative flex max-h-[calc(100vh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-neutral-800 bg-neutral-950 shadow-2xl">
-        <div className="flex items-start justify-between gap-4 border-b border-neutral-800 px-6 py-5">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+      <div className="absolute inset-0" onClick={onClose} />
+      <div className="relative flex max-h-[calc(100vh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-white/5 bg-neutral-950/90 backdrop-blur-xl shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+        {/* Background radial glows */}
+        <div className="absolute top-0 -left-12 w-72 h-72 bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 -right-12 w-72 h-72 bg-cyan-500/5 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="flex items-start justify-between gap-4 border-b border-white/5 px-6 py-5 relative">
           <div>
-            <p className="text-xs font-medium uppercase tracking-[0.22em] text-neutral-500">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
               Problem Statement Details
-            </p>
-            <h3 className="mt-2 text-2xl font-semibold text-white">
+            </span>
+            <h3 className="mt-1 text-2xl font-extrabold text-white tracking-tight">
               {item.title}
             </h3>
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg bg-neutral-900 px-3 py-2 text-sm text-neutral-300 transition-colors hover:bg-neutral-800"
+            className="px-3 py-1.5 rounded-lg bg-neutral-900/60 border border-white/5 text-xs font-semibold text-neutral-300 hover:text-white hover:bg-neutral-900 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           >
-            Cancel
+            Close
           </button>
         </div>
 
-        <div className="overflow-y-auto px-6 py-6">
+        <div className="overflow-y-auto px-6 py-6 relative">
           <div className="flex flex-wrap items-center gap-3">
-            <span className="inline-flex items-center rounded-full border border-neutral-700 bg-neutral-900 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-neutral-300">
+            <span className="inline-flex items-center rounded-full border border-white/5 bg-neutral-900/50 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-neutral-300">
               Full Description
             </span>
-            {isChosen ? (
-              <span className="inline-flex items-center rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-200">
+            {isChosen && (
+              <span className="inline-flex items-center rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-emerald-300 shadow-[0_0_10px_rgba(52,211,153,0.05)]">
                 Selected for team
               </span>
-            ) : null}
+            )}
           </div>
 
-          <p className="mt-5 whitespace-pre-wrap text-sm leading-7 text-neutral-200">
+          <p className="mt-5 whitespace-pre-wrap text-sm leading-7 text-neutral-300 select-text">
             {item.description}
           </p>
         </div>
 
-        <div className="flex flex-col-reverse gap-3 border-t border-neutral-800 px-6 py-5 sm:flex-row sm:items-center sm:justify-end">
+        <div className="flex flex-col-reverse gap-3 border-t border-white/5 px-6 py-5 sm:flex-row sm:items-center sm:justify-end relative">
           <button
             onClick={onClose}
-            className="rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 text-sm font-medium text-neutral-200 transition-colors hover:bg-neutral-800"
+            className="rounded-xl border border-white/5 bg-neutral-900/60 px-4 py-2.5 text-sm font-semibold text-neutral-300 hover:text-white hover:bg-neutral-900 transition-all cursor-pointer"
           >
             Cancel
           </button>
@@ -553,10 +590,10 @@ function ProblemStatementDetailsModal({
             onClick={() => onSelect(item)}
             disabled={locked || isChosen}
             className={cn(
-              "rounded-xl px-4 py-3 text-sm font-semibold transition-colors",
+              "rounded-xl px-5 py-2.5 text-sm font-semibold transition-all cursor-pointer shadow-md focus-visible:ring-2",
               locked || isChosen
-                ? "cursor-not-allowed bg-neutral-800 text-neutral-500"
-                : "bg-blue-600 text-white hover:bg-blue-500",
+                ? "bg-neutral-800 text-neutral-500 cursor-not-allowed border border-white/5"
+                : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/10 focus-visible:ring-blue-500"
             )}
           >
             {isChosen
@@ -580,26 +617,29 @@ function ProblemStatementConfirmToast({
   if (!item) return null;
 
   return (
-    <div className="pointer-events-none fixed bottom-4 right-4 z-60 w-full max-w-sm px-4 sm:px-0">
-      <div className="pointer-events-auto rounded-2xl border border-amber-500/30 bg-neutral-950/95 p-5 shadow-2xl backdrop-blur">
-        <p className="text-xs font-medium uppercase tracking-[0.22em] text-amber-200/80">
-          Confirm Selection
-        </p>
-        <h4 className="mt-2 text-lg font-semibold text-white">{item.title}</h4>
-        <p className="mt-2 text-sm leading-6 text-neutral-300">
+    <div className="pointer-events-none fixed bottom-4 right-4 z-50 w-full max-w-sm px-4 sm:px-0">
+      <div className="pointer-events-auto rounded-2xl border border-amber-500/20 bg-neutral-950/90 backdrop-blur-xl p-5 shadow-2xl animate-in slide-in-from-bottom-5 duration-200">
+        <div className="flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300">
+            Confirm Selection
+          </span>
+        </div>
+        <h4 className="mt-2 text-lg font-bold text-white tracking-tight">{item.title}</h4>
+        <p className="mt-2 text-xs leading-5 text-neutral-400">
           This will be the final problem statement for the whole team. You can
           confirm or cancel now, but once confirmed it cannot be changed.
         </p>
 
-        <div className="mt-4 flex items-center justify-end gap-3">
+        <div className="mt-4 flex items-center justify-end gap-2.5 border-t border-white/5 pt-3">
           <button
             onClick={onCancel}
             disabled={submitting}
             className={cn(
-              "rounded-lg border border-neutral-700 px-4 py-2 text-sm font-medium transition-colors",
+              "rounded-lg border border-white/5 px-3.5 py-1.5 text-xs font-semibold transition-all cursor-pointer",
               submitting
-                ? "cursor-not-allowed bg-neutral-900 text-neutral-500"
-                : "bg-neutral-900 text-neutral-200 hover:bg-neutral-800",
+                ? "bg-neutral-800 text-neutral-500 cursor-not-allowed"
+                : "bg-neutral-900/60 text-neutral-300 hover:text-white hover:bg-neutral-900",
             )}
           >
             Cancel
@@ -608,13 +648,13 @@ function ProblemStatementConfirmToast({
             onClick={onConfirm}
             disabled={submitting}
             className={cn(
-              "rounded-lg px-4 py-2 text-sm font-semibold transition-colors",
+              "rounded-lg px-4 py-1.5 text-xs font-bold transition-all cursor-pointer shadow-md focus-visible:ring-2",
               submitting
-                ? "cursor-not-allowed bg-blue-800 text-blue-200"
-                : "bg-blue-600 text-white hover:bg-blue-500",
+                ? "bg-neutral-800 text-neutral-500 cursor-not-allowed"
+                : "bg-amber-600 hover:bg-amber-700 text-white shadow-amber-500/10 focus-visible:ring-amber-500",
             )}
           >
-            {submitting ? "Confirming..." : "Confirm"}
+            {submitting ? "Confirming..." : "Confirm Selection"}
           </button>
         </div>
       </div>
@@ -709,26 +749,30 @@ function StudentProblemStatementSection({ team, event }) {
 
   if (!team || !event) {
     return (
-      <div className="rounded-xl border border-neutral-800 bg-neutral-900/40 p-6 text-neutral-300">
-        No team/event found for problem statement selection.
+      <div className="rounded-2xl border border-white/5 bg-neutral-900/35 backdrop-blur-md p-6 text-center text-neutral-400 max-w-md mx-auto shadow-xl">
+        <AlertTriangle className="w-8 h-8 text-amber-400 mx-auto mb-2" />
+        <p className="text-sm font-semibold text-white">No Team or Event Found</p>
+        <p className="text-xs text-neutral-400 mt-1">Unable to load problem statement selection details.</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-neutral-800 bg-neutral-900/50 p-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+      {/* Banner Card */}
+      <div className="relative overflow-hidden rounded-2xl border border-white/5 bg-neutral-900/35 backdrop-blur-md p-6 shadow-xl">
+        <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full blur-2xl pointer-events-none" />
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-2">
-            <h2 className="text-xl font-semibold text-white">
+            <h2 className="text-xl font-bold tracking-tight text-white">
               Team Problem Statement
             </h2>
-            <p className="max-w-3xl text-sm text-neutral-400">
+            <p className="max-w-3xl text-sm text-neutral-400 leading-relaxed">
               Only one problem statement can be selected for the whole team. Any
               student in this team can make the selection, but once a problem
               statement is chosen it is locked and cannot be changed.
             </p>
-            <div className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-200">
+            <div className="inline-flex items-center rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-0.5 text-xs font-semibold text-amber-300">
               Team-wide lock: one selection only
             </div>
           </div>
@@ -736,42 +780,47 @@ function StudentProblemStatementSection({ team, event }) {
           <button
             onClick={loadProblemStatements}
             disabled={loading}
-            className={cn(
-              "rounded-lg border border-neutral-700 px-4 py-2 text-sm font-medium transition-colors",
-              loading
-                ? "cursor-not-allowed bg-neutral-900 text-neutral-500"
-                : "bg-neutral-900 text-neutral-200 hover:bg-neutral-800",
-            )}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neutral-900/60 border border-white/5 hover:border-blue-500/30 hover:bg-blue-500/10 text-neutral-300 hover:text-blue-300 text-xs font-semibold transition-all duration-300 shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 cursor-pointer shrink-0 h-fit"
           >
-            {loading ? "Refreshing..." : "Refresh"}
+            <RefreshCw className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
+            <span>{loading ? "Refreshing..." : "Refresh"}</span>
           </button>
         </div>
 
-        <div className="mt-5 grid gap-4 md:grid-cols-3">
-          <div className="rounded-xl border border-neutral-800 bg-neutral-950/70 p-4">
-            <p className="text-xs font-medium uppercase tracking-[0.22em] text-neutral-500">
-              Event
-            </p>
-            <p className="mt-2 text-base font-semibold text-white">
+        {/* Info Grid */}
+        <div className="mt-6 grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="rounded-xl border border-white/5 bg-neutral-900/20 p-4 shadow-sm hover:border-white/10 hover:bg-neutral-900/35 transition-all duration-300">
+            <span className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Event</span>
+            <p className="mt-2 text-base font-semibold text-white truncate">
               {event?.title || "Current event"}
             </p>
           </div>
-          <div className="rounded-xl border border-neutral-800 bg-neutral-950/70 p-4">
-            <p className="text-xs font-medium uppercase tracking-[0.22em] text-neutral-500">
-              Team
-            </p>
-            <p className="mt-2 text-base font-semibold text-white">
+          
+          <div className="rounded-xl border border-white/5 bg-neutral-900/20 p-4 shadow-sm hover:border-white/10 hover:bg-neutral-900/35 transition-all duration-300">
+            <span className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Team</span>
+            <p className="mt-2 text-base font-semibold text-white truncate">
               {team?.name || "Your team"}
             </p>
           </div>
-          <div className="rounded-xl border border-neutral-800 bg-neutral-950/70 p-4">
-            <p className="text-xs font-medium uppercase tracking-[0.22em] text-neutral-500">
-              Selection Status
-            </p>
-            <p className="mt-2 text-base font-semibold text-white">
-              {selectedProblem ? "Locked" : "Open"}
-            </p>
-            <p className="mt-1 text-xs text-neutral-500">
+
+          <div className="rounded-xl border border-white/5 bg-neutral-900/20 p-4 shadow-sm hover:border-white/10 hover:bg-neutral-900/35 transition-all duration-300 flex flex-col justify-between">
+            <div>
+              <span className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Selection Status</span>
+              <div className="mt-2 flex items-center gap-1.5 font-bold text-base">
+                {selectedProblem ? (
+                  <>
+                    <Lock className="w-4 h-4 text-rose-400 shrink-0" />
+                    <span className="text-rose-400">Locked</span>
+                  </>
+                ) : (
+                  <>
+                    <Unlock className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span className="text-emerald-400">Open</span>
+                  </>
+                )}
+              </div>
+            </div>
+            <p className="mt-2 text-[10px] text-neutral-500 leading-normal">
               {selectedProblem
                 ? "A teammate has already selected the team problem statement."
                 : "Any team member can select one active problem statement."}
@@ -781,93 +830,102 @@ function StudentProblemStatementSection({ team, event }) {
       </div>
 
       {error && (
-        <div className="rounded-lg border border-red-900/40 bg-red-950/30 p-4 text-sm text-red-200">
-          {error}
+        <div className="rounded-xl border border-rose-900/30 bg-rose-950/20 p-4 text-sm text-rose-200 flex items-center gap-2.5 shadow-lg">
+          <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+          <span>{error}</span>
         </div>
       )}
 
       {selectedProblem ? (
-        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="space-y-3">
-              <div className="inline-flex items-center rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-emerald-200">
-                Selected for team
+        <div className="relative overflow-hidden rounded-2xl border border-emerald-500/20 bg-emerald-500/5 backdrop-blur-md p-6 shadow-xl shadow-emerald-500/2">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+            <div className="space-y-4 flex-1">
+              <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs font-semibold uppercase tracking-wider shadow-[0_0_15px_rgba(52,211,153,0.05)]">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                Selected for Team
               </div>
+              
               <div>
-                <p className="text-xs font-medium uppercase tracking-[0.22em] text-emerald-200/70">
-                  Final problem statement
-                </p>
-                <h3 className="mt-2 text-2xl font-semibold text-white">
+                <span className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Final Problem Statement</span>
+                <h3 className="mt-1 text-2xl font-bold text-white tracking-tight">
                   {selectedProblem.title}
                 </h3>
               </div>
-              <p className="max-w-3xl text-sm leading-6 text-emerald-50/90">
+              
+              <p className="max-w-3xl text-sm leading-6 text-neutral-300 select-text">
                 {getProblemDescriptionPreview(selectedProblem.description, 160)}
               </p>
+              
               <button
                 onClick={() => setDetailItem(selectedProblem)}
-                className="inline-flex w-fit items-center rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2 text-sm font-medium text-emerald-100 transition-colors hover:bg-emerald-500/20"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 text-emerald-200 text-sm font-semibold transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-emerald-500 shadow-md"
               >
-                View Details
+                <Eye className="w-4 h-4" />
+                <span>View Details</span>
               </button>
             </div>
 
-            <div className="min-w-64 rounded-xl border border-emerald-400/20 bg-black/20 p-4 text-sm text-emerald-50/90">
-              <p className="text-xs font-medium uppercase tracking-[0.22em] text-emerald-200/70">
-                Lock details
-              </p>
-              <p className="mt-3 text-sm text-white">
-                Chosen by{" "}
-                {teamSelection.selectedProblemStatementBy?.name || "a teammate"}
-              </p>
-              {teamSelection.selectedProblemStatementBy?.regno ? (
-                <p className="mt-1 text-xs text-emerald-100/70">
-                  {teamSelection.selectedProblemStatementBy.regno}
-                </p>
-              ) : null}
-              {teamSelection.selectedProblemStatementAt ? (
-                <p className="mt-3 text-xs text-emerald-100/70">
-                  Locked on{" "}
-                  {new Date(
-                    teamSelection.selectedProblemStatementAt,
-                  ).toLocaleString()}
-                </p>
-              ) : null}
-              <p className="mt-3 text-xs text-emerald-100/70">
-                This applies to every student in the team and cannot be changed.
-              </p>
+            <div className="w-full lg:w-72 rounded-xl border border-white/5 bg-neutral-900/30 p-4 text-xs text-neutral-400 space-y-3 shrink-0">
+              <span className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Lock Details</span>
+              
+              <div>
+                <span className="text-neutral-500 block">Chosen By:</span>
+                <span className="font-semibold text-neutral-200 block mt-0.5">
+                  {teamSelection.selectedProblemStatementBy?.name || "A teammate"}
+                </span>
+                {teamSelection.selectedProblemStatementBy?.regno && (
+                  <span className="text-neutral-500 block text-[10px]">
+                    {teamSelection.selectedProblemStatementBy.regno}
+                  </span>
+                )}
+              </div>
+              
+              {teamSelection.selectedProblemStatementAt && (
+                <div>
+                  <span className="text-neutral-500 block">Locked On:</span>
+                  <span className="font-semibold text-neutral-300 block mt-0.5">
+                    {new Date(teamSelection.selectedProblemStatementAt).toLocaleString(undefined, {
+                      dateStyle: 'medium',
+                      timeStyle: 'short'
+                    })}
+                  </span>
+                </div>
+              )}
+              
+              <div className="pt-2.5 border-t border-white/5 text-[10px] text-neutral-500 leading-normal">
+                This choice applies to every student in the team and cannot be changed or reset.
+              </div>
             </div>
           </div>
         </div>
       ) : null}
 
       {!selectedProblem ? (
-        <div className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-6">
-          <div className="flex items-center justify-between gap-4">
+        <div className="relative overflow-hidden rounded-2xl border border-white/5 bg-neutral-900/35 backdrop-blur-md p-6 shadow-xl">
+          <div className="flex items-center justify-between border-b border-white/5 pb-4 mb-5">
             <div>
-              <h3 className="text-lg font-semibold text-white">
+              <h3 className="text-lg font-bold text-white tracking-tight">
                 Available Problem Statements
               </h3>
-              <p className="mt-1 text-sm text-neutral-400">
-                Choose carefully. The first confirmed selection becomes the
-                final problem statement for the entire team.
+              <p className="mt-1 text-xs text-neutral-400">
+                Choose carefully. The first confirmed selection becomes the final problem statement for the entire team.
               </p>
             </div>
-            <div className="rounded-full border border-neutral-700 bg-neutral-950 px-3 py-1 text-xs font-medium text-neutral-300">
-              {items.length} active
+            <div className="rounded-full bg-neutral-900/50 border border-white/5 px-2.5 py-0.5 text-xs font-semibold text-neutral-300 shrink-0">
+              {items.length} Active
             </div>
           </div>
 
           {loading ? (
-            <div className="mt-6 rounded-xl border border-neutral-800 bg-neutral-950/60 p-6 text-sm text-neutral-400">
+            <div className="rounded-xl border border-white/5 bg-neutral-900/10 p-6 text-center text-xs text-neutral-500 animate-pulse">
               Loading problem statements...
             </div>
           ) : items.length === 0 ? (
-            <div className="mt-6 rounded-xl border border-neutral-800 bg-neutral-950/60 p-6 text-sm text-neutral-400">
+            <div className="rounded-xl border border-dashed border-white/5 bg-neutral-900/5 p-8 text-center text-xs text-neutral-500">
               No active problem statements are available for this event yet.
             </div>
           ) : (
-            <div className="mt-6 grid gap-4">
+            <div className="grid gap-4">
               {items.map((item, index) => {
                 const isChosen =
                   String(selectedProblem?._id || "") === String(item._id || "");
@@ -876,48 +934,50 @@ function StudentProblemStatementSection({ team, event }) {
                   <div
                     key={item._id}
                     className={cn(
-                      "rounded-2xl border p-5 transition-colors",
+                      "rounded-2xl border p-5 transition-all duration-300 shadow-sm",
                       isChosen
-                        ? "border-emerald-500/40 bg-emerald-500/10"
-                        : "border-neutral-800 bg-neutral-950/70",
+                        ? "border-emerald-500/20 bg-emerald-500/5"
+                        : "border-white/5 bg-neutral-900/20 hover:border-white/10 hover:bg-neutral-900/30"
                     )}
                   >
-                    <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-3">
-                          <span className="inline-flex items-center rounded-full border border-neutral-700 bg-neutral-900 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-neutral-300">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="min-w-0 flex-1 space-y-3.5">
+                        <div className="flex flex-wrap items-center gap-2.5">
+                          <span className="inline-flex items-center rounded-full border border-white/5 bg-neutral-900/60 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-neutral-400">
                             Problem {index + 1}
                           </span>
-                          {isChosen ? (
-                            <span className="inline-flex items-center rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-200">
-                              Selected for team
+                          {isChosen && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[10px] font-bold uppercase tracking-wider">
+                              <Check className="w-3 h-3 text-emerald-400" />
+                              Selected for Team
                             </span>
-                          ) : null}
+                          )}
                         </div>
-                        <h4 className="mt-4 text-xl font-semibold text-white">
+                        <h4 className="text-lg font-bold text-white tracking-tight">
                           {item.title}
                         </h4>
-                        <p className="mt-3 text-sm leading-6 text-neutral-300">
+                        <p className="text-sm leading-relaxed text-neutral-300">
                           {getProblemDescriptionPreview(item.description)}
                         </p>
                       </div>
 
-                      <div className="flex w-full flex-col gap-2 lg:w-52">
+                      <div className="flex w-full flex-col gap-2 lg:w-52 shrink-0">
                         <button
                           onClick={() => setDetailItem(item)}
                           className={cn(
-                            "rounded-xl px-4 py-3 text-sm font-semibold transition-colors",
+                            "flex items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all cursor-pointer shadow-md focus-visible:ring-2",
                             isChosen
-                              ? "bg-emerald-600 text-white hover:bg-emerald-500"
-                              : "bg-blue-600 text-white hover:bg-blue-500",
+                              ? "bg-emerald-600 hover:bg-emerald-500 text-white focus-visible:ring-emerald-500"
+                              : "bg-blue-600 hover:bg-blue-700 text-white focus-visible:ring-blue-500 shadow-blue-500/5"
                           )}
                         >
-                          {isChosen ? "View Selected" : "View Details"}
+                          <Eye className="w-4 h-4" />
+                          <span>{isChosen ? "View Selected" : "View Details"}</span>
                         </button>
-                        <p className="text-xs leading-5 text-neutral-500">
+                        <p className="text-[10px] leading-relaxed text-neutral-500 text-center lg:text-left">
                           {selectedProblem
                             ? "Selection is locked for the whole team."
-                            : "Open the popup to review details and then select."}
+                            : "Open details to review and lock the selection."}
                         </p>
                       </div>
                     </div>
@@ -1127,160 +1187,191 @@ function StudentAttendanceSection({ team, event, onRefresh }) {
   const startCamera = async () => {
     setError(null);
     setCoords(null);
-    try {
-      const getGeoLocation = () => {
-        return new Promise((resolve, reject) => {
-          if (!navigator.geolocation) {
-            reject(new Error("Geolocation is not supported by your browser"));
-            return;
-          }
-          navigator.geolocation.getCurrentPosition(
-            (position) => {
-              resolve({
-                latitude: position.coords.latitude,
-                longitude: position.coords.longitude,
-              });
-            },
-            (err) => {
-              reject(new Error("Location permission denied or unavailable"));
-            },
-            { enableHighAccuracy: true, timeout: 10000 }
-          );
-        });
-      };
 
-      const loc = await getGeoLocation();
-
-      let locName = "";
+    // 1. Initialize camera stream immediately
+    const cameraPromise = (async () => {
       try {
-        const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${loc.latitude}&lon=${loc.longitude}&zoom=18&addressdetails=1`;
-        const resp = await fetch(url, {
-          headers: {
-            "Accept-Language": "en"
-          }
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach((t) => t.stop());
+          streamRef.current = null;
+        }
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user" },
+          audio: false,
         });
-        if (resp.ok) {
-          const data = await resp.json();
-          const addr = data.address || {};
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play();
+        }
+        setCameraOn(true);
+      } catch (e) {
+        setCameraOn(false);
+        throw new Error("Camera permission denied or unavailable");
+      }
+    })();
 
-          const excludedKeywords = [
-            "constituency",
-            "assembly",
-            "parliamentary",
-            "district",
-            "state",
-            "country",
-            "india",
-            "tamil nadu",
-            "postal",
-            "postcode"
-          ];
-
-          const localName =
-            addr.amenity ||
-            addr.building ||
-            addr.shop ||
-            addr.office ||
-            addr.university ||
-            addr.college ||
-            addr.school ||
-            addr.hospital ||
-            addr.tourism ||
-            addr.historic ||
-            addr.tourist_attraction ||
-            addr.house_name;
-          const street = addr.road || addr.pedestrian || addr.highway || addr.path;
-          const neighborhood = addr.neighbourhood || addr.suburb || addr.city_district || addr.subdivision;
-          const city = addr.city || addr.town || addr.village;
-
-          const parts = [localName, street, neighborhood, city].filter(Boolean);
-          let filteredParts = parts.filter(part => {
-            const lower = part.toLowerCase();
-            return !excludedKeywords.some(keyword => lower.includes(keyword));
+    // 2. Request geolocation in parallel
+    const geoPromise = (async () => {
+      try {
+        const getGeoLocation = () => {
+          return new Promise((resolve, reject) => {
+            if (!navigator.geolocation) {
+              reject(new Error("Geolocation is not supported by your browser"));
+              return;
+            }
+            navigator.geolocation.getCurrentPosition(
+              (position) => {
+                resolve({
+                  latitude: position.coords.latitude,
+                  longitude: position.coords.longitude,
+                  accuracy: position.coords.accuracy,
+                });
+              },
+              (err) => {
+                reject(new Error("Location permission denied or unavailable"));
+              },
+              { enableHighAccuracy: true, timeout: 10000 }
+            );
           });
+        };
 
-          if (filteredParts.length > 0) {
-            locName = filteredParts.join(", ");
-          } else {
-            const dispParts = (data.display_name || "").split(",").map(p => p.trim());
-            const filteredDisp = dispParts.filter(part => {
-              const lower = part.toLowerCase();
-              if (/^\d{5,6}$/.test(lower)) return false;
-              return !excludedKeywords.some(keyword => lower.includes(keyword));
+        const loc = await getGeoLocation();
+
+        // Instantly save coords with a default geocoding state
+        setCoords({
+          latitude: loc.latitude,
+          longitude: loc.longitude,
+          accuracy: loc.accuracy,
+          locationName: "Fetching address...",
+        });
+
+        // Trigger slow reverse-geocoding in the background
+        (async () => {
+          let locName = "";
+          try {
+            const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${loc.latitude}&lon=${loc.longitude}&zoom=18&addressdetails=1`;
+            const resp = await fetch(url, {
+              headers: {
+                "Accept-Language": "en"
+              }
             });
-            locName = filteredDisp.join(", ") || data.display_name || "";
+            if (resp.ok) {
+              const data = await resp.json();
+              const addr = data.address || {};
+
+              const excludedKeywords = [
+                "constituency",
+                "assembly",
+                "parliamentary",
+                "district",
+                "state",
+                "country",
+                "india",
+                "tamil nadu",
+                "postal",
+                "postcode"
+              ];
+
+              const localName =
+                addr.amenity ||
+                addr.building ||
+                addr.shop ||
+                addr.office ||
+                addr.university ||
+                addr.college ||
+                addr.school ||
+                addr.hospital ||
+                addr.tourism ||
+                addr.historic ||
+                addr.tourist_attraction ||
+                addr.house_name;
+              const street = addr.road || addr.pedestrian || addr.highway || addr.path;
+              const neighborhood = addr.neighbourhood || addr.suburb || addr.city_district || addr.subdivision;
+              const city = addr.city || addr.town || addr.village;
+
+              const parts = [localName, street, neighborhood, city].filter(Boolean);
+              let filteredParts = parts.filter(part => {
+                const lower = part.toLowerCase();
+                return !excludedKeywords.some(keyword => lower.includes(keyword));
+              });
+
+              if (filteredParts.length > 0) {
+                locName = filteredParts.join(", ");
+              } else {
+                const dispParts = (data.display_name || "").split(",").map(p => p.trim());
+                const filteredDisp = dispParts.filter(part => {
+                  const lower = part.toLowerCase();
+                  if (/^\d{5,6}$/.test(lower)) return false;
+                  return !excludedKeywords.some(keyword => lower.includes(keyword));
+                });
+                locName = filteredDisp.join(", ") || data.display_name || "";
+              }
+            }
+          } catch (err) {
+            console.error("Nominatim reverse geocoding failed", err);
           }
-        }
-      } catch (err) {
-        console.error("Nominatim reverse geocoding failed", err);
-      }
 
-      // Fetch nearest named POI (building, college, amenity, etc.) from OSM Overpass API dynamically
-      let poiName = "";
-      try {
-        const query = `[out:json];(
-          node(around:500, ${loc.latitude}, ${loc.longitude})["amenity"];
-          way(around:500, ${loc.latitude}, ${loc.longitude})["amenity"];
-          node(around:500, ${loc.latitude}, ${loc.longitude})["building"];
-          way(around:500, ${loc.latitude}, ${loc.longitude})["building"];
-          node(around:500, ${loc.latitude}, ${loc.longitude})["office"];
-          way(around:500, ${loc.latitude}, ${loc.longitude})["office"];
-        );out tags;`;
-        const overpassUrl = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
-        const overpassResp = await fetch(overpassUrl);
-        if (overpassResp.ok) {
-          const overpassData = await overpassResp.json();
-          const elements = overpassData.elements || [];
-          const named = elements.filter(el => el.tags && el.tags.name);
-          if (named.length > 0) {
-            // Sort to prioritize university/college, then library, then others
-            named.sort((a, b) => {
-              const aTags = a.tags || {};
-              const bTags = b.tags || {};
-              const aName = (aTags.name || "").toLowerCase();
-              const bName = (bTags.name || "").toLowerCase();
-              const aWeight = aTags.university || aTags.college || aName.includes("university") || aName.includes("college") ? 3 :
-                aTags.amenity === "library" || aName.includes("library") ? 2 : 1;
-              const bWeight = bTags.university || bTags.college || bName.includes("university") || bName.includes("college") ? 3 :
-                bTags.amenity === "library" || bName.includes("library") ? 2 : 1;
-              return bWeight - aWeight;
-            });
-            poiName = named[0].tags.name;
+          let poiName = "";
+          try {
+            const query = `[out:json];(
+              node(around:500, ${loc.latitude}, ${loc.longitude})["amenity"];
+              way(around:500, ${loc.latitude}, ${loc.longitude})["amenity"];
+              node(around:500, ${loc.latitude}, ${loc.longitude})["building"];
+              way(around:500, ${loc.latitude}, ${loc.longitude})["building"];
+              node(around:500, ${loc.latitude}, ${loc.longitude})["office"];
+              way(around:500, ${loc.latitude}, ${loc.longitude})["office"];
+            );out tags;`;
+            const overpassUrl = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+            const overpassResp = await fetch(overpassUrl);
+            if (overpassResp.ok) {
+              const overpassData = await overpassResp.json();
+              const elements = overpassData.elements || [];
+              const named = elements.filter(el => el.tags && el.tags.name);
+              if (named.length > 0) {
+                named.sort((a, b) => {
+                  const aTags = a.tags || {};
+                  const bTags = b.tags || {};
+                  const aName = (aTags.name || "").toLowerCase();
+                  const bName = (bTags.name || "").toLowerCase();
+                  const aWeight = aTags.university || aTags.college || aName.includes("university") || aName.includes("college") ? 3 :
+                    aTags.amenity === "library" || aName.includes("library") ? 2 : 1;
+                  const bWeight = bTags.university || bTags.college || bName.includes("university") || bName.includes("college") ? 3 :
+                    bTags.amenity === "library" || bName.includes("library") ? 2 : 1;
+                  return bWeight - aWeight;
+                });
+                poiName = named[0].tags.name;
+              }
+            }
+          } catch (err) {
+            console.error("Overpass query failed", err);
           }
-        }
-      } catch (err) {
-        console.error("Overpass query failed", err);
-      }
 
-      if (poiName) {
-        if (!locName.toLowerCase().includes(poiName.toLowerCase())) {
-          locName = `${poiName}, ${locName}`;
-        }
-      }
+          if (poiName) {
+            if (!locName.toLowerCase().includes(poiName.toLowerCase())) {
+              locName = `${poiName}, ${locName}`;
+            }
+          }
 
-      setCoords({
-        ...loc,
-        locationName: locName,
-      });
+          setCoords({
+            latitude: loc.latitude,
+            longitude: loc.longitude,
+            accuracy: loc.accuracy,
+            locationName: locName || `Lat: ${loc.latitude.toFixed(4)}, Lon: ${loc.longitude.toFixed(4)}`,
+          });
+        })();
 
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((t) => t.stop());
-        streamRef.current = null;
+      } catch (e) {
+        setCoords(null);
+        throw e;
       }
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user" },
-        audio: false,
-      });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
-      setCameraOn(true);
+    })();
+
+    // Wait for both to complete or throw
+    try {
+      await Promise.all([cameraPromise, geoPromise]);
     } catch (e) {
-      setCameraOn(false);
-      setCoords(null);
-      setError(e.message || "Camera permission denied or unavailable");
+      setError(e.message || "Camera or Location permission denied");
       try {
         if (streamRef.current) {
           streamRef.current.getTracks().forEach((t) => t.stop());
@@ -1371,24 +1462,31 @@ function StudentAttendanceSection({ team, event, onRefresh }) {
 
   if (!team || !event) {
     return (
-      <div className="rounded-xl border border-neutral-800 bg-neutral-900/40 p-6 text-neutral-300">
-        No team/event found for attendance.
+      <div className="rounded-2xl border border-white/5 bg-neutral-900/35 backdrop-blur-md p-6 text-center text-neutral-400 max-w-md mx-auto shadow-xl">
+        <AlertTriangle className="w-8 h-8 text-amber-400 mx-auto mb-2" />
+        <p className="text-sm font-semibold text-white">No Team or Event Found</p>
+        <p className="text-xs text-neutral-400 mt-1">Unable to load attendance records for the selected team.</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border border-neutral-800 bg-neutral-900/40 p-6">
-        <div className="flex items-start justify-between gap-4 flex-col md:flex-row">
+      {/* Overview Card */}
+      <div className="relative overflow-hidden rounded-2xl border border-white/5 bg-neutral-900/35 backdrop-blur-md p-6 shadow-xl">
+        <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full blur-2xl pointer-events-none" />
+        <div className="flex items-start justify-between gap-4 flex-col sm:flex-row">
           <div>
-            <h2 className="text-lg font-semibold text-white">Attendance</h2>
+            <div className="flex items-center gap-2">
+              <ClipboardCheck className="w-5 h-5 text-blue-400 shrink-0" />
+              <h2 className="text-xl font-bold tracking-tight text-white">Event Attendance</h2>
+            </div>
             <p className="text-sm text-neutral-400 mt-1">
-              Mark attendance with a snapshot (sessions are managed by the Event
-              Manager).
+              Mark attendance with a snapshot (sessions are managed by the Event Manager).
             </p>
             {eventLive?.title ? (
-              <p className="text-xs text-neutral-500 mt-1">
+              <p className="text-xs text-blue-300 font-medium mt-1.5 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
                 Event: {eventLive.title}
               </p>
             ) : null}
@@ -1410,47 +1508,57 @@ function StudentAttendanceSection({ team, event, onRefresh }) {
               }
               await loadRecords();
             }}
-            className="px-3 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-sm"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neutral-900/60 border border-white/5 hover:border-blue-500/30 hover:bg-blue-500/10 text-neutral-300 hover:text-blue-300 text-xs font-semibold transition-all duration-300 shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 cursor-pointer shrink-0"
           >
-            Refresh
+            <RefreshCw className="w-3.5 h-3.5 animate-spin-slow" />
+            <span>Refresh</span>
           </button>
         </div>
       </div>
 
       {error && (
-        <div className="rounded-lg border border-red-900/40 bg-red-950/30 p-4 text-sm text-red-200">
-          {error}
+        <div className="rounded-xl border border-rose-900/30 bg-rose-950/20 p-4 text-sm text-rose-200 flex items-center gap-2.5 shadow-lg">
+          <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+          <span>{error}</span>
         </div>
       )}
 
-      <div className="rounded-xl border border-neutral-800 bg-neutral-900/40 p-6">
-        <h3 className="text-base font-semibold text-white">
-          Attendance Record
-        </h3>
+      {/* Attendance Records Card Container */}
+      <div className="relative overflow-hidden rounded-2xl border border-white/5 bg-neutral-900/35 backdrop-blur-md p-6 shadow-xl">
+        <div className="flex items-center justify-between border-b border-white/5 pb-4 mb-4">
+          <h3 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
+            <Users className="w-5 h-5 text-blue-400" />
+            Attendance Record
+          </h3>
+        </div>
 
         {sessions.length === 0 && (
-          <div className="mt-4 rounded-lg border border-yellow-900/40 bg-yellow-950/20 p-4 text-sm text-yellow-200">
-            No Student Sessions are configured for this event
-            {eventLive?.title ? ` (${eventLive.title})` : ""}. Ask the Event
-            Manager/Admin to add sessions in the Sessions page under the
-            "Student Sessions" tab.
+          <div className="rounded-xl border border-yellow-500/10 bg-yellow-500/5 p-4 text-sm text-yellow-300 flex items-start gap-2.5">
+            <AlertTriangle className="w-4 h-4 text-yellow-400 shrink-0 mt-0.5" />
+            <p>
+              No Student Sessions are configured for this event
+              {eventLive?.title ? ` (${eventLive.title})` : ""}. Ask the Event
+              Manager/Admin to add sessions in the Sessions page under the
+              "Student Sessions" tab.
+            </p>
           </div>
         )}
 
-        <div className="mt-4 overflow-x-auto">
+        {/* Desktop View Table */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full border-separate border-spacing-0">
             <thead>
               <tr>
-                <th className="sticky left-0 z-20 bg-neutral-900/90 backdrop-blur border-b border-neutral-800 px-4 py-3 text-left text-sm font-semibold text-neutral-200 whitespace-nowrap">
+                <th className="sticky left-0 z-20 bg-neutral-900/90 backdrop-blur border-b border-white/5 px-4 py-3 text-left text-xs font-bold text-neutral-400 uppercase tracking-wider whitespace-nowrap">
                   Member
                 </th>
-                <th className="sticky left-65 z-20 bg-neutral-900/90 backdrop-blur border-b border-neutral-800 px-4 py-3 text-left text-sm font-semibold text-neutral-200 whitespace-nowrap">
+                <th className="sticky left-65 z-20 bg-neutral-900/90 backdrop-blur border-b border-white/5 px-4 py-3 text-left text-xs font-bold text-neutral-400 uppercase tracking-wider whitespace-nowrap">
                   Role
                 </th>
                 {sessions.map((s) => (
                   <th
                     key={s.name}
-                    className="border-b border-neutral-800 px-4 py-3 text-left text-sm font-semibold text-neutral-200 whitespace-nowrap"
+                    className="border-b border-white/5 px-4 py-3 text-left text-xs font-bold text-neutral-400 uppercase tracking-wider whitespace-nowrap"
                   >
                     Session {s.name}
                   </th>
@@ -1465,14 +1573,14 @@ function StudentAttendanceSection({ team, event, onRefresh }) {
                 const isLeader = leaderId && sid === leaderId;
                 const role = isLeader ? "Team Lead" : "Member";
                 return (
-                  <tr key={sid} className="border-b border-neutral-800">
-                    <td className="sticky left-0 z-10 bg-neutral-950 border-b border-neutral-800 px-4 py-5 align-middle min-w-65">
-                      <div className="flex items-center gap-4">
-                        <div className="h-10 w-10 rounded-full bg-linear-to-br from-blue-500/30 to-cyan-400/20 border border-neutral-800 flex items-center justify-center text-neutral-100 font-semibold">
+                  <tr key={sid} className="border-b border-white/5 hover:bg-white/5 transition-all duration-200">
+                    <td className="sticky left-0 z-10 bg-neutral-950/80 backdrop-blur border-b border-white/5 px-4 py-4 align-middle min-w-65">
+                      <div className="flex items-center gap-3">
+                        <div className="h-9 w-9 rounded-full bg-linear-to-br from-blue-500/30 to-cyan-400/20 border border-white/10 flex items-center justify-center text-neutral-100 font-bold text-sm">
                           {initial}
                         </div>
                         <div className="min-w-0">
-                          <p className="text-base text-white font-semibold truncate">
+                          <p className="text-sm text-white font-bold truncate">
                             {fullName}
                           </p>
                           {m?.regno ? (
@@ -1484,10 +1592,10 @@ function StudentAttendanceSection({ team, event, onRefresh }) {
                       </div>
                     </td>
 
-                    <td className="sticky left-65 z-10 bg-neutral-950 border-b border-neutral-800 px-4 py-5 align-middle min-w-37.5">
+                    <td className="sticky left-65 z-10 bg-neutral-950/80 backdrop-blur border-b border-white/5 px-4 py-4 align-middle min-w-37.5">
                       <span
                         className={
-                          "inline-flex items-center rounded-full border px-3 py-1 text-sm font-medium " +
+                          "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider " +
                           roleBadge(role)
                         }
                       >
@@ -1509,20 +1617,21 @@ function StudentAttendanceSection({ team, event, onRefresh }) {
                       return (
                         <td
                           key={`${sid}__${s.name}`}
-                          className="border-b border-neutral-800 px-4 py-5 align-middle min-w-45"
+                          className="border-b border-white/5 px-4 py-4 align-middle min-w-45"
                         >
                           {status === "approved" ? (
-                            <div className="flex items-center gap-2 text-green-400 font-semibold">
-                              <span className="text-xl leading-none">✓</span>
-                              <span className="text-base">Present</span>
-                            </div>
+                            <span className="inline-flex items-center gap-1 text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full text-xs">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Present</span>
+                            </span>
                           ) : showClosed ? (
-                            <span className="text-base text-neutral-500 italic">
+                            <span className="text-xs text-neutral-500 italic bg-neutral-800/40 border border-white/5 px-2.5 py-0.5 rounded-full">
                               Closed
                             </span>
                           ) : status === "pending" ? (
-                            <span className="text-base text-yellow-300 font-semibold">
-                              Pending
+                            <span className="inline-flex items-center gap-1 text-amber-400 font-bold bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 rounded-full text-xs">
+                              <Clock className="w-3.5 h-3.5" />
+                              <span>Pending</span>
                             </span>
                           ) : canMarkHere ? (
                             <button
@@ -1532,14 +1641,15 @@ function StudentAttendanceSection({ team, event, onRefresh }) {
                                   preferredSessionName: s.name,
                                 })
                               }
-                              className="px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-xs text-white"
+                              className="px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-xs text-white font-semibold transition-all cursor-pointer shadow-md focus-visible:ring-2 focus-visible:ring-green-500"
                             >
                               Mark
                             </button>
                           ) : canReMarkHere ? (
-                            <div className="flex items-center gap-3">
-                              <span className="text-base text-red-300 font-semibold">
-                                Rejected
+                            <div className="flex items-center gap-2">
+                              <span className="inline-flex items-center gap-1 text-rose-400 font-bold bg-rose-500/10 border border-rose-500/20 px-2.5 py-0.5 rounded-full text-xs">
+                                <XCircle className="w-3.5 h-3.5" />
+                                <span>Rejected</span>
                               </span>
                               <button
                                 onClick={() =>
@@ -1548,17 +1658,18 @@ function StudentAttendanceSection({ team, event, onRefresh }) {
                                     preferredSessionName: s.name,
                                   })
                                 }
-                                className="px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-xs text-white"
+                                className="px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-xs text-white font-semibold transition-all cursor-pointer shadow-md focus-visible:ring-2 focus-visible:ring-green-500"
                               >
                                 Mark
                               </button>
                             </div>
                           ) : status === "rejected" ? (
-                            <span className="text-base text-red-300 font-semibold">
-                              Rejected
+                            <span className="inline-flex items-center gap-1 text-rose-400 font-bold bg-rose-500/10 border border-rose-500/20 px-2.5 py-0.5 rounded-full text-xs">
+                              <XCircle className="w-3.5 h-3.5" />
+                              <span>Rejected</span>
                             </span>
                           ) : (
-                            <span className="text-base text-neutral-400">
+                            <span className="text-xs text-neutral-400 bg-neutral-800/40 border border-white/5 px-2.5 py-0.5 rounded-full">
                               Not marked
                             </span>
                           )}
@@ -1579,26 +1690,134 @@ function StudentAttendanceSection({ team, event, onRefresh }) {
                   </td>
                 </tr>
               )}
-
-              {teamMembers.length > 0 && sessions.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={1}
-                    className="py-10 text-center text-neutral-400 text-sm"
-                  >
-                    No sessions configured.
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
+
+        {/* Mobile Responsive Layout */}
+        <div className="mt-4 block md:hidden space-y-4">
+          {teamMembers.map((m) => {
+            const sid = String(m?._id || m);
+            const fullName = String(m?.name || "Member");
+            const initial = (fullName.trim()[0] || "M").toUpperCase();
+            const isLeader = leaderId && sid === leaderId;
+            const role = isLeader ? "Team Lead" : "Member";
+
+            return (
+              <div 
+                key={sid} 
+                className="bg-neutral-900/20 border border-white/5 rounded-2xl p-5 space-y-4 shadow-lg backdrop-blur-md hover:border-white/10 transition-all duration-300"
+              >
+                {/* Member Header */}
+                <div className="flex items-center gap-3 pb-3 border-b border-white/5">
+                  <div className="h-10 w-10 shrink-0 rounded-full bg-linear-to-br from-blue-500/30 to-cyan-400/20 border border-white/10 flex items-center justify-center text-neutral-100 font-bold">
+                    {initial}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-sm font-semibold text-white truncate">{fullName}</h4>
+                      <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${roleBadge(role)}`}>
+                        {role}
+                      </span>
+                    </div>
+                    {m?.regno && <p className="text-xs text-neutral-400 mt-0.5">{m.regno}</p>}
+                  </div>
+                </div>
+
+                {/* Sessions Status List */}
+                <div className="space-y-3">
+                  <span className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Sessions Status</span>
+                  {sessions.map((s) => {
+                    const rec = recordByStudentAndSession.get(`${sid}__${s.name}`);
+                    const status = rec?.status || "not_marked";
+                    const allowResubmit = Boolean(rec?.allowResubmit);
+                    const showClosed = !s.isActive && status === "not_marked";
+                    const canMarkHere = s.isActive && status === "not_marked";
+                    const canReMarkHere = s.isActive && status === "rejected" && allowResubmit;
+
+                    return (
+                      <div 
+                        key={s.name} 
+                        className="flex items-center justify-between p-3 rounded-xl bg-neutral-950/40 border border-white/5 text-xs gap-3"
+                      >
+                        <span className="font-semibold text-neutral-300">Session {s.name}</span>
+                        <div className="shrink-0">
+                          {status === "approved" ? (
+                            <span className="inline-flex items-center gap-1 text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                              <CheckCircle2 className="w-3 h-3" />
+                              <span>Present</span>
+                            </span>
+                          ) : showClosed ? (
+                            <span className="text-neutral-500 italic bg-neutral-800/40 border border-white/5 px-2 py-0.5 rounded-full">
+                              Closed
+                            </span>
+                          ) : status === "pending" ? (
+                            <span className="inline-flex items-center gap-1 text-amber-400 font-bold bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
+                              <Clock className="w-3 h-3" />
+                              <span>Pending</span>
+                            </span>
+                          ) : canMarkHere ? (
+                            <button
+                              onClick={() =>
+                                openMarkModalFor({
+                                  studentId: sid,
+                                  preferredSessionName: s.name,
+                                })
+                              }
+                              className="px-2.5 py-1 rounded-lg bg-green-600 hover:bg-green-700 text-[11px] font-semibold text-white transition-all cursor-pointer shadow-md focus-visible:ring-2 focus-visible:ring-green-500"
+                            >
+                              Mark
+                            </button>
+                          ) : canReMarkHere ? (
+                            <div className="flex items-center gap-2">
+                              <span className="inline-flex items-center gap-1 text-rose-400 font-bold bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded-full">
+                                <XCircle className="w-3 h-3" />
+                                <span>Rejected</span>
+                              </span>
+                              <button
+                                onClick={() =>
+                                  openMarkModalFor({
+                                    studentId: sid,
+                                    preferredSessionName: s.name,
+                                  })
+                                }
+                                className="px-2.5 py-1 rounded-lg bg-green-600 hover:bg-green-700 text-[11px] font-semibold text-white transition-all cursor-pointer shadow-md focus-visible:ring-2 focus-visible:ring-green-500"
+                              >
+                                Mark
+                              </button>
+                            </div>
+                          ) : status === "rejected" ? (
+                            <span className="inline-flex items-center gap-1 text-rose-400 font-bold bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded-full">
+                              <XCircle className="w-3 h-3" />
+                              <span>Rejected</span>
+                            </span>
+                          ) : (
+                            <span className="text-neutral-400 bg-neutral-800/40 border border-white/5 px-2 py-0.5 rounded-full">
+                              Not marked
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+
+          {teamMembers.length === 0 && (
+            <div className="py-10 text-center text-neutral-500 text-sm bg-neutral-900/10 rounded-2xl border border-dashed border-white/5">
+              No team members found.
+            </div>
+          )}
+        </div>
       </div>
 
+      {/* Snap Modal */}
       {markModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
-            className="absolute inset-0 bg-black/70"
+            className="absolute inset-0 bg-black/85 backdrop-blur-md"
             onClick={() => {
               setMarkModalOpen(false);
               setSelectedStudentId(null);
@@ -1606,20 +1825,27 @@ function StudentAttendanceSection({ team, event, onRefresh }) {
             }}
           />
 
-          <div className="relative w-full max-w-3xl rounded-2xl border border-neutral-800 bg-neutral-950 shadow-xl">
-            <div className="flex items-start justify-between gap-4 p-5 border-b border-neutral-800">
+          <div className="relative w-full max-w-2xl rounded-3xl border border-white/5 bg-neutral-950/90 backdrop-blur-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Background radial glows */}
+            <div className="absolute top-0 -left-12 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute bottom-0 -right-12 w-64 h-64 bg-cyan-500/5 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="flex items-start justify-between gap-4 p-6 border-b border-white/5">
               <div>
-                <h4 className="text-lg font-semibold text-white">
+                <h4 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+                  <Camera className="w-5 h-5 text-blue-400 shrink-0" />
                   Mark Attendance
                 </h4>
-                <p className="text-sm text-neutral-400 mt-1">
-                  {selectedMember?.name || "Member"}
-                  {selectedSessionName ? (
-                    <span className="text-neutral-500">
-                      {" "}
-                      • {selectedSessionName}
-                    </span>
-                  ) : null}
+                <p className="text-sm text-neutral-400 mt-1 flex items-center gap-1.5 flex-wrap">
+                  <span className="font-semibold text-neutral-200">{selectedMember?.name || "Member"}</span>
+                  {selectedSessionName && (
+                    <>
+                      <span className="text-neutral-600">•</span>
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 text-[10px] font-bold uppercase tracking-wider">
+                        Session {selectedSessionName}
+                      </span>
+                    </>
+                  )}
                 </p>
               </div>
               <button
@@ -1628,82 +1854,90 @@ function StudentAttendanceSection({ team, event, onRefresh }) {
                   setSelectedStudentId(null);
                   setSnapshotDataUrl(null);
                 }}
-                className="px-3 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-sm"
+                className="px-3 py-1.5 rounded-lg bg-neutral-900/60 border border-white/5 hover:border-white/10 hover:bg-neutral-900 text-xs font-semibold text-neutral-300 hover:text-white transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
               >
                 Close
               </button>
             </div>
 
-            <div className="p-5 space-y-4">
-              {activeSessions.length === 0 ? (
-                <div className="rounded-lg border border-yellow-900/40 bg-yellow-950/20 p-4 text-sm text-yellow-200">
-                  No active sessions right now. Ask the Event Manager to open a
-                  session.
-                </div>
-              ) : (
-                <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
-                  <label className="text-sm text-neutral-300 whitespace-nowrap">
-                    Session
-                  </label>
-                  <select
-                    value={selectedSessionName}
-                    onChange={(e) => {
-                      setSelectedSessionName(e.target.value);
-                      setSnapshotDataUrl(null);
-                    }}
-                    className="flex-1 px-3 py-2 rounded-lg bg-neutral-950 border border-neutral-800 text-sm"
-                  >
-                    {activeSessions.map((s) => (
-                      <option key={s.name} value={s.name}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
+            <div className="p-6 space-y-5">
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="rounded-lg border border-neutral-800 bg-neutral-950 overflow-hidden">
-                  <video
-                    ref={videoRef}
-                    className="w-full aspect-video"
-                    playsInline
-                    muted
-                  />
-                </div>
-                <div className="rounded-lg border border-neutral-800 bg-neutral-950 overflow-hidden flex items-center justify-center">
-                  {snapshotDataUrl ? (
-                    <img
-                      src={snapshotDataUrl}
-                      alt="Snapshot preview"
-                      className="w-full"
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider flex items-center gap-1"><Video className="w-3 h-3 text-blue-400" /> Live Camera Feed</span>
+                  <div className="rounded-2xl border border-white/5 bg-neutral-950 overflow-hidden aspect-video flex items-center justify-center relative shadow-inner">
+                    <video
+                      ref={videoRef}
+                      className="w-full h-full object-cover"
+                      playsInline
+                      muted
                     />
+                    {!cameraOn && (
+                      <div className="absolute inset-0 bg-neutral-950 flex flex-col items-center justify-center text-neutral-500 text-xs p-4 text-center">
+                        <Video className="w-8 h-8 text-neutral-700 mb-2 animate-pulse" />
+                        Camera is initializing or disabled
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider flex items-center gap-1"><LucideImage className="w-3 h-3 text-emerald-400" /> Captured Snapshot</span>
+                  <div className="rounded-2xl border border-white/5 bg-neutral-950 overflow-hidden aspect-video flex items-center justify-center relative shadow-inner">
+                    {snapshotDataUrl ? (
+                      <img
+                        src={snapshotDataUrl}
+                        alt="Snapshot preview"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 bg-neutral-950 flex flex-col items-center justify-center text-neutral-500 text-xs p-4 text-center">
+                        <LucideImage className="w-8 h-8 text-neutral-700 mb-2" />
+                        Take a snap to preview here
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-2 px-3 py-2 rounded-xl bg-neutral-900/30 border border-white/5 text-xs text-neutral-400">
+                <MapPin className={cn("w-4 h-4 shrink-0 mt-0.5", coords ? "text-emerald-400" : "text-blue-400 animate-pulse")} />
+                <div className="min-w-0 flex-1">
+                  <span className="font-semibold text-neutral-300 block">Verified Location:</span>
+                  {coords ? (
+                    <span className="truncate block mt-0.5" title={coords.locationName}>
+                      {coords.locationName}
+                    </span>
                   ) : (
-                    <p className="text-sm text-neutral-500">
-                      No snapshot captured
-                    </p>
+                    <span className="block mt-0.5 text-neutral-500 animate-pulse">Verifying location...</span>
                   )}
                 </div>
               </div>
 
               {(!cameraOn || !coords) && activeSessions.length > 0 && (
-                <div className="text-xs text-red-400 bg-red-950/20 border border-red-900/30 rounded-lg p-3 space-y-1">
-                  {!cameraOn && <p>• Camera access is required to take a snapshot.</p>}
-                  {!coords && <p>• Location access is required to mark attendance.</p>}
-                  <p className="text-neutral-400 font-medium">Please allow access to both to snap your attendance.</p>
+                <div className="text-xs text-rose-300 bg-rose-950/20 border border-rose-900/20 rounded-xl p-4 space-y-2">
+                  <span className="font-bold uppercase tracking-wider text-[10px] text-rose-400 flex items-center gap-1">
+                    <AlertTriangle className="w-3.5 h-3.5 text-rose-400 shrink-0 animate-pulse" />
+                    Permissions Required
+                  </span>
+                  <ul className="list-disc pl-4 space-y-1 text-rose-300/80">
+                    {!cameraOn && <li>Camera access is required to take a snapshot.</li>}
+                    {!coords && <li>Location access is required to mark attendance.</li>}
+                  </ul>
+                  <p className="text-[10px] text-neutral-500 font-medium">Please grant permissions in your browser settings to proceed.</p>
                 </div>
               )}
 
-              <div className="flex items-center justify-between gap-3 flex-col sm:flex-row">
-                <div className="flex gap-2">
+              <div className="flex items-center justify-between gap-3 flex-col sm:flex-row pt-4 border-t border-white/5">
+                <div className="flex gap-2 w-full sm:w-auto">
                   <button
                     onClick={captureSnapshot}
-                    disabled={!cameraOn || !coords || activeSessions.length === 0}
+                    disabled={!cameraOn || !coords || !coords.locationName || coords.locationName === "Fetching address..." || activeSessions.length === 0}
                     className={
-                      "px-4 py-2 rounded-lg text-sm " +
-                      (!cameraOn || !coords || activeSessions.length === 0
-                        ? "bg-neutral-800 text-neutral-500 cursor-not-allowed"
-                        : "bg-blue-600 hover:bg-blue-700 text-white")
+                      "flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer " +
+                      (!cameraOn || !coords || !coords.locationName || coords.locationName === "Fetching address..." || activeSessions.length === 0
+                        ? "bg-neutral-800 text-neutral-500 cursor-not-allowed border border-white/5"
+                        : "bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/10 focus-visible:ring-2 focus-visible:ring-blue-500")
                     }
                   >
                     Take Snap
@@ -1714,10 +1948,10 @@ function StudentAttendanceSection({ team, event, onRefresh }) {
                     }}
                     disabled={!snapshotDataUrl}
                     className={
-                      "px-4 py-2 rounded-lg text-sm " +
+                      "flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer " +
                       (!snapshotDataUrl
-                        ? "bg-neutral-800 text-neutral-500 cursor-not-allowed"
-                        : "bg-neutral-800 hover:bg-neutral-700 text-white")
+                        ? "bg-neutral-800 text-neutral-500 cursor-not-allowed border border-white/5"
+                        : "bg-neutral-900/60 border border-white/5 hover:border-white/10 hover:bg-neutral-900 text-white shadow-md")
                     }
                   >
                     Retake
@@ -1734,22 +1968,22 @@ function StudentAttendanceSection({ team, event, onRefresh }) {
                   }
                   onClick={submit}
                   className={
-                    "px-4 py-2 rounded-lg text-sm " +
+                    "w-full sm:w-auto flex items-center justify-center gap-1.5 px-5 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer " +
                     (!selectedStudentId ||
                       !selectedSessionName ||
                       !snapshotDataUrl ||
                       submitting ||
                       activeSessions.length === 0
-                      ? "bg-neutral-800 text-neutral-500 cursor-not-allowed"
-                      : "bg-green-600 hover:bg-green-700 text-white")
+                      ? "bg-neutral-800 text-neutral-500 cursor-not-allowed border border-white/5"
+                      : "bg-green-600 hover:bg-green-700 text-white shadow-md shadow-green-500/10 focus-visible:ring-2 focus-visible:ring-green-500")
                   }
                 >
-                  {submitting ? "Submitting..." : "Submit"}
+                  {submitting ? "Submitting..." : "Submit Attendance"}
                 </button>
               </div>
 
               {loadingRecords && (
-                <p className="text-xs text-neutral-500">Loading records...</p>
+                <p className="text-xs text-neutral-500 animate-pulse text-right">Loading records...</p>
               )}
             </div>
           </div>

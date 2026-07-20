@@ -1163,3 +1163,23 @@ export async function getDeletedRegistrations() {
   }
   return body;
 }
+
+// Upload team avatar
+export async function uploadTeamAvatar(teamId, imageBase64, imageType) {
+  const resp = await fetch(
+    `${API_BASE.replace(/\/$/, "")}/teams/${encodeURIComponent(teamId)}/avatar`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ imageBase64, imageType }),
+    }
+  );
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(body.error || "Failed to upload team avatar");
+    err.status = resp.status;
+    throw err;
+  }
+  return body;
+}

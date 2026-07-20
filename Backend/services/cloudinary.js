@@ -124,13 +124,28 @@ async function destroyEventImage(publicId) {
   });
 }
 
+function getTeamAvatarFolder() {
+  return process.env.CLOUDINARY_TEAM_AVATAR_FOLDER || "tara/team-avatars";
+}
+
+async function uploadTeamAvatarImage(source, options = {}) {
+  const teamId = sanitizeSegment(options.teamId || "team");
+  const publicId =
+    options.existingPublicId ||
+    `${getTeamAvatarFolder()}/${teamId}`;
+
+  return uploadImage(source, publicId);
+}
+
 module.exports = {
   isCloudinaryConfigured: () => configured,
   uploadEventImage,
   uploadStudentAttendanceImage,
   uploadPaymentQrImage,
   uploadRegistrationPaymentImage,
+  uploadTeamAvatarImage,
   destroyEventImage,
   destroyPaymentQrImage: destroyEventImage,
   destroyRegistrationPaymentImage: destroyEventImage,
+  destroyTeamAvatarImage: destroyEventImage,
 };

@@ -750,6 +750,57 @@ async function getTeamById(req, res) {
   }
 }
 
+async function uploadTeamAvatar(req, res) {
+  try {
+    const { teamId } = req.params;
+    const { imageBase64, imageType } = req.body;
+
+    const access = await getAuthenticatedTeamAccess(req, res, teamId);
+    if (!access) return; // helper handles error response
+
+    if (!imageBase64 || !imageType) {
+      return res.status(400).json({ error: "Missing imageBase64 or imageType" });
+    }
+
+    const { isCloudinaryConfigured, uploadTeamAvatarImage, destroyTeamAvatarImage } = require("../services/cloudinary");
+
+    if (!isCloudinaryConfigured()) {
+      return res.status(500).json({ error: "Cloudinary is not configured on the server" });
+    }
+
+    const payload = imageBase64.includes(",") ? imageBase64.split(",")[1] : imageBase64;
+    const source = `data:${imageType};base64,${payload}`;
+
+    const teamDoc = await Team.findById(teamId);
+    if (!teamDoc) {
+      return res.status(404).json({ error: "Team not found" });
+    }
+
+    if (teamDoc.avatarPublicId) {
+      try {
+        await destroyTeamAvatarImage(teamDoc.avatarPublicId);
+      } catch (err) {
+        console.error("Failed to destroy old team avatar", err);
+      }
+    }
+
+    const result = await uploadTeamAvatarImage(source, {
+      teamId: teamDoc._id.toString(),
+    });
+
+    teamDoc.avatarUrl = result.secureUrl;
+    teamDoc.avatarPublicId = result.publicId;
+    await teamDoc.save();
+
+    const populatedTeam = await applyTeamPopulate(Team.findById(teamDoc._id));
+
+    return res.json({ success: true, team: populatedTeam });
+  } catch (err) {
+    console.error("uploadTeamAvatar error", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+}
+
 module.exports = {
   createTeam,
   getTeams,
@@ -757,4 +808,5 @@ module.exports = {
   selectTeamProblemStatement,
   resetTeamProblemStatement,
   getTeamById,
+  uploadTeamAvatar,
 };

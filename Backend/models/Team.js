@@ -34,6 +34,8 @@ const TeamSchema = new Schema(
       type: Date,
       default: null,
     },
+    avatarUrl: { type: String, trim: true },
+    avatarPublicId: { type: String, trim: true },
     createdAt: { type: Date, default: Date.now },
   },
   { timestamps: true },

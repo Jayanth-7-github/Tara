@@ -154,13 +154,14 @@ exports.markStudentAttendance = async (req, res) => {
     const team = await Team.findById(teamId).lean();
     if (!team) return res.status(404).json({ error: "Team not found" });
 
+    const actor = await getActor(req);
+
     // Support public access (verified event key / team name key)
     if (req.user?.isPublicAccess && req.user?.teamId) {
       if (String(req.user.teamId) !== String(teamId)) {
         return res.status(403).json({ error: "Forbidden: Team mismatch" });
       }
     } else {
-      const actor = await getActor(req);
       if (!actor) return res.status(401).json({ error: "Unauthorized" });
 
       if (!(await canSubmitForTeam({ actor, teamDoc: team }))) {
@@ -248,7 +249,7 @@ exports.markStudentAttendance = async (req, res) => {
         photoCloudinaryPublicId: uploadedPhoto.publicId,
         status: "pending",
         allowResubmit: false,
-        submittedBy: actor._id,
+        submittedBy: actor?._id,
         latitude: typeof latitude === "number" ? latitude : undefined,
         longitude: typeof longitude === "number" ? longitude : undefined,
         locationName: locationName ? String(locationName).trim() : undefined,
@@ -259,7 +260,7 @@ exports.markStudentAttendance = async (req, res) => {
       existing.photoCloudinaryPublicId = uploadedPhoto.publicId;
       existing.status = "pending";
       existing.allowResubmit = false;
-      existing.submittedBy = actor._id;
+      existing.submittedBy = actor?._id;
       existing.reviewedBy = undefined;
       existing.reviewedAt = undefined;
       existing.reviewComment = undefined;

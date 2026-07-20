@@ -7,6 +7,7 @@ const {
   selectTeamProblemStatement,
   resetTeamProblemStatement,
   getTeamById,
+  uploadTeamAvatar,
 } = require("../controllers/teamController");
 const { protect } = require("../middleware/auth");
 
@@ -24,6 +25,11 @@ router.patch(
   "/:teamId/problem-statement-selection/reset",
   protect,
   resetTeamProblemStatement,
+);
+router.patch(
+  "/:teamId/avatar",
+  protect,
+  uploadTeamAvatar,
 );
 
 module.exports = router;
