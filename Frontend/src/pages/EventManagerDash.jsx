@@ -19,6 +19,7 @@ import {
   API_BASE,
   generateEventKey,
   revokeEventKey,
+  verifyEventKey,
 } from "../services/api";
 import { Sidebar, SidebarBody, SidebarLink } from "../components/ui/sidebar";
 import { cn } from "../lib/utils";
@@ -30,6 +31,7 @@ import { MarksForStudentsSection } from "./MarksForStudents";
 import { StudentSnapSection } from "./StudentSnap";
 import ManageApprovals from "./ManageApprovals";
 import ProblemStatementsSection from "./ProblemStatements";
+import KeyPermissionsModal from "../components/KeyPermissionsModal";
 
 // ─── Logo ────────────────────────────────────────────────────────────────────
 const Logo = () => (
@@ -120,6 +122,15 @@ export default function EventManagerDashboard() {
     pastEvents: 0,
   });
 
+  // Modal & access states
+  const [showKeyModal, setShowKeyModal] = useState(false);
+  const [selectedEventIdForKey, setSelectedEventIdForKey] = useState(null);
+  
+  const [showVerifyKeyModal, setShowVerifyKeyModal] = useState(false);
+  const [inputAccessKey, setInputAccessKey] = useState("");
+  const [verifyKeyError, setVerifyKeyError] = useState("");
+  const [verifyingKey, setVerifyingKey] = useState(false);
+
   useEffect(() => {
     let mounted = true;
 
@@ -129,7 +140,26 @@ export default function EventManagerDashboard() {
         if (!mounted) return;
 
         if (!res?.authenticated || !res?.user) {
-          navigate("/login", { replace: true });
+          const stored = sessionStorage.getItem("temp_event_access");
+          if (stored) {
+            const data = JSON.parse(stored);
+            const allowedPages = data.allowedPages || [];
+            const hasDashAccess = allowedPages.some(p => p.startsWith("dashboard:"));
+            if (hasDashAccess) {
+              setUser({ email: data.managerEmail, role: "member", isTempAccess: true });
+              setAuthorized(true);
+              
+              // Set default active section to first allowed section
+              const allowedSections = allowedPages
+                .filter(p => p.startsWith("dashboard:"))
+                .map(p => p.split(":")[1]);
+              if (allowedSections.length > 0 && !allowedSections.includes("overview")) {
+                setActiveSection(allowedSections[0]);
+              }
+              return;
+            }
+          }
+          setShowVerifyKeyModal(true);
           return;
         }
 
@@ -140,10 +170,42 @@ export default function EventManagerDashboard() {
           return;
         }
 
+        if (ud.isTempAccess) {
+          const stored = sessionStorage.getItem("temp_event_access");
+          if (stored) {
+            const data = JSON.parse(stored);
+            const allowedPages = data.allowedPages || [];
+            const allowedSections = allowedPages
+              .filter(p => p.startsWith("dashboard:"))
+              .map(p => p.split(":")[1]);
+            if (allowedSections.length > 0 && !allowedSections.includes("overview")) {
+              setActiveSection(allowedSections[0]);
+            }
+          }
+        }
+
         setUser(ud);
         setAuthorized(true);
       } catch {
-        if (mounted) navigate("/login", { replace: true });
+        const stored = sessionStorage.getItem("temp_event_access");
+        if (stored) {
+          const data = JSON.parse(stored);
+          const allowedPages = data.allowedPages || [];
+          const hasDashAccess = allowedPages.some(p => p.startsWith("dashboard:"));
+          if (hasDashAccess) {
+            setUser({ email: data.managerEmail, role: "member", isTempAccess: true });
+            setAuthorized(true);
+            
+            const allowedSections = allowedPages
+              .filter(p => p.startsWith("dashboard:"))
+              .map(p => p.split(":")[1]);
+            if (allowedSections.length > 0 && !allowedSections.includes("overview")) {
+              setActiveSection(allowedSections[0]);
+            }
+            return;
+          }
+        }
+        setShowVerifyKeyModal(true);
       } finally {
         if (mounted) setCheckingAuth(false);
       }
@@ -166,7 +228,12 @@ export default function EventManagerDashboard() {
           ? res
           : [];
 
+      const stored = sessionStorage.getItem("temp_event_access");
       const managed = all.filter((e) => {
+        if (stored) {
+          const data = JSON.parse(stored);
+          return e._id === data.eventId;
+        }
         if (!user?.email) return true;
         return e.managerEmail === user.email;
       });
@@ -208,12 +275,61 @@ export default function EventManagerDashboard() {
     loadData();
   }, [authorized, user]);
 
-  const handleGenerateKey = async (id) => {
+  const handleGenerateKey = (id) => {
+    setSelectedEventIdForKey(id);
+    setShowKeyModal(true);
+  };
+
+  const handleConfirmGenerateKey = async (allowedPages) => {
     try {
-      await generateEventKey(id);
+      await generateEventKey(selectedEventIdForKey, allowedPages);
       await loadData();
+      setShowKeyModal(false);
+      setSelectedEventIdForKey(null);
     } catch (err) {
       alert(err.message || "Failed to generate key");
+    }
+  };
+
+  const handleVerifyDashboardKey = async (e) => {
+    e.preventDefault();
+    setVerifyKeyError("");
+    setVerifyingKey(true);
+    try {
+      const res = await verifyEventKey(inputAccessKey);
+      if (res.success) {
+        const allowedPages = res.allowedPages || [];
+        const hasDashAccess = allowedPages.some(p => p.startsWith("dashboard:"));
+        if (!hasDashAccess) {
+          setVerifyKeyError("This key does not have permission to access any dashboard sections.");
+          return;
+        }
+
+        sessionStorage.setItem("temp_event_access", JSON.stringify({
+          eventId: res.eventId,
+          eventTitle: res.eventTitle,
+          managerEmail: res.managerEmail,
+          allowedPages: res.allowedPages,
+          token: res.token
+        }));
+        
+        setUser({ email: res.managerEmail, role: "member", isTempAccess: true });
+        setAuthorized(true);
+        setShowVerifyKeyModal(false);
+        
+        const allowedSections = allowedPages
+          .filter(p => p.startsWith("dashboard:"))
+          .map(p => p.split(":")[1]);
+        if (allowedSections.length > 0 && !allowedSections.includes("overview")) {
+          setActiveSection(allowedSections[0]);
+        }
+        
+        await loadData();
+      }
+    } catch (err) {
+      setVerifyKeyError(err.message || "Invalid access key. Please try again.");
+    } finally {
+      setVerifyingKey(false);
     }
   };
 
@@ -275,6 +391,62 @@ export default function EventManagerDashboard() {
             Loading manager dashboard...
           </p>
         </div>
+      </div>
+    );
+  }
+
+  if (showVerifyKeyModal) {
+    return (
+      <div className="min-h-screen bg-neutral-950 text-white flex items-center justify-center p-4">
+        <motion.div
+          initial={{ scale: 0.95, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-3xl p-8 shadow-2xl relative"
+        >
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-blue-500/20">
+              <svg className="w-8 h-8 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold text-white mb-2">Dashboard Access Key</h2>
+            <p className="text-neutral-400 text-sm">Please enter the member access code provided by the administrator.</p>
+          </div>
+
+          <form onSubmit={handleVerifyDashboardKey} className="space-y-6">
+            <div>
+              <input
+                type="text"
+                value={inputAccessKey}
+                onChange={(e) => setInputAccessKey(e.target.value)}
+                placeholder="Enter Access Key"
+                className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-4 text-center text-xl font-mono tracking-widest text-white placeholder-neutral-750 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
+              />
+              {verifyKeyError && (
+                <p className="text-red-400 text-xs mt-3 text-center font-medium">
+                  {verifyKeyError}
+                </p>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <button
+                type="submit"
+                disabled={verifyingKey || !inputAccessKey.trim()}
+                className="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-850 disabled:text-neutral-600 text-white rounded-xl font-bold transition-all active:scale-[0.98] shadow-lg shadow-blue-900/20"
+              >
+                {verifyingKey ? "Verifying..." : "Verify Access"}
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate("/login")}
+                className="w-full py-3 bg-transparent text-neutral-400 hover:text-white text-sm font-semibold transition"
+              >
+                Go to Login
+              </button>
+            </div>
+          </form>
+        </motion.div>
       </div>
     );
   }
@@ -353,7 +525,40 @@ export default function EventManagerDashboard() {
     },
   ];
 
+  const filteredNavLinks = navLinks.filter((link) => {
+    if (user?.isTempAccess) {
+      const stored = sessionStorage.getItem("temp_event_access");
+      if (stored) {
+        const data = JSON.parse(stored);
+        const allowedPages = data.allowedPages || [];
+        return allowedPages.includes(`dashboard:${link.section}`);
+      }
+      return false;
+    }
+    return true;
+  });
+
   const renderSection = () => {
+    if (user?.isTempAccess) {
+      const stored = sessionStorage.getItem("temp_event_access");
+      if (stored) {
+        const data = JSON.parse(stored);
+        const allowedPages = data.allowedPages || [];
+        if (!allowedPages.includes(`dashboard:${activeSection}`)) {
+          return (
+            <div className="min-h-screen bg-neutral-950 text-white flex items-center justify-center p-4">
+              <div className="text-center">
+                <p className="text-lg font-semibold text-white mb-2">Section Access Denied</p>
+                <p className="text-neutral-400 text-sm">
+                  Your access key does not have permission to view the {activeSection} section.
+                </p>
+              </div>
+            </div>
+          );
+        }
+      }
+    }
+
     switch (activeSection) {
       case "attendance":
         return <AttendanceSection navigate={navigate} user={user} />;
@@ -404,7 +609,7 @@ export default function EventManagerDashboard() {
               {sidebarOpen ? <Logo /> : <LogoIcon />}
             </div>
             <div className="scrollbar-hidden mt-8 flex min-h-0 flex-1 flex-col gap-1 overflow-x-hidden overflow-y-auto pr-1">
-              {navLinks.map((link) => (
+              {filteredNavLinks.map((link) => (
                 <SidebarLink
                   key={link.path || link.section}
                   link={{ label: link.label, href: "#", icon: link.icon }}
@@ -451,6 +656,7 @@ export default function EventManagerDashboard() {
                 } catch (e) {
                   // ignore logout error and still redirect
                 }
+                sessionStorage.removeItem("temp_event_access");
                 navigate("/login", { replace: true });
               }}
             />
@@ -471,6 +677,15 @@ export default function EventManagerDashboard() {
           </motion.div>
         </AnimatePresence>
       </main>
+
+      <KeyPermissionsModal
+        isOpen={showKeyModal}
+        onClose={() => {
+          setShowKeyModal(false);
+          setSelectedEventIdForKey(null);
+        }}
+        onConfirm={handleConfirmGenerateKey}
+      />
     </div>
   );
 }

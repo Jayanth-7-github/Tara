@@ -280,6 +280,13 @@ async function isEventManagerForEvent({ actor, eventDoc }) {
   if (!actor || !eventDoc) return false;
   if (actor.role === "admin") return true;
 
+  if (
+    eventDoc.memberUserId &&
+    String(eventDoc.memberUserId) === String(actor._id)
+  ) {
+    return true;
+  }
+
   const actorEmail = actor.email
     ? String(actor.email).toLowerCase().trim()
     : "";

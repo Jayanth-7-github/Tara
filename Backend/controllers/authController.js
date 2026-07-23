@@ -245,7 +245,12 @@ exports.getMe = async (req, res) => {
     if (user.role === "admin" || user.role === "member") {
       roles = await loadRoles();
     }
-    return res.json({ user: user.toSafeJSON(), roles });
+    const safeUser = user.toSafeJSON();
+    if (req.user && req.user.isPublicAccess && req.user.managerEmail) {
+      safeUser.email = req.user.managerEmail;
+      safeUser.isTempAccess = true;
+    }
+    return res.json({ user: safeUser, roles });
   } catch (err) {
     console.error("getMe error", err);
     return res.status(500).json({ error: "Internal server error" });
@@ -268,7 +273,12 @@ exports.checkLogin = async (req, res) => {
     if (user.role === "admin" || user.role === "member") {
       roles = await loadRoles();
     }
-    return res.json({ authenticated: true, user: user.toSafeJSON(), roles });
+    const safeUser = user.toSafeJSON();
+    if (req.user && req.user.isPublicAccess && req.user.managerEmail) {
+      safeUser.email = req.user.managerEmail;
+      safeUser.isTempAccess = true;
+    }
+    return res.json({ authenticated: true, user: safeUser, roles });
   } catch (err) {
     console.error("checkLogin error", err);
     return res.status(401).json({ authenticated: false });
@@ -363,14 +373,35 @@ exports.verifyEventKey = async (req, res) => {
     const event = await Event.findOne({ accessKey: String(key).trim() }).lean();
     if (!event) return res.status(404).json({ error: "Invalid access key" });
 
+    const defaultAllowed = [
+      "/member/secret",
+      "/member/Attendance",
+      "/member/summary",
+      "dashboard:overview",
+      "dashboard:attendance",
+      "dashboard:studentSnap",
+      "dashboard:teamMarks",
+      "dashboard:sessions",
+      "dashboard:students",
+      "dashboard:questions",
+      "dashboard:problemStatements",
+      "dashboard:results",
+      "dashboard:approvals"
+    ];
+    const allowedPages = (event.allowedPages && event.allowedPages.length > 0)
+      ? event.allowedPages
+      : defaultAllowed;
+
     // For public access, we don't need a user ID in the token, 
     // but we can sign a token with the event ID or a special payload.
     const secret = process.env.JWT_SECRET || "dev_secret_change_me";
     const token = jwt.sign(
       {
+        id: event.memberUserId ? String(event.memberUserId) : undefined,
         eventId: event._id,
         managerEmail: event.managerEmail,
-        isPublicAccess: true
+        isPublicAccess: true,
+        allowedPages
       },
       secret,
       { expiresIn: "1d" }
@@ -383,6 +414,8 @@ exports.verifyEventKey = async (req, res) => {
       eventId: event._id,
       eventTitle: event.title,
       managerEmail: event.managerEmail,
+      allowedPages,
+      memberId: event.memberUserId ? String(event.memberUserId) : undefined,
       token,
     });
   } catch (err) {

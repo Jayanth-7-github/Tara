@@ -343,12 +343,6 @@ export default function ManageQuestions() {
               )}
             </div>
 
-            <button
-              onClick={() => navigate("/events/dashboard")}
-              className="inline-flex items-center justify-center rounded-full border border-slate-700 bg-slate-900 px-5 py-2.5 text-sm font-medium text-slate-200 transition hover:bg-slate-800"
-            >
-              Back to Dashboard
-            </button>
           </div>
         </div>
       </div>

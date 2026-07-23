@@ -634,7 +634,13 @@ async function getEvents(req, res) {
     // Identify events that need population
     const eventsToPopulate = new Set();
 
-    if (isAdmin) {
+    if (req.user && req.user.isPublicAccess && req.user.eventId) {
+      const targetId = req.user.eventId.toString();
+      const filteredEvents = events.filter((e) => e._id.toString() === targetId);
+      filteredEvents.forEach((e) => eventsToPopulate.add(e._id.toString()));
+      events.length = 0;
+      events.push(...filteredEvents);
+    } else if (isAdmin) {
       // Admin sees requests for ALL events
       events.forEach((e) => eventsToPopulate.add(e._id.toString()));
     } else if (userEmail) {
@@ -1451,16 +1457,33 @@ async function generateEventKey(req, res) {
         .json({ error: "Forbidden: Only event managers can generate keys" });
     }
 
+    if (ev.memberUserId) {
+      await User.findByIdAndDelete(ev.memberUserId).catch(() => {});
+    }
+
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     let key = "";
     for (let i = 0; i < 6; i++) {
       key += chars.charAt(Math.floor(Math.random() * chars.length));
     }
 
+    const bcrypt = require("bcryptjs");
+    const email = `member_${key.toLowerCase()}_${Date.now()}@tara.com`;
+    const hashedPassword = await bcrypt.hash("member_temp_secret_pass_123", 10);
+    
+    const memberUser = await User.create({
+      email,
+      password: hashedPassword,
+      name: `Member (${key})`,
+      role: "member"
+    });
+
     ev.accessKey = key;
+    ev.memberUserId = memberUser._id;
+    ev.allowedPages = req.body.allowedPages || [];
     await ev.save();
 
-    return res.json({ success: true, accessKey: key });
+    return res.json({ success: true, accessKey: key, allowedPages: ev.allowedPages, memberId: memberUser._id });
   } catch (err) {
     console.error("generateEventKey error", err);
     return res.status(500).json({ error: "Internal server error" });
@@ -1489,7 +1512,13 @@ async function revokeEventKey(req, res) {
       return res.status(403).json({ error: "Forbidden" });
     }
 
+    if (ev.memberUserId) {
+      await User.findByIdAndDelete(ev.memberUserId).catch(() => {});
+    }
+
     ev.accessKey = undefined;
+    ev.memberUserId = undefined;
+    ev.allowedPages = [];
     await ev.save();
 
     return res.json({ success: true, message: "Key revoked" });

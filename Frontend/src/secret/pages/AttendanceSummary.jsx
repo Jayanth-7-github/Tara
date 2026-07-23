@@ -39,8 +39,16 @@ export default function AttendanceSummary() {
         } else {
           const stored = sessionStorage.getItem("temp_event_access");
           if (stored) {
-            setIsPublicAccess(true);
-            setCheckingAuth(false);
+            const data = JSON.parse(stored);
+            const allowedPages = data.allowedPages || [];
+            if (allowedPages.includes("/member/summary")) {
+              setIsPublicAccess(true);
+              setCheckingAuth(false);
+            } else {
+              setKeyError("This key does not have permission to access the Attendance Summary page.");
+              setShowKeyModal(true);
+              setCheckingAuth(false);
+            }
           } else {
             setShowKeyModal(true);
             setCheckingAuth(false);
@@ -331,12 +339,18 @@ export default function AttendanceSummary() {
     try {
       const res = await verifyEventKey(inputKey);
       if (res.success) {
+        const allowedPages = res.allowedPages || [];
+        if (!allowedPages.includes("/member/summary")) {
+          setKeyError("This key does not have permission to access the Attendance Summary page.");
+          return;
+        }
         sessionStorage.setItem(
           "temp_event_access",
           JSON.stringify({
             eventId: res.eventId,
             eventTitle: res.eventTitle,
             managerEmail: res.managerEmail,
+            allowedPages: res.allowedPages,
             token: res.token,
           }),
         );

@@ -76,6 +76,13 @@ async function requireManagedEvent(req, res, eventId) {
     return { actor, event };
   }
 
+  if (
+    event.memberUserId &&
+    String(event.memberUserId) === String(actor._id)
+  ) {
+    return { actor, event };
+  }
+
   const actorEmail = normalizeText(actor.email).toLowerCase();
   const managerEmail = normalizeText(event.managerEmail).toLowerCase();
   if (actorEmail && managerEmail && actorEmail === managerEmail) {

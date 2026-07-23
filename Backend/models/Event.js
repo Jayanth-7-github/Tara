@@ -118,6 +118,8 @@ const EventSchema = new Schema(
       default: [],
     },
     accessKey: { type: String, trim: true, index: true },
+    allowedPages: { type: [String], default: [] },
+    memberUserId: { type: Schema.Types.ObjectId, ref: "User" },
   },
   { timestamps: true },
 );

@@ -1,6 +1,6 @@
 const jwt = require("jsonwebtoken");
 
-exports.protect = (req, res, next) => {
+exports.protect = async (req, res, next) => {
   try {
     let token = null;
     // Prefer cookie
@@ -19,10 +19,28 @@ exports.protect = (req, res, next) => {
     const secret = process.env.JWT_SECRET || "dev_secret_change_me";
     const decoded = jwt.verify(token, secret);
     if (decoded.isPublicAccess) {
+      const User = require("../models/User");
+      let resolvedId = decoded.id;
+      let resolvedRole = "member";
+
+      if (!resolvedId && decoded.managerEmail) {
+        const managerUser = await User.findOne({
+          email: new RegExp(`^${decoded.managerEmail}$`, "i")
+        }).lean();
+        if (managerUser) {
+          resolvedId = String(managerUser._id);
+          resolvedRole = managerUser.role;
+        }
+      }
+
       req.user = {
+        id: resolvedId,
+        role: resolvedRole,
         isPublicAccess: true,
         eventId: decoded.eventId,
         teamId: decoded.teamId,
+        managerEmail: decoded.managerEmail,
+        allowedPages: decoded.allowedPages || []
       };
     } else {
       req.user = { id: decoded.id };
@@ -33,7 +51,7 @@ exports.protect = (req, res, next) => {
   }
 };
 
-exports.identifyUser = (req, res, next) => {
+exports.identifyUser = async (req, res, next) => {
   try {
     let token = null;
     // Prefer cookie
@@ -50,7 +68,33 @@ exports.identifyUser = (req, res, next) => {
       const secret = process.env.JWT_SECRET || "dev_secret_change_me";
       try {
         const decoded = jwt.verify(token, secret);
-        req.user = { id: decoded.id };
+        if (decoded.isPublicAccess) {
+          const User = require("../models/User");
+          let resolvedId = decoded.id;
+          let resolvedRole = "member";
+
+          if (!resolvedId && decoded.managerEmail) {
+            const managerUser = await User.findOne({
+              email: new RegExp(`^${decoded.managerEmail}$`, "i")
+            }).lean();
+            if (managerUser) {
+              resolvedId = String(managerUser._id);
+              resolvedRole = managerUser.role;
+            }
+          }
+
+          req.user = {
+            id: resolvedId,
+            role: resolvedRole,
+            isPublicAccess: true,
+            eventId: decoded.eventId,
+            teamId: decoded.teamId,
+            managerEmail: decoded.managerEmail,
+            allowedPages: decoded.allowedPages || []
+          };
+        } else {
+          req.user = { id: decoded.id };
+        }
       } catch (e) {
         // invalid token, just ignore
       }

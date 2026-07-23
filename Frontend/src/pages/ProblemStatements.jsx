@@ -542,11 +542,6 @@ export default function ProblemStatements() {
     };
   }, [selectedTeams, teams]);
 
-  const dashboardPath =
-    String(user?.role || "").toLowerCase() === "admin"
-      ? "/dashboard/admin"
-      : "/events/dashboard";
-
   const openCreateModal = () => {
     setEditingItem(null);
     setForm(createEmptyForm());
@@ -745,12 +740,6 @@ export default function ProblemStatements() {
     return (
       <div className="min-h-screen bg-neutral-950 px-6 py-10 text-white">
         <div className="mx-auto max-w-5xl rounded-3xl border border-neutral-800 bg-neutral-900/80 p-8 shadow-2xl shadow-black/20 backdrop-blur">
-          <button
-            onClick={() => navigate(dashboardPath)}
-            className="inline-flex items-center gap-2 rounded-full border border-neutral-800 px-4 py-2 text-sm text-neutral-300 transition hover:border-neutral-700 hover:text-white"
-          >
-            <IconArrowLeft size={16} /> Back to dashboard
-          </button>
           <div className="mt-8 max-w-2xl">
             <p className="text-xs font-semibold uppercase tracking-[0.26em] text-cyan-300/80">
               Problem statements
@@ -776,12 +765,6 @@ export default function ProblemStatements() {
           <div className="border-b border-neutral-800 bg-linear-to-r from-cyan-500/12 via-transparent to-transparent px-6 py-6 lg:px-8">
             <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
               <div className="max-w-3xl">
-                <button
-                  onClick={() => navigate(dashboardPath)}
-                  className="inline-flex items-center gap-2 rounded-full border border-neutral-800 px-4 py-2 text-sm text-neutral-300 transition hover:border-neutral-700 hover:text-white"
-                >
-                  <IconArrowLeft size={16} /> Back to dashboard
-                </button>
                 <p className="mt-5 text-xs font-semibold uppercase tracking-[0.26em] text-cyan-300/80">
                   Event coding workspace
                 </p>

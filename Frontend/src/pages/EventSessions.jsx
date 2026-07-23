@@ -296,12 +296,6 @@ export default function EventSessions() {
               This page is only for Event Managers and Admins.
             </p>
           </div>
-          <button
-            onClick={() => navigate("/events/dashboard")}
-            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition text-sm"
-          >
-            Back to Dashboard
-          </button>
         </div>
 
         <div className="p-8">

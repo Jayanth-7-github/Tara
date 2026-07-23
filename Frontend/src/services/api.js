@@ -1,5 +1,35 @@
 import { API_BASE, ADMIN_TOKEN } from "./constants";
 
+// Monkey-patch fetch to inject temporary event access tokens automatically.
+const originalFetch = window.fetch;
+window.fetch = function (url, options) {
+  const stored = sessionStorage.getItem("temp_event_access");
+  if (stored) {
+    try {
+      const data = JSON.parse(stored);
+      if (data.token) {
+        options = options || {};
+        options.headers = options.headers || {};
+        if (options.headers instanceof Headers) {
+          if (!options.headers.has("Authorization")) {
+            options.headers.set("Authorization", `Bearer ${data.token}`);
+          }
+        } else {
+          if (!options.headers["Authorization"] && !options.headers["authorization"]) {
+            options.headers["Authorization"] = `Bearer ${data.token}`;
+          }
+        }
+        if (!options.credentials) {
+          options.credentials = "include";
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+  return originalFetch.call(this, url, options);
+};
+
 // Backward-compatible export: some components import API_BASE from this module.
 export { API_BASE, ADMIN_TOKEN };
 
@@ -186,12 +216,12 @@ export async function getMyTestResults() {
   return resp.json();
 }
 
-export async function generateEventKey(eventId) {
+export async function generateEventKey(eventId, allowedPages) {
   const resp = await fetch(`${API_BASE}/events/${eventId}/generate-key`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify({}),
+    body: JSON.stringify({ allowedPages }),
   });
   const body = await resp.json().catch(() => ({}));
   if (!resp.ok) {

@@ -51,8 +51,15 @@ export default function AttendancePage() {
           const stored = sessionStorage.getItem("temp_event_access");
           if (stored) {
             const data = JSON.parse(stored);
-            setIsPublicAccess(true);
-            setCheckingAuth(false);
+            const allowedPages = data.allowedPages || [];
+            if (allowedPages.includes("/member/Attendance")) {
+              setIsPublicAccess(true);
+              setCheckingAuth(false);
+            } else {
+              setKeyError("This key does not have permission to access the Attendance page.");
+              setShowKeyModal(true);
+              setCheckingAuth(false);
+            }
           } else {
             setShowKeyModal(true);
             setCheckingAuth(false);
@@ -226,10 +233,17 @@ export default function AttendancePage() {
     try {
       const res = await verifyEventKey(inputKey);
       if (res.success) {
+        const allowedPages = res.allowedPages || [];
+        if (!allowedPages.includes("/member/Attendance")) {
+          setKeyError("This key does not have permission to access the Attendance page.");
+          return;
+        }
+
         sessionStorage.setItem("temp_event_access", JSON.stringify({
           eventId: res.eventId,
           eventTitle: res.eventTitle,
           managerEmail: res.managerEmail,
+          allowedPages: res.allowedPages,
           token: res.token
         }));
         setIsPublicAccess(true);

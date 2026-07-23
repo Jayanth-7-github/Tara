@@ -129,12 +129,6 @@ export default function StudentResults() {
               View and manage assessment scores
             </p>
           </div>
-          <button
-            onClick={() => navigate("/events/dashboard")}
-            className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition text-sm"
-          >
-            &larr; Back to Dashboard
-          </button>
         </div>
 
         {/* Filters */}
@@ -147,7 +141,6 @@ export default function StudentResults() {
             onChange={(e) => setSelectedEventTitle(e.target.value)}
             className="bg-gray-900 border border-gray-700 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5"
           >
-            <option value="All">All Events</option>
             {events.map((ev) => (
               <option key={ev._id || ev.id} value={ev.title}>
                 {ev.title}
