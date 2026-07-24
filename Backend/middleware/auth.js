@@ -19,24 +19,11 @@ exports.protect = async (req, res, next) => {
     const secret = process.env.JWT_SECRET || "dev_secret_change_me";
     const decoded = jwt.verify(token, secret);
     if (decoded.isPublicAccess) {
-      const User = require("../models/User");
-      let resolvedId = decoded.id;
-      let resolvedRole = "member";
-
-      if (!resolvedId && decoded.managerEmail) {
-        const managerUser = await User.findOne({
-          email: new RegExp(`^${decoded.managerEmail}$`, "i")
-        }).lean();
-        if (managerUser) {
-          resolvedId = String(managerUser._id);
-          resolvedRole = managerUser.role;
-        }
-      }
-
       req.user = {
-        id: resolvedId,
-        role: resolvedRole,
+        id: decoded.id || null,
+        role: "member",
         isPublicAccess: true,
+        isTempAccess: true,
         eventId: decoded.eventId,
         teamId: decoded.teamId,
         managerEmail: decoded.managerEmail,
@@ -69,24 +56,11 @@ exports.identifyUser = async (req, res, next) => {
       try {
         const decoded = jwt.verify(token, secret);
         if (decoded.isPublicAccess) {
-          const User = require("../models/User");
-          let resolvedId = decoded.id;
-          let resolvedRole = "member";
-
-          if (!resolvedId && decoded.managerEmail) {
-            const managerUser = await User.findOne({
-              email: new RegExp(`^${decoded.managerEmail}$`, "i")
-            }).lean();
-            if (managerUser) {
-              resolvedId = String(managerUser._id);
-              resolvedRole = managerUser.role;
-            }
-          }
-
           req.user = {
-            id: resolvedId,
-            role: resolvedRole,
+            id: decoded.id || null,
+            role: "member",
             isPublicAccess: true,
+            isTempAccess: true,
             eventId: decoded.eventId,
             teamId: decoded.teamId,
             managerEmail: decoded.managerEmail,

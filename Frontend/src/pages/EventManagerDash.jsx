@@ -172,15 +172,14 @@ export default function EventManagerDashboard() {
 
         if (ud.isTempAccess) {
           const stored = sessionStorage.getItem("temp_event_access");
-          if (stored) {
-            const data = JSON.parse(stored);
-            const allowedPages = data.allowedPages || [];
-            const allowedSections = allowedPages
-              .filter(p => p.startsWith("dashboard:"))
-              .map(p => p.split(":")[1]);
-            if (allowedSections.length > 0 && !allowedSections.includes("overview")) {
-              setActiveSection(allowedSections[0]);
-            }
+          const storedData = stored ? JSON.parse(stored) : {};
+          const allowedPages = ud.allowedPages || storedData.allowedPages || [];
+          const allowedSections = allowedPages
+            .filter(p => p.startsWith("dashboard:"))
+            .map(p => p.split(":")[1]);
+
+          if (allowedSections.length > 0 && !allowedSections.includes(activeSection)) {
+            setActiveSection(allowedSections[0]);
           }
         }
 
@@ -193,13 +192,13 @@ export default function EventManagerDashboard() {
           const allowedPages = data.allowedPages || [];
           const hasDashAccess = allowedPages.some(p => p.startsWith("dashboard:"));
           if (hasDashAccess) {
-            setUser({ email: data.managerEmail, role: "member", isTempAccess: true });
+            setUser({ email: data.managerEmail, role: "member", isTempAccess: true, allowedPages });
             setAuthorized(true);
             
             const allowedSections = allowedPages
               .filter(p => p.startsWith("dashboard:"))
               .map(p => p.split(":")[1]);
-            if (allowedSections.length > 0 && !allowedSections.includes("overview")) {
+            if (allowedSections.length > 0 && !allowedSections.includes(activeSection)) {
               setActiveSection(allowedSections[0]);
             }
             return;
@@ -724,12 +723,14 @@ function ManagerOverviewSection({
               View and manage your events
             </p>
           </div>
-          <button
-            onClick={() => navigate("/events/create")}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm transition"
-          >
-            <IconPlus size={15} /> Create Event
-          </button>
+          {!user?.isTempAccess && (
+            <button
+              onClick={() => navigate("/events/create")}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm transition"
+            >
+              <IconPlus size={15} /> Create Event
+            </button>
+          )}
         </div>
 
         {/* Stats Grid */}
@@ -921,42 +922,44 @@ function ManagerOverviewSection({
                           </span>
                         </div>
 
-                        {event.accessKey ? (
-                          <div className="flex items-center gap-3 mb-4">
-                            <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 rounded-lg border border-blue-500/20">
-                              <span className="text-xs text-blue-300 uppercase tracking-wide">
-                                Access Key
-                              </span>
-                              <span className="text-sm font-mono font-bold text-blue-300 tracking-wider">
-                                {event.accessKey}
-                              </span>
+                        {!user?.isTempAccess && (
+                          event.accessKey ? (
+                            <div className="flex items-center gap-3 mb-4">
+                              <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                                <span className="text-xs text-blue-300 uppercase tracking-wide">
+                                  Access Key
+                                </span>
+                                <span className="text-sm font-mono font-bold text-blue-300 tracking-wider">
+                                  {event.accessKey}
+                                </span>
+                              </div>
+                              <button
+                                onClick={() => handleRevokeKey(id)}
+                                className="text-xs text-red-500 hover:text-red-400 font-medium transition"
+                              >
+                                Revoke
+                              </button>
+                              <button
+                                onClick={() => handleGenerateKey(id)}
+                                className="text-xs text-blue-500 hover:text-blue-400 font-medium transition"
+                              >
+                                Regenerate
+                              </button>
                             </div>
-                            <button
-                              onClick={() => handleRevokeKey(id)}
-                              className="text-xs text-red-500 hover:text-red-400 font-medium transition"
-                            >
-                              Revoke
-                            </button>
-                            <button
-                              onClick={() => handleGenerateKey(id)}
-                              className="text-xs text-blue-500 hover:text-blue-400 font-medium transition"
-                            >
-                              Regenerate
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="mb-4">
-                            <button
-                              onClick={() => handleGenerateKey(id)}
-                              className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-blue-400 rounded-lg border border-gray-700 transition text-sm font-medium"
-                            >
-                              <span className="text-base leading-none">+</span>
-                              Generate Member Key
-                            </button>
-                            <p className="text-[10px] text-gray-500 mt-1">
-                              Generate a key to allow team access without login
-                            </p>
-                          </div>
+                          ) : (
+                            <div className="mb-4">
+                              <button
+                                onClick={() => handleGenerateKey(id)}
+                                className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-blue-400 rounded-lg border border-gray-700 transition text-sm font-medium"
+                              >
+                                <span className="text-base leading-none">+</span>
+                                Generate Member Key
+                              </button>
+                              <p className="text-[10px] text-gray-500 mt-1">
+                                Generate a key to allow team access without login
+                              </p>
+                            </div>
+                          )
                         )}
 
                         {/* Event Stats */}

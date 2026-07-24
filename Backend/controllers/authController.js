@@ -233,6 +233,18 @@ exports.logout = async (_req, res) => {
 exports.getMe = async (req, res) => {
   try {
     if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+
+    if (req.user.isPublicAccess) {
+      return res.json({
+        user: {
+          email: req.user.managerEmail || "member@tara.com",
+          role: "member",
+          isTempAccess: true,
+          allowedPages: req.user.allowedPages || []
+        }
+      });
+    }
+
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ error: "User not found" });
     // Only upgrade role based on roles mapping; never downgrade
@@ -246,10 +258,6 @@ exports.getMe = async (req, res) => {
       roles = await loadRoles();
     }
     const safeUser = user.toSafeJSON();
-    if (req.user && req.user.isPublicAccess && req.user.managerEmail) {
-      safeUser.email = req.user.managerEmail;
-      safeUser.isTempAccess = true;
-    }
     return res.json({ user: safeUser, roles });
   } catch (err) {
     console.error("getMe error", err);
@@ -260,6 +268,19 @@ exports.getMe = async (req, res) => {
 exports.checkLogin = async (req, res) => {
   try {
     if (!req.user) return res.status(401).json({ authenticated: false });
+
+    if (req.user.isPublicAccess) {
+      return res.json({
+        authenticated: true,
+        user: {
+          email: req.user.managerEmail || "member@tara.com",
+          role: "member",
+          isTempAccess: true,
+          allowedPages: req.user.allowedPages || []
+        }
+      });
+    }
+
     const user = await User.findById(req.user.id);
     if (!user) return res.status(401).json({ authenticated: false });
     // Only upgrade role based on roles mapping; never downgrade
@@ -274,10 +295,6 @@ exports.checkLogin = async (req, res) => {
       roles = await loadRoles();
     }
     const safeUser = user.toSafeJSON();
-    if (req.user && req.user.isPublicAccess && req.user.managerEmail) {
-      safeUser.email = req.user.managerEmail;
-      safeUser.isTempAccess = true;
-    }
     return res.json({ authenticated: true, user: safeUser, roles });
   } catch (err) {
     console.error("checkLogin error", err);
