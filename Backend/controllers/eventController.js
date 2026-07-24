@@ -1478,9 +1478,20 @@ async function generateEventKey(req, res) {
       role: "member"
     });
 
+    let rawAllowed = req.body.allowedPages || [];
+    const allowedSet = new Set(rawAllowed);
+    if (allowedSet.has("dashboard:attendance") || allowedSet.has("/member/Attendance") || allowedSet.has("/member/summary")) {
+      allowedSet.add("dashboard:attendance");
+      allowedSet.add("/member/Attendance");
+      allowedSet.add("/member/summary");
+    }
+    if (Array.from(allowedSet).some((p) => String(p).startsWith("dashboard:"))) {
+      allowedSet.add("/member/secret");
+    }
+
     ev.accessKey = key;
     ev.memberUserId = memberUser._id;
-    ev.allowedPages = req.body.allowedPages || [];
+    ev.allowedPages = Array.from(allowedSet);
     await ev.save();
 
     return res.json({ success: true, accessKey: key, allowedPages: ev.allowedPages, memberId: memberUser._id });

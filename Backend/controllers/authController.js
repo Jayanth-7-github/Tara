@@ -405,9 +405,20 @@ exports.verifyEventKey = async (req, res) => {
       "dashboard:results",
       "dashboard:approvals"
     ];
-    const allowedPages = (event.allowedPages && event.allowedPages.length > 0)
+    let rawAllowed = (event.allowedPages && event.allowedPages.length > 0)
       ? event.allowedPages
       : defaultAllowed;
+
+    const allowedSet = new Set(rawAllowed);
+    if (allowedSet.has("dashboard:attendance") || allowedSet.has("/member/Attendance") || allowedSet.has("/member/summary")) {
+      allowedSet.add("dashboard:attendance");
+      allowedSet.add("/member/Attendance");
+      allowedSet.add("/member/summary");
+    }
+    if (Array.from(allowedSet).some((p) => String(p).startsWith("dashboard:"))) {
+      allowedSet.add("/member/secret");
+    }
+    const allowedPages = Array.from(allowedSet);
 
     // For public access, we don't need a user ID in the token, 
     // but we can sign a token with the event ID or a special payload.
