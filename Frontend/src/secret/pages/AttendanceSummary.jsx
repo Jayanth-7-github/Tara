@@ -41,7 +41,8 @@ export default function AttendanceSummary() {
           if (stored) {
             const data = JSON.parse(stored);
             const allowedPages = data.allowedPages || [];
-            if (allowedPages.includes("/member/summary")) {
+            const hasSummaryAccess = allowedPages.includes("/member/summary") || allowedPages.includes("dashboard:attendance");
+            if (hasSummaryAccess) {
               setIsPublicAccess(true);
               setCheckingAuth(false);
             } else {
@@ -340,7 +341,8 @@ export default function AttendanceSummary() {
       const res = await verifyEventKey(inputKey);
       if (res.success) {
         const allowedPages = res.allowedPages || [];
-        if (!allowedPages.includes("/member/summary")) {
+        const hasSummaryAccess = allowedPages.includes("/member/summary") || allowedPages.includes("dashboard:attendance");
+        if (!hasSummaryAccess) {
           setKeyError("This key does not have permission to access the Attendance Summary page.");
           return;
         }

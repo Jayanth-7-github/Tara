@@ -31,7 +31,8 @@ export default function Secret() {
           if (stored) {
             const data = JSON.parse(stored);
             const allowedPages = data.allowedPages || [];
-            if (allowedPages.includes("/member/secret")) {
+            const hasSecretAccess = allowedPages.includes("/member/secret") || allowedPages.some(p => p.startsWith("dashboard:"));
+            if (hasSecretAccess) {
               setIsPublicAccess(true);
               setCheckingAuth(false);
             } else {
@@ -60,7 +61,8 @@ export default function Secret() {
       const res = await verifyEventKey(inputKey);
       if (res.success) {
         const allowedPages = res.allowedPages || [];
-        if (!allowedPages.includes("/member/secret")) {
+        const hasSecretAccess = allowedPages.includes("/member/secret") || allowedPages.some(p => p.startsWith("dashboard:"));
+        if (!hasSecretAccess) {
           setKeyError("This key does not have permission to access the Secret Portal.");
           return;
         }

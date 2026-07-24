@@ -59,7 +59,15 @@ export default function KeyPermissionsModal({ isOpen, onClose, onConfirm }) {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (selected.length === 0) return;
-    onConfirm(selected);
+    const finalSelected = new Set(selected);
+    if (finalSelected.has("dashboard:attendance")) {
+      finalSelected.add("/member/Attendance");
+      finalSelected.add("/member/summary");
+    }
+    if (finalSelected.has("/member/Attendance")) {
+      finalSelected.add("dashboard:attendance");
+    }
+    onConfirm(Array.from(finalSelected));
   };
 
   return (
